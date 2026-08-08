@@ -1,0 +1,26 @@
+# Node modules
+node_modules/
+.expo/
+dist/
+web-build/
+
+# Environment variables & secrets
+.env
+.env*.local
+*.keystore
+*.jks
+*.p12
+*.pem
+service-account*.json
+
+# Native Android/iOS build outputs
+android/app/build/
+android/.gradle/
+android/app/release/
+ios/build/
+*.xcworkspace
+*.xcodeproj
+
+# System files
+.DS_Store
+Thumbs.db

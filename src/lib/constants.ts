@@ -1,0 +1,30 @@
+export const COLLECTIONS = {
+  USERS: "users",
+  SUBJECTS: "subjects",
+  CHAPTERS: "chapters",
+  TOPICS: "topics",
+  QUESTIONS: "questions",
+  QUESTION_BANKS: "questionBanks",
+  CLASSES: "classes",
+  EXAMS: "exams",
+  EXAM_ASSIGNMENTS: "examAssignments",
+  EXAM_ATTEMPTS: "examAttempts",
+  ANSWERS: "answers",
+  REPORTS: "reports",
+  NOTIFICATIONS: "notifications",
+  SETTINGS: "settings",
+  STUDY_RESOURCES: "study_resources",
+  STUDY_TIME_LOGS: "study_time_logs",
+  DOUBTS: "doubts",
+  OVERALL_REPORTS: "overall_reports",
+  INVITATIONS: "invitations",
+  LOGIN_IDS: "loginIds",
+} as const;
+
+export const RECOGNIZED_SCHOOL_DOMAINS = [
+  "ccischool.org",
+  "cambridgecourtworldschool.org",
+  "cambridgecourtgroup.com",
+  "cambridgecourtgroup.org",
+  "skillizee.io",
+];
