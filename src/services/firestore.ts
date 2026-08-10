@@ -317,22 +317,39 @@ export async function addQuestionToBank(question: Partial<Question>, teacher?: U
 export async function getStudentExams(user: User | null): Promise<Exam[]> {
   if (!user) return [];
   try {
-    const q = query(
-      collection(db, "exams"),
-      where("status", "==", "published"),
-      orderBy("createdAt", "desc")
-    );
-    const snapshot = await getDocs(q);
+    let snapshot;
+    try {
+      const q = query(
+        collection(db, "exams"),
+        where("status", "==", "published")
+      );
+      snapshot = await getDocs(q);
+    } catch (queryErr) {
+      console.warn("Primary student exams query failed, falling back to full collection query:", queryErr);
+      snapshot = await getDocs(collection(db, "exams"));
+    }
+
     const exams: Exam[] = [];
 
     snapshot.forEach((docSnap) => {
       const data = docSnap.data() as Exam;
+      const status = (data.status || "").toLowerCase();
 
-      if (user.grade && data.grade && data.grade !== user.grade) return;
-      if (user.section && data.section && data.section !== user.section) return;
-      if (user.stream && data.stream && data.stream !== user.stream) return;
+      // Ensure status is published (unless admin/teacher)
+      if (status !== "published" && status !== "active") return;
+
+      if (user.grade && data.grade && String(data.grade).trim() !== String(user.grade).trim()) return;
+      if (user.section && data.section && String(data.section).trim() !== String(user.section).trim()) return;
+      if (user.stream && data.stream && String(data.stream).trim() !== String(user.stream).trim()) return;
 
       exams.push({ ...data, id: docSnap.id });
+    });
+
+    // Client-side sort by createdAt descending
+    exams.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
     });
 
     return exams;
