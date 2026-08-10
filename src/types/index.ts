@@ -1,4 +1,5 @@
 export type UserRole = "superadmin" | "admin" | "teacher" | "student";
+export type AccountStatus = "active" | "pending" | "disabled" | "rejected";
 
 export interface User {
   uid: string;
@@ -6,13 +7,14 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  status: "active" | "pending" | "disabled" | "rejected";
+  status: AccountStatus;
   approvalStatus?: "pending" | "approved" | "rejected";
   emailVerified?: boolean;
   avatarUrl?: string;
   phone?: string;
   schoolName?: string;
   board?: string;
+  academicSession?: string;
   grade?: string;
   section?: string;
   stream?: string;
@@ -24,19 +26,41 @@ export interface User {
   updatedAt?: any;
 }
 
+export type QuestionLevel = "level1" | "level2" | "level3";
+export type QuestionType = "mcq" | "numerical" | "assertion-reason" | "subjective";
+
 export interface Question {
   id: string;
   text: string;
-  type: "mcq" | "numerical" | "assertion-reason" | "subjective";
+  type: QuestionType;
+  level: QuestionLevel;
   options?: string[];
   correctAnswer: string | number;
   explanation?: string;
   difficulty: "easy" | "medium" | "hard";
-  subject?: string;
+  subject: string;
+  board?: string;
+  grade?: string;
   chapter?: string;
   topic?: string;
   marks: number;
   negativeMarks?: number;
+  createdBy: string; // Teacher UID
+  isTeacherAuthority?: boolean; // Teacher uploaded questions cannot be silently modified by AI
+  version?: number;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface ExamBlueprint {
+  subject: string;
+  grade: string;
+  section?: string;
+  stream?: string;
+  level1Count: number;
+  level2Count: number;
+  level3Count: number;
+  totalMarks: number;
 }
 
 export interface Exam {
@@ -44,19 +68,26 @@ export interface Exam {
   title: string;
   description?: string;
   subject: string;
+  board?: string;
   grade: string;
   section?: string;
   stream?: string;
+  academicSession?: string;
   durationMinutes: number;
   totalMarks: number;
   passingMarks: number;
+  passingPercentage?: number;
+  negativeMarkingEnabled?: boolean;
+  instructions?: string[];
   questionIds: string[];
   questions?: Question[];
   status: "draft" | "published" | "active" | "archived";
   startTime?: any;
   endTime?: any;
   createdBy: string;
+  createdByName?: string;
   createdAt?: any;
+  updatedAt?: any;
 }
 
 export interface ExamAttempt {
@@ -70,12 +101,25 @@ export interface ExamAttempt {
   markedForReview: string[];
   revisitedQuestions: string[];
   timeSpentPerQuestion: Record<string, number>;
+  totalTimeSpentSeconds?: number;
   score?: number;
   percentage?: number;
   passed?: boolean;
   startedAt?: any;
   submittedAt?: any;
   syncedAt?: any;
+}
+
+export interface DetailedQuestionAnalysis {
+  questionId: string;
+  questionText: string;
+  correctAnswer: string | number;
+  studentAnswer: string | number;
+  isCorrect: boolean;
+  timeSpentSeconds: number;
+  chapter?: string;
+  topic?: string;
+  level?: QuestionLevel;
 }
 
 export interface Report {
@@ -85,6 +129,10 @@ export interface Report {
   studentId: string;
   studentName: string;
   studentEmail: string;
+  board?: string;
+  grade?: string;
+  section?: string;
+  stream?: string;
   totalMarks: number;
   obtainedMarks: number;
   percentage: number;
@@ -95,20 +143,30 @@ export interface Report {
   unattempted: number;
   timeSpentSeconds: number;
   accuracy: number;
+  detailedAnalysis?: DetailedQuestionAnalysis[];
+  strongTopics?: string[];
+  weakTopics?: string[];
+  aiAnalysisText?: string;
+  teacherRemarks?: string;
   createdAt?: any;
 }
+
+export type ResourceType = "pdf" | "docx" | "pptx" | "excel" | "txt" | "image" | "video" | "audio" | "link";
 
 export interface StudyResource {
   id: string;
   title: string;
   description?: string;
-  type: "pdf" | "docx" | "pptx" | "excel" | "txt" | "image" | "video" | "audio" | "link";
+  type: ResourceType;
   url: string;
   subject: string;
+  board?: string;
   grade: string;
   section?: string;
   stream?: string;
   uploadedBy: string;
+  uploadedByName?: string;
+  downloadCount?: number;
   createdAt?: any;
 }
 
@@ -116,8 +174,34 @@ export interface Notification {
   id: string;
   title: string;
   message: string;
-  type: "exam_assigned" | "report_ready" | "resource_uploaded" | "teacher_remark";
-  read: boolean;
+  type: "exam_assigned" | "report_ready" | "resource_uploaded" | "teacher_remark" | "teacher_approval_request" | "admin_alert";
   recipientId: string;
+  recipientRole?: UserRole;
+  read: boolean;
   createdAt?: any;
+}
+
+export interface AuditLog {
+  id: string;
+  action: string;
+  performedBy: string;
+  performedByName: string;
+  targetUser?: string;
+  details?: string;
+  timestamp: any;
+}
+
+export interface AcademicSession {
+  id: string;
+  name: string; // e.g. "2026-2027"
+  isCurrent: boolean;
+}
+
+export interface ClassGrade {
+  id: string;
+  name: string; // e.g. "Grade 10"
+  gradeNumber: string; // "10"
+  board: string;
+  sections: string[]; // ["A", "B", "C"]
+  streams?: string[]; // ["Science", "Commerce", "Arts"]
 }

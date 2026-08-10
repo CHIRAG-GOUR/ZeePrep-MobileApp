@@ -1,0 +1,373 @@
+import React, { useEffect, useState } from "react";
+import {
+  StyleSheet,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { useAuthStore } from "../../stores/auth-store";
+import { getStudentReportsList } from "../../services/firestore";
+import type { Report } from "../../types";
+import { ZEEPREP_THEME } from "../../constants/theme";
+import {
+  FileBarChart,
+  Award,
+  Clock,
+  ChevronRight,
+  TrendingUp,
+  CheckCircle2,
+  XCircle,
+  FileCheck,
+} from "lucide-react-native";
+
+export default function StudentReportsScreen() {
+  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
+
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchReports = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const data = await getStudentReportsList(user.uid);
+      setReports(data);
+    } catch (err) {
+      console.error("Error loading student reports:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+  }, [user]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchReports();
+  };
+
+  const avgPercentage =
+    reports.length > 0
+      ? Math.round(reports.reduce((acc, r) => acc + (r.percentage || 0), 0) / reports.length)
+      : 0;
+
+  const passedCount = reports.filter((r) => r.passed).length;
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={ZEEPREP_THEME.colors.primary}
+        />
+      }
+    >
+      {/* Screen Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Diagnostic Reports</Text>
+        <Text style={styles.headerSubtitle}>
+          Detailed scorecards & performance analysis
+        </Text>
+      </View>
+
+      {/* Summary Metrics */}
+      <View style={styles.metricsGrid}>
+        <View style={styles.metricCard}>
+          <FileCheck size={20} color={ZEEPREP_THEME.colors.primary} />
+          <Text style={styles.metricNumber}>{reports.length}</Text>
+          <Text style={styles.metricLabel}>Total Attempts</Text>
+        </View>
+
+        <View style={styles.metricCard}>
+          <TrendingUp size={20} color={ZEEPREP_THEME.colors.success} />
+          <Text style={styles.metricNumber}>{avgPercentage}%</Text>
+          <Text style={styles.metricLabel}>Average Score</Text>
+        </View>
+
+        <View style={styles.metricCard}>
+          <Award size={20} color={ZEEPREP_THEME.colors.warning} />
+          <Text style={styles.metricNumber}>{passedCount}</Text>
+          <Text style={styles.metricLabel}>Passed Exams</Text>
+        </View>
+      </View>
+
+      {/* Reports List */}
+      <Text style={styles.sectionTitle}>Exam History Scorecards</Text>
+
+      {loading ? (
+        <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginVertical: 30 }} />
+      ) : reports.length > 0 ? (
+        reports.map((report) => {
+          const mins = Math.floor((report.timeSpentSeconds || 0) / 60);
+          return (
+            <TouchableOpacity
+              key={report.id}
+              style={styles.reportCard}
+              onPress={() => router.push(`/results/${report.id}` as any)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.cardHeader}>
+                <View
+                  style={[
+                    styles.passBadge,
+                    report.passed ? styles.passBadgePassed : styles.passBadgeFailed,
+                  ]}
+                >
+                  {report.passed ? (
+                    <CheckCircle2 size={14} color="#059669" />
+                  ) : (
+                    <XCircle size={14} color="#DC2626" />
+                  )}
+                  <Text
+                    style={[
+                      styles.passBadgeText,
+                      report.passed ? styles.passTextPassed : styles.passTextFailed,
+                    ]}
+                  >
+                    {report.passed ? "PASSED" : "NEEDS REVISION"}
+                  </Text>
+                </View>
+
+                <View style={styles.timeBadge}>
+                  <Clock size={12} color="#64748B" />
+                  <Text style={styles.timeBadgeText}>{mins} mins</Text>
+                </View>
+              </View>
+
+              <Text style={styles.examTitle}>{report.examTitle || "ZeePrep Assessment"}</Text>
+
+              <View style={styles.scoreRow}>
+                <View>
+                  <Text style={styles.scoreNumber}>
+                    {report.obtainedMarks} <Text style={styles.totalMarksText}>/ {report.totalMarks}</Text>
+                  </Text>
+                  <Text style={styles.scoreLabel}>Score Obtained</Text>
+                </View>
+
+                <View style={styles.percentagePill}>
+                  <Text style={styles.percentagePillText}>{report.percentage}%</Text>
+                </View>
+              </View>
+
+              <View style={styles.cardFooter}>
+                <Text style={styles.viewDetailsText}>View Full Scorecard & Analytics</Text>
+                <ChevronRight size={16} color={ZEEPREP_THEME.colors.primary} />
+              </View>
+            </TouchableOpacity>
+          );
+        })
+      ) : (
+        <View style={styles.emptyCard}>
+          <FileBarChart size={36} color={ZEEPREP_THEME.colors.textMuted} />
+          <Text style={styles.emptyTitle}>No Exam Reports Yet</Text>
+          <Text style={styles.emptySub}>
+            Complete an active exam to generate diagnostic scorecards and topic analytics.
+          </Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: ZEEPREP_THEME.colors.background,
+  },
+  contentContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 54,
+    paddingBottom: 40,
+  },
+  header: {
+    marginBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: ZEEPREP_THEME.colors.textPrimary,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: ZEEPREP_THEME.colors.textSecondary,
+    marginTop: 4,
+  },
+  metricsGrid: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 24,
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: ZEEPREP_THEME.colors.surface,
+    borderRadius: 16,
+    padding: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: ZEEPREP_THEME.colors.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  metricNumber: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: ZEEPREP_THEME.colors.textPrimary,
+    marginTop: 6,
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: ZEEPREP_THEME.colors.textSecondary,
+    marginTop: 2,
+    textAlign: "center",
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: ZEEPREP_THEME.colors.textPrimary,
+    marginBottom: 12,
+  },
+  reportCard: {
+    backgroundColor: ZEEPREP_THEME.colors.surface,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: ZEEPREP_THEME.colors.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  passBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  passBadgePassed: {
+    backgroundColor: "#ECFDF5",
+  },
+  passBadgeFailed: {
+    backgroundColor: "#FEF2F2",
+  },
+  passBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  passTextPassed: {
+    color: "#059669",
+  },
+  passTextFailed: {
+    color: "#DC2626",
+  },
+  timeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  timeBadgeText: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  examTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: ZEEPREP_THEME.colors.textPrimary,
+    marginBottom: 12,
+  },
+  scoreRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  scoreNumber: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: ZEEPREP_THEME.colors.textPrimary,
+  },
+  totalMarksText: {
+    fontSize: 14,
+    color: ZEEPREP_THEME.colors.textSecondary,
+    fontWeight: "500",
+  },
+  scoreLabel: {
+    fontSize: 11,
+    color: ZEEPREP_THEME.colors.textSecondary,
+    marginTop: 2,
+  },
+  percentagePill: {
+    backgroundColor: ZEEPREP_THEME.colors.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  percentagePillText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: ZEEPREP_THEME.colors.primary,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 8,
+  },
+  viewDetailsText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: ZEEPREP_THEME.colors.primary,
+  },
+  emptyCard: {
+    backgroundColor: ZEEPREP_THEME.colors.surface,
+    borderRadius: 20,
+    padding: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: ZEEPREP_THEME.colors.border,
+    gap: 8,
+    marginVertical: 20,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: ZEEPREP_THEME.colors.textPrimary,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: ZEEPREP_THEME.colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+});

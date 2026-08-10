@@ -1,42 +1,116 @@
 import { create } from "zustand";
+import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
-import type { User } from "../types";
+import type { User, UserRole } from "../types";
+
+export type ViewMode = "superadmin" | "teacher" | "student";
 
 interface AuthState {
   user: User | null;
+  viewMode: ViewMode | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   setUser: (user: User | null) => void;
+  setViewMode: (mode: ViewMode) => void;
   logout: () => void;
 }
 
 const USER_STORAGE_KEY = "zeeprep_mobile_user_session";
+const VIEW_MODE_STORAGE_KEY = "zeeprep_mobile_view_mode";
 
-export const useAuthStore = create<AuthState>((set) => ({
+async function setItem(key: string, value: string): Promise<void> {
+  if (Platform.OS === "web") {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      console.error("LocalStorage set error:", e);
+    }
+  } else {
+    await SecureStore.setItemAsync(key, value);
+  }
+}
+
+async function getItem(key: string): Promise<string | null> {
+  if (Platform.OS === "web") {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  } else {
+    return await SecureStore.getItemAsync(key);
+  }
+}
+
+async function deleteItem(key: string): Promise<void> {
+  if (Platform.OS === "web") {
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {
+      console.error("LocalStorage remove error:", e);
+    }
+  } else {
+    await SecureStore.deleteItemAsync(key);
+  }
+}
+
+export function isSuperAdminUser(user: User | null): boolean {
+  if (!user) return false;
+  if (user.role === "superadmin") return true;
+  const email = (user.email || "").toLowerCase();
+  return (
+    email === "pa1@skillizee.io" ||
+    email === "tech@skillizee.io" ||
+    email === "superadmin@zeeprep.com"
+  );
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
+  viewMode: null,
   isAuthenticated: false,
   isLoading: true,
   setUser: (user) => {
     if (user) {
-      SecureStore.setItemAsync(USER_STORAGE_KEY, JSON.stringify(user)).catch(console.error);
+      setItem(USER_STORAGE_KEY, JSON.stringify(user)).catch(console.error);
+      const isSuper = isSuperAdminUser(user);
+      const defaultView: ViewMode = isSuper ? "superadmin" : (user.role as ViewMode) || "student";
+      set({ user, viewMode: defaultView, isAuthenticated: true, isLoading: false });
     } else {
-      SecureStore.deleteItemAsync(USER_STORAGE_KEY).catch(console.error);
+      deleteItem(USER_STORAGE_KEY).catch(console.error);
+      deleteItem(VIEW_MODE_STORAGE_KEY).catch(console.error);
+      set({ user: null, viewMode: null, isAuthenticated: false, isLoading: false });
     }
-    set({ user, isAuthenticated: !!user, isLoading: false });
+  },
+  setViewMode: (mode) => {
+    const user = get().user;
+    if (isSuperAdminUser(user)) {
+      setItem(VIEW_MODE_STORAGE_KEY, mode).catch(console.error);
+      set({ viewMode: mode });
+    }
   },
   logout: () => {
-    SecureStore.deleteItemAsync(USER_STORAGE_KEY).catch(console.error);
-    set({ user: null, isAuthenticated: false, isLoading: false });
+    deleteItem(USER_STORAGE_KEY).catch(console.error);
+    deleteItem(VIEW_MODE_STORAGE_KEY).catch(console.error);
+    set({ user: null, viewMode: null, isAuthenticated: false, isLoading: false });
   },
 }));
 
 // Load persisted user session on startup
-SecureStore.getItemAsync(USER_STORAGE_KEY)
-  .then((stored) => {
-    if (stored) {
+Promise.all([getItem(USER_STORAGE_KEY), getItem(VIEW_MODE_STORAGE_KEY)])
+  .then(([storedUser, storedViewMode]) => {
+    if (storedUser) {
       try {
-        const parsed = JSON.parse(stored);
-        useAuthStore.setState({ user: parsed, isAuthenticated: true, isLoading: false });
+        const parsedUser = JSON.parse(storedUser);
+        const isSuper = isSuperAdminUser(parsedUser);
+        const viewMode = (isSuper && storedViewMode ? storedViewMode : isSuper ? "superadmin" : parsedUser.role) as ViewMode;
+
+        useAuthStore.setState({
+          user: parsedUser,
+          viewMode,
+          isAuthenticated: true,
+          isLoading: false,
+        });
       } catch {
         useAuthStore.setState({ isLoading: false });
       }
