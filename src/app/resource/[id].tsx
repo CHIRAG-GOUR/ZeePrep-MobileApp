@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   View,
@@ -12,7 +12,6 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
-import { getStudyResources } from "../../services/firestore";
 import { ZEEPREP_THEME } from "../../constants/theme";
 import {
   ArrowLeft,
@@ -28,19 +27,95 @@ import {
   Volume2,
   VolumeX,
   ExternalLink,
-  RefreshCw,
-  Eye,
   FileCode,
 } from "lucide-react-native";
 import {
-  resolveResource,
+  normalizeResource,
+  resolveResourceUrl,
   canUserAccessResource,
-  ResolvedResource,
-} from "../../utils/resource-resolver";
-import { Video, ResizeMode, Audio, AVPlaybackStatus } from "expo-av";
+  getResourcesForUser,
+  NormalizedResource,
+} from "../../services/resource.service";
+import { useVideoPlayer, VideoView } from "expo-video";
+import { useAudioPlayer } from "expo-audio";
 import { WebView } from "react-native-webview";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// Custom Video Component using expo-video
+function ExpoVideoPlayerContainer({ videoUrl }: { videoUrl: string }) {
+  const player = useVideoPlayer(videoUrl, (p) => {
+    p.loop = false;
+    p.play();
+  });
+
+  return (
+    <View style={styles.videoContainer}>
+      <VideoView
+        style={styles.videoPlayer}
+        player={player}
+        nativeControls
+      />
+    </View>
+  );
+}
+
+// Custom Audio Component using expo-audio
+function ExpoAudioPlayerContainer({ audioUrl, title, subject }: { audioUrl: string; title: string; subject: string }) {
+  const player = useAudioPlayer(audioUrl);
+
+  const togglePlay = () => {
+    if (player.playing) {
+      player.pause();
+    } else {
+      player.play();
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  const currentTime = player.currentTime || 0;
+  const duration = player.duration || 0;
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <View style={styles.audioContainer}>
+      <View style={styles.audioCard}>
+        <View style={styles.audioIconCircle}>
+          <Music size={44} color={ZEEPREP_THEME.colors.primary} />
+        </View>
+
+        <Text style={styles.audioTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.audioSub}>{subject} • Audio Lecture</Text>
+
+        {/* Progress Bar */}
+        <View style={styles.progressRow}>
+          <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
+          <View style={styles.progressBarBg}>
+            <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+          </View>
+          <Text style={styles.timeText}>{formatTime(duration)}</Text>
+        </View>
+
+        {/* Play/Pause Button */}
+        <TouchableOpacity style={styles.audioPlayBtn} onPress={togglePlay}>
+          {player.playing ? (
+            <Pause size={28} color="#FFFFFF" />
+          ) : (
+            <Play size={28} color="#FFFFFF" style={{ marginLeft: 4 }} />
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
 
 export default function ResourceViewerScreen() {
   const router = useRouter();
@@ -55,23 +130,15 @@ export default function ResourceViewerScreen() {
   const user = useAuthStore((state) => state.user);
 
   const [loading, setLoading] = useState(true);
-  const [resource, setResource] = useState<ResolvedResource | null>(null);
+  const [resource, setResource] = useState<NormalizedResource | null>(null);
+  const [resolvedUrl, setResolvedUrl] = useState<string>("");
   const [permissionDenied, setPermissionDenied] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Text file content state
+  // Text file state
   const [textContent, setTextContent] = useState<string | null>(null);
   const [textLoading, setTextLoading] = useState(false);
-
-  // Image loading state
   const [imageError, setImageError] = useState(false);
-
-  // Audio Player State using expo-av Audio.Sound
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [audioPosition, setAudioPosition] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(0);
-  const [isAudioLoading, setIsAudioLoading] = useState(false);
 
   const loadResource = async () => {
     setLoading(true);
@@ -81,10 +148,10 @@ export default function ResourceViewerScreen() {
     setImageError(false);
 
     try {
-      let resolved: ResolvedResource | null = null;
+      let normalized: NormalizedResource | null = null;
 
       if (rawUrl) {
-        resolved = resolveResource({
+        normalized = normalizeResource({
           id,
           title: paramTitle || "Study Material",
           type: (paramType as any) || "pdf",
@@ -92,38 +159,58 @@ export default function ResourceViewerScreen() {
           url: rawUrl,
         });
       } else {
-        const allResources = await getStudyResources(user);
-        const foundRaw = allResources.find((r) => r.id === id);
+        const allResources = await getResourcesForUser(user);
+        const found = allResources.find((r) => r.id === id);
 
-        if (!foundRaw) {
+        if (!found) {
           setErrorMsg("This resource document could not be found in Firebase.");
           setLoading(false);
           return;
         }
-        resolved = resolveResource(foundRaw);
+        normalized = found;
       }
 
-      const perm = canUserAccessResource(resolved, user);
+      const perm = canUserAccessResource(normalized, user);
       if (!perm.allowed) {
         setPermissionDenied(perm.reason || "Access restricted.");
         setLoading(false);
         return;
       }
 
-      if (!resolved.isValidUrl) {
-        setErrorMsg(resolved.errorMessage || "Invalid resource URL format.");
+      if (!normalized.isValidUrl) {
+        setErrorMsg(normalized.errorMessage || "Invalid resource URL format.");
         setLoading(false);
         return;
       }
 
-      setResource(resolved);
+      // Resolve canonical Firebase Storage download URL
+      const finalUrl = await resolveResourceUrl(normalized);
+      if (!finalUrl) {
+        setErrorMsg("Unable to resolve canonical Firebase Storage URL.");
+        setLoading(false);
+        return;
+      }
+
+      // Development logging diagnostics as required by Phase 12
+      console.log("[Resource Viewer Diagnostics]:", {
+        id: normalized.id,
+        title: normalized.title,
+        format: normalized.format,
+        rawType: normalized.rawType,
+        storagePath: normalized.storagePath,
+        rawUrl: normalized.url,
+        resolvedUrl: finalUrl,
+      });
+
+      setResource(normalized);
+      setResolvedUrl(finalUrl);
 
       // If text file, fetch content directly
-      if (resolved.format === "text") {
-        fetchTextFile(resolved.url);
+      if (normalized.format === "text") {
+        fetchTextFile(finalUrl);
       }
     } catch (err) {
-      console.error("Error loading resource:", err);
+      console.error("Error loading resource viewer:", err);
       setErrorMsg("Unable to load this resource due to a network or permission issue.");
     } finally {
       setLoading(false);
@@ -138,11 +225,11 @@ export default function ResourceViewerScreen() {
         const txt = await response.text();
         setTextContent(txt);
       } else {
-        setTextContent(`[Unable to display text content. HTTP ${response.status}]`);
+        setTextContent(`[Unable to display text file content. HTTP Status: ${response.status}]`);
       }
     } catch (err) {
-      console.error("Error fetching text file:", err);
-      setTextContent("[Error loading text content from Firebase Storage.]");
+      console.error("Error fetching text file content:", err);
+      setTextContent("[Error reading text content from Firebase Storage.]");
     } finally {
       setTextLoading(false);
     }
@@ -150,58 +237,10 @@ export default function ResourceViewerScreen() {
 
   useEffect(() => {
     loadResource();
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
   }, [id, user]);
 
-  // Audio Playback Controls
-  const toggleAudioPlayback = async () => {
-    if (!resource || resource.format !== "audio") return;
-
-    try {
-      if (sound) {
-        if (isPlayingAudio) {
-          await sound.pauseAsync();
-          setIsPlayingAudio(false);
-        } else {
-          await sound.playAsync();
-          setIsPlayingAudio(true);
-        }
-      } else {
-        setIsAudioLoading(true);
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: resource.url },
-          { shouldPlay: true },
-          (status) => {
-            if (status.isLoaded) {
-              setAudioPosition(status.positionMillis || 0);
-              setAudioDuration(status.durationMillis || 0);
-              setIsPlayingAudio(status.isPlaying);
-            }
-          }
-        );
-        setSound(newSound);
-        setIsPlayingAudio(true);
-        setIsAudioLoading(false);
-      }
-    } catch (err) {
-      console.error("Audio playback error:", err);
-      setIsAudioLoading(false);
-    }
-  };
-
-  const formatTime = (millis: number) => {
-    const totalSeconds = Math.floor(millis / 1000);
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
-
   const renderContent = () => {
-    if (!resource) return null;
+    if (!resource || !resolvedUrl) return null;
 
     // 1. TEXT FILES (.txt, .log, .md)
     if (resource.format === "text") {
@@ -214,11 +253,11 @@ export default function ResourceViewerScreen() {
           {textLoading ? (
             <View style={styles.centerLoader}>
               <ActivityIndicator size="large" color={ZEEPREP_THEME.colors.primary} />
-              <Text style={styles.loaderText}>Fetching text file content...</Text>
+              <Text style={styles.loaderText}>Fetching text document content...</Text>
             </View>
           ) : (
             <ScrollView style={styles.textScrollView} contentContainerStyle={{ padding: 16 }}>
-              <Text style={styles.textContent}>{textContent || "Empty file."}</Text>
+              <Text style={styles.textContent}>{textContent || "Empty text file."}</Text>
             </ScrollView>
           )}
         </View>
@@ -230,7 +269,7 @@ export default function ResourceViewerScreen() {
       if (Platform.OS === "web") {
         return (
           <iframe
-            src={resource.url}
+            src={resolvedUrl}
             style={{ width: "100%", height: "100%", border: "none", backgroundColor: "#F8FAFC" }}
             allowFullScreen
           />
@@ -238,7 +277,7 @@ export default function ResourceViewerScreen() {
       }
       return (
         <WebView
-          source={{ uri: resource.url }}
+          source={{ uri: resolvedUrl }}
           style={styles.webView}
           startInLoadingState
           renderLoading={() => (
@@ -269,7 +308,7 @@ export default function ResourceViewerScreen() {
       return (
         <View style={styles.imageContainer}>
           <Image
-            source={{ uri: resource.url }}
+            source={{ uri: resolvedUrl }}
             style={styles.imageViewer}
             resizeMode="contain"
             onError={() => setImageError(true)}
@@ -278,14 +317,14 @@ export default function ResourceViewerScreen() {
       );
     }
 
-    // 4. VIDEO
+    // 4. VIDEO (expo-video)
     if (resource.format === "video") {
-      if (resource.url.includes("youtube.com") || resource.url.includes("youtu.be")) {
+      if (resolvedUrl.includes("youtube.com") || resolvedUrl.includes("youtu.be")) {
         let videoId = "";
-        if (resource.url.includes("youtu.be/")) {
-          videoId = resource.url.split("youtu.be/")[1]?.split("?")[0] || "";
-        } else if (resource.url.includes("v=")) {
-          videoId = resource.url.split("v=")[1]?.split("&")[0] || "";
+        if (resolvedUrl.includes("youtu.be/")) {
+          videoId = resolvedUrl.split("youtu.be/")[1]?.split("?")[0] || "";
+        } else if (resolvedUrl.includes("v=")) {
+          videoId = resolvedUrl.split("v=")[1]?.split("&")[0] || "";
         }
         const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
 
@@ -302,71 +341,23 @@ export default function ResourceViewerScreen() {
         return <WebView source={{ uri: embedUrl }} style={{ flex: 1, backgroundColor: "#000" }} />;
       }
 
-      return (
-        <View style={styles.videoContainer}>
-          <Video
-            source={{ uri: resource.url }}
-            style={styles.videoPlayer}
-            useNativeControls
-            resizeMode={ResizeMode.CONTAIN}
-            isLooping={false}
-          />
-        </View>
-      );
+      return <ExpoVideoPlayerContainer videoUrl={resolvedUrl} />;
     }
 
-    // 5. AUDIO
+    // 5. AUDIO (expo-audio)
     if (resource.format === "audio") {
       return (
-        <View style={styles.audioContainer}>
-          <View style={styles.audioCard}>
-            <View style={styles.audioIconCircle}>
-              <Music size={44} color={ZEEPREP_THEME.colors.primary} />
-            </View>
-
-            <Text style={styles.audioTitle} numberOfLines={1}>
-              {resource.title}
-            </Text>
-            <Text style={styles.audioSub}>{resource.subject} • Audio Lecture</Text>
-
-            {/* Audio Progress Bar */}
-            <View style={styles.progressRow}>
-              <Text style={styles.timeText}>{formatTime(audioPosition)}</Text>
-              <View style={styles.progressBarBg}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    {
-                      width: audioDuration > 0 ? `${(audioPosition / audioDuration) * 100}%` : "0%",
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.timeText}>{formatTime(audioDuration)}</Text>
-            </View>
-
-            {/* Play/Pause Button */}
-            <TouchableOpacity
-              style={styles.audioPlayBtn}
-              onPress={toggleAudioPlayback}
-              disabled={isAudioLoading}
-            >
-              {isAudioLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : isPlayingAudio ? (
-                <Pause size={28} color="#FFFFFF" />
-              ) : (
-                <Play size={28} color="#FFFFFF" style={{ marginLeft: 4 }} />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+        <ExpoAudioPlayerContainer
+          audioUrl={resolvedUrl}
+          title={resource.title}
+          subject={resource.subject}
+        />
       );
     }
 
     // 6. OFFICE DOCUMENTS (DOC, DOCX, PPT, PPTX, XLS, XLSX)
     if (resource.format === "doc") {
-      const officeEmbedUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(resource.url)}`;
+      const officeEmbedUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(resolvedUrl)}`;
       if (Platform.OS === "web") {
         return (
           <iframe
@@ -394,12 +385,12 @@ export default function ResourceViewerScreen() {
     // 7. WEB LINK
     if (Platform.OS === "web") {
       return (
-        <iframe src={resource.url} style={{ width: "100%", height: "100%", border: "none" }} />
+        <iframe src={resolvedUrl} style={{ width: "100%", height: "100%", border: "none" }} />
       );
     }
     return (
       <WebView
-        source={{ uri: resource.url }}
+        source={{ uri: resolvedUrl }}
         style={styles.webView}
         startInLoadingState
         renderLoading={() => (
@@ -445,7 +436,7 @@ export default function ResourceViewerScreen() {
         {loading ? (
           <View style={styles.centerLoader}>
             <ActivityIndicator size="large" color={ZEEPREP_THEME.colors.primary} />
-            <Text style={styles.loaderText}>Verifying Access & Loading Resource...</Text>
+            <Text style={styles.loaderText}>Verifying Access & Resolving Resource...</Text>
           </View>
         ) : permissionDenied ? (
           <View style={styles.errorCard}>
@@ -599,7 +590,7 @@ const styles = StyleSheet.create({
   },
   videoPlayer: {
     width: "100%",
-    height: 280,
+    height: 320,
   },
   textContainer: {
     flex: 1,

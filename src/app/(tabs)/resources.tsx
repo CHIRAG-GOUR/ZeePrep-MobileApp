@@ -13,27 +13,28 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
-import { getStudyResources } from "../../services/firestore";
-import type { StudyResource } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
 import { BookOpen, Search, ExternalLink, FileText, Video, Music, Image as ImageIcon, Link as LinkIcon, Eye } from "lucide-react-native";
-import { normalizeResourceType } from "../../utils/resource-normalizer";
+import {
+  getResourcesForUser,
+  normalizeResource,
+  NormalizedResource,
+} from "../../services/resource.service";
 
 export default function StudentResourcesScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
 
-  const [resources, setResources] = useState<StudyResource[]>([]);
+  const [resources, setResources] = useState<NormalizedResource[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSubject, setSelectedSubject] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeResource, setActiveResource] = useState<any | null>(null);
 
   const fetchResources = async () => {
     setLoading(true);
     try {
-      const data = await getStudyResources(user);
+      const data = await getResourcesForUser(user);
       setResources(data);
     } catch (err) {
       console.error("Error fetching study resources:", err);
@@ -52,8 +53,7 @@ export default function StudentResourcesScreen() {
     fetchResources();
   };
 
-  const filteredResources = resources.filter((rawRes) => {
-    const res = normalizeResourceType(rawRes);
+  const filteredResources = resources.filter((res) => {
     const matchesSearch =
       res.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       res.subject.toLowerCase().includes(searchQuery.toLowerCase());
@@ -65,14 +65,14 @@ export default function StudentResourcesScreen() {
   const subjectsList = Array.from(new Set(resources.map((r) => r.subject).filter(Boolean)));
 
   const handleResourcePress = (rawRes: any) => {
-    const res = normalizeResourceType(rawRes);
+    const res = normalizeResource(rawRes);
     router.push({
       pathname: "/resource/[id]",
       params: {
         id: res.id || `res-${Date.now()}`,
         rawUrl: res.url,
         title: res.title,
-        type: res.type,
+        type: res.format || res.rawType,
         subject: res.subject,
       },
     } as any);
@@ -138,11 +138,11 @@ export default function StudentResourcesScreen() {
           <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginTop: 40 }} />
         ) : filteredResources.length > 0 ? (
           filteredResources.map((rawRes, index) => {
-            const res = normalizeResourceType(rawRes);
-            const resType = (res.type || "").toString().toLowerCase();
+            const res = normalizeResource(rawRes);
+            const resFormat = (res.format || "").toString().toLowerCase();
             const uniqueKey = res.id ? `res-${res.id}` : `res-${index}-${res.title}`;
             const actionLabel =
-              resType === "video" ? "Watch" : resType === "audio" ? "Listen" : "Open";
+              resFormat === "video" ? "Watch" : resFormat === "audio" ? "Listen" : "Open";
 
             return (
               <TouchableOpacity
@@ -152,13 +152,13 @@ export default function StudentResourcesScreen() {
                 activeOpacity={0.85}
               >
                 <View style={styles.cardIconBox}>
-                  {resType === "video" ? (
+                  {resFormat === "video" ? (
                     <Video color={ZEEPREP_THEME.colors.primary} size={20} />
-                  ) : resType === "audio" ? (
+                  ) : resFormat === "audio" ? (
                     <Music color="#D97706" size={20} />
-                  ) : resType === "image" ? (
+                  ) : resFormat === "image" ? (
                     <ImageIcon color="#059669" size={20} />
-                  ) : resType === "pdf" ? (
+                  ) : resFormat === "pdf" ? (
                     <FileText color={ZEEPREP_THEME.colors.primary} size={20} />
                   ) : (
                     <LinkIcon color="#4F46E5" size={20} />

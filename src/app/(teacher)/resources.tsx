@@ -14,21 +14,23 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
-import { getStudyResources, addStudyResource } from "../../services/firestore";
-import type { StudyResource } from "../../types";
+import { addStudyResource } from "../../services/firestore";
 import { ZEEPREP_THEME } from "../../constants/theme";
 import { FolderKanban, Plus, FileText, Video, Music, Image as ImageIcon, Link as LinkIcon, X, Eye } from "lucide-react-native";
 
 import { AppHeader } from "../../components/AppHeader";
-import { normalizeResourceType } from "../../utils/resource-normalizer";
+import {
+  getResourcesForUser,
+  normalizeResource,
+  NormalizedResource,
+} from "../../services/resource.service";
 
 export default function TeacherResourcesScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
-  const [resources, setResources] = useState<StudyResource[]>([]);
+  const [resources, setResources] = useState<NormalizedResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeResource, setActiveResource] = useState<any | null>(null);
 
   // Upload Modal State
   const [modalVisible, setModalVisible] = useState(false);
@@ -42,7 +44,7 @@ export default function TeacherResourcesScreen() {
   const fetchResources = async () => {
     setLoading(true);
     try {
-      const data = await getStudyResources(user);
+      const data = await getResourcesForUser(user);
       setResources(data);
     } catch (err) {
       console.error("Error loading teacher resources:", err);
@@ -62,14 +64,14 @@ export default function TeacherResourcesScreen() {
   };
 
   const handleResourcePress = (rawRes: any) => {
-    const res = normalizeResourceType(rawRes);
+    const res = normalizeResource(rawRes);
     router.push({
       pathname: "/resource/[id]",
       params: {
         id: res.id || `res-${Date.now()}`,
         rawUrl: res.url,
         title: res.title,
-        type: res.type,
+        type: res.format || res.rawType,
         subject: res.subject,
       },
     } as any);
@@ -96,7 +98,7 @@ export default function TeacherResourcesScreen() {
       );
 
       if (newRes) {
-        setResources((prev) => [newRes, ...prev]);
+        setResources((prev) => [normalizeResource(newRes), ...prev]);
         setModalVisible(false);
         setTitle("");
         setUrl("");
@@ -137,11 +139,11 @@ export default function TeacherResourcesScreen() {
           <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginTop: 40 }} />
         ) : resources.length > 0 ? (
           resources.map((rawRes, index) => {
-            const res = normalizeResourceType(rawRes);
-            const resType = (res.type || "").toString().toLowerCase();
+            const res = normalizeResource(rawRes);
+            const resFormat = (res.format || "").toString().toLowerCase();
             const uniqueKey = res.id ? `res-${res.id}` : `res-${index}-${res.title}`;
             const actionLabel =
-              resType === "video" ? "Watch" : resType === "audio" ? "Listen" : "Open";
+              resFormat === "video" ? "Watch" : resFormat === "audio" ? "Listen" : "Open";
 
             return (
               <TouchableOpacity
@@ -151,13 +153,13 @@ export default function TeacherResourcesScreen() {
                 activeOpacity={0.85}
               >
                 <View style={styles.iconBox}>
-                  {resType === "video" ? (
+                  {resFormat === "video" ? (
                     <Video color={ZEEPREP_THEME.colors.primary} size={20} />
-                  ) : resType === "audio" ? (
+                  ) : resFormat === "audio" ? (
                     <Music color="#D97706" size={20} />
-                  ) : resType === "image" ? (
+                  ) : resFormat === "image" ? (
                     <ImageIcon color="#059669" size={20} />
-                  ) : resType === "pdf" ? (
+                  ) : resFormat === "pdf" ? (
                     <FileText color={ZEEPREP_THEME.colors.primary} size={20} />
                   ) : (
                     <LinkIcon color="#4F46E5" size={20} />
