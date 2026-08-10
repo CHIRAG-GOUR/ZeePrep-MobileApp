@@ -40,11 +40,13 @@ export default function SuperAdminDashboardScreen() {
   const user = useAuthStore((state) => state.user);
   const { width } = useWindowDimensions();
 
-  // Dynamic Responsive Breakpoints (JioPhone vs Standard vs Foldables/Tablets)
+  // Pixel-perfect Responsive Grid Calculations
   const isSmall = width < 360;
   const isLarge = width >= 600;
-  const suiteItemWidth = isSmall ? "47%" : isLarge ? "23%" : "31%";
-  const metricWidth = isSmall ? "47%" : isLarge ? "23%" : "47%";
+  const hPadding = isSmall ? 24 : isLarge ? 48 : 40;
+  const columns = isSmall ? 2 : isLarge ? 4 : 3;
+  const suiteItemWidth = Math.floor((width - hPadding - (columns - 1) * 10) / columns);
+  const metricWidth = Math.floor((width - hPadding - 10) / (isLarge ? 4 : 2));
 
   const [metrics, setMetrics] = useState({
     totalUsers: 164,
@@ -135,51 +137,83 @@ export default function SuperAdminDashboardScreen() {
       {/* 8 Primary Telemetry Metric Cards */}
       <View style={styles.metricsGrid}>
         <View style={[styles.metricCard, { width: metricWidth }]}>
-          <School color={ZEEPREP_THEME.colors.primary} size={22} />
-          <Text style={styles.metricVal}>3</Text>
-          <Text style={styles.metricLbl}>TOTAL SCHOOLS</Text>
+          <View style={[styles.metricIconBox, { backgroundColor: "#EEF2FF" }]}>
+            <School color={ZEEPREP_THEME.colors.primary} size={20} />
+          </View>
+          <View style={styles.metricTextCol}>
+            <Text style={styles.metricVal}>3</Text>
+            <Text style={styles.metricLbl} numberOfLines={1}>SCHOOLS</Text>
+          </View>
         </View>
 
         <View style={[styles.metricCard, { width: metricWidth }]}>
-          <UserCheck color="#059669" size={22} />
-          <Text style={styles.metricVal}>{metrics.teacherCount}</Text>
-          <Text style={styles.metricLbl}>TOTAL TEACHERS</Text>
+          <View style={[styles.metricIconBox, { backgroundColor: "#ECFDF5" }]}>
+            <UserCheck color="#059669" size={20} />
+          </View>
+          <View style={styles.metricTextCol}>
+            <Text style={styles.metricVal}>{metrics.teacherCount}</Text>
+            <Text style={styles.metricLbl} numberOfLines={1}>TEACHERS</Text>
+          </View>
         </View>
 
         <View style={[styles.metricCard, { width: metricWidth }]}>
-          <Users color="#7C3AED" size={22} />
-          <Text style={styles.metricVal}>{metrics.studentCount}</Text>
-          <Text style={styles.metricLbl}>TOTAL STUDENTS</Text>
+          <View style={[styles.metricIconBox, { backgroundColor: "#F3E8FF" }]}>
+            <Users color="#7C3AED" size={20} />
+          </View>
+          <View style={styles.metricTextCol}>
+            <Text style={styles.metricVal}>{metrics.studentCount}</Text>
+            <Text style={styles.metricLbl} numberOfLines={1}>STUDENTS</Text>
+          </View>
         </View>
 
         <View style={[styles.metricCard, { width: metricWidth }]}>
-          <FileCheck color="#D97706" size={22} />
-          <Text style={styles.metricVal}>{metrics.totalExams}</Text>
-          <Text style={styles.metricLbl}>TOTAL EXAMS</Text>
+          <View style={[styles.metricIconBox, { backgroundColor: "#FEF3C7" }]}>
+            <FileCheck color="#D97706" size={20} />
+          </View>
+          <View style={styles.metricTextCol}>
+            <Text style={styles.metricVal}>{metrics.totalExams}</Text>
+            <Text style={styles.metricLbl} numberOfLines={1}>EXAMS</Text>
+          </View>
         </View>
 
         <View style={[styles.metricCard, { width: metricWidth }]}>
-          <Activity color="#2563EB" size={22} />
-          <Text style={styles.metricVal}>1</Text>
-          <Text style={styles.metricLbl}>ACTIVE EXAMS</Text>
+          <View style={[styles.metricIconBox, { backgroundColor: "#EFF6FF" }]}>
+            <Activity color="#2563EB" size={20} />
+          </View>
+          <View style={styles.metricTextCol}>
+            <Text style={styles.metricVal}>1</Text>
+            <Text style={styles.metricLbl} numberOfLines={1}>ACTIVE</Text>
+          </View>
         </View>
 
         <View style={[styles.metricCard, { width: metricWidth }]}>
-          <HelpCircle color="#D97706" size={22} />
-          <Text style={styles.metricVal}>25</Text>
-          <Text style={styles.metricLbl}>QUESTION BANKS</Text>
+          <View style={[styles.metricIconBox, { backgroundColor: "#FFF1F2" }]}>
+            <HelpCircle color="#E11D48" size={20} />
+          </View>
+          <View style={styles.metricTextCol}>
+            <Text style={styles.metricVal}>25</Text>
+            <Text style={styles.metricLbl} numberOfLines={1}>BANKS</Text>
+          </View>
         </View>
 
         <View style={[styles.metricCard, { width: metricWidth }]}>
-          <FileBarChart color="#059669" size={22} />
-          <Text style={styles.metricVal}>{metrics.totalReports}</Text>
-          <Text style={styles.metricLbl}>REPORTS GENERATED</Text>
+          <View style={[styles.metricIconBox, { backgroundColor: "#F0FDF4" }]}>
+            <FileBarChart color="#16A34A" size={20} />
+          </View>
+          <View style={styles.metricTextCol}>
+            <Text style={styles.metricVal}>{metrics.totalReports}</Text>
+            <Text style={styles.metricLbl} numberOfLines={1}>REPORTS</Text>
+          </View>
         </View>
 
         <View style={[styles.metricCard, { width: metricWidth }]}>
-          <Award color="#7C3AED" size={22} />
-          <Text style={styles.metricVal}>92%</Text>
-          <Text style={styles.metricLbl}>PASS PERCENTAGE</Text>
+          <View style={[styles.metricIconBox, { backgroundColor: "#F0F9FF" }]}>
+            <Award color="#0284C7" size={20} />
+          </View>
+          <View style={styles.metricTextCol}>
+            <Text style={styles.metricVal}>92%</Text>
+            <Text style={styles.metricLbl} numberOfLines={1}>PASS RATIO</Text>
+          </View>
         </View>
       </View>
 
@@ -440,11 +474,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   metricCard: {
-    width: "48%",
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: ZEEPREP_THEME.colors.surface,
     borderRadius: 18,
-    padding: 16,
-    alignItems: "center",
+    padding: 12,
     borderWidth: 1,
     borderColor: ZEEPREP_THEME.colors.border,
     shadowColor: "#000",
@@ -452,19 +486,31 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.02,
     shadowRadius: 6,
     elevation: 1,
+    gap: 10,
+  },
+  metricIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  metricTextCol: {
+    flex: 1,
+    justifyContent: "center",
   },
   metricVal: {
-    fontSize: 22,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "900",
     color: ZEEPREP_THEME.colors.textPrimary,
-    marginTop: 6,
+    lineHeight: 22,
   },
   metricLbl: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
     color: ZEEPREP_THEME.colors.textSecondary,
-    marginTop: 2,
     letterSpacing: 0.5,
+    marginTop: 1,
   },
   sectionTitle: {
     fontSize: 16,

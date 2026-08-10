@@ -36,8 +36,10 @@ export default function TeacherDashboardScreen() {
 
   const isSmall = width < 360;
   const isLarge = width >= 600;
-  const tileWidth = isSmall ? "47%" : isLarge ? "23%" : "31%";
-  const metricWidth = isSmall ? "47%" : isLarge ? "23%" : "47%";
+  const hPadding = isSmall ? 24 : isLarge ? 48 : 40;
+  const columns = isSmall ? 2 : isLarge ? 4 : 3;
+  const tileWidth = Math.floor((width - hPadding - (columns - 1) * 10) / columns);
+  const metricWidth = Math.floor((width - hPadding - 10) / (isLarge ? 4 : 2));
 
   const [exams, setExams] = useState<Exam[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
@@ -109,15 +111,23 @@ export default function TeacherDashboardScreen() {
       {/* Metrics Row */}
       <View style={styles.statsGrid}>
         <View style={[styles.statBox, { width: metricWidth }]}>
-          <FileCheck color={ZEEPREP_THEME.colors.primary} size={22} />
-          <Text style={styles.statNumber}>{exams.length}</Text>
-          <Text style={styles.statLabel}>Exams Created</Text>
+          <View style={[styles.statIconBox, { backgroundColor: "#EEF2FF" }]}>
+            <FileCheck color={ZEEPREP_THEME.colors.primary} size={20} />
+          </View>
+          <View style={styles.statTextCol}>
+            <Text style={styles.statNumber}>{exams.length}</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>EXAMS CREATED</Text>
+          </View>
         </View>
 
         <View style={[styles.statBox, { width: metricWidth }]}>
-          <Users color="#059669" size={22} />
-          <Text style={styles.statNumber}>{reports.length}</Text>
-          <Text style={styles.statLabel}>Submissions</Text>
+          <View style={[styles.statIconBox, { backgroundColor: "#ECFDF5" }]}>
+            <Users color="#059669" size={20} />
+          </View>
+          <View style={styles.statTextCol}>
+            <Text style={styles.statNumber}>{reports.length}</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>SUBMISSIONS</Text>
+          </View>
         </View>
       </View>
 
@@ -332,11 +342,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   statBox: {
-    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: ZEEPREP_THEME.colors.surface,
     borderRadius: 18,
-    padding: 16,
-    alignItems: "center",
+    padding: 12,
     borderWidth: 1,
     borderColor: ZEEPREP_THEME.colors.border,
     shadowColor: "#000",
@@ -344,18 +354,31 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.02,
     shadowRadius: 6,
     elevation: 1,
+    gap: 10,
+  },
+  statIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statTextCol: {
+    flex: 1,
+    justifyContent: "center",
   },
   statNumber: {
-    fontSize: 20,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "900",
     color: ZEEPREP_THEME.colors.textPrimary,
-    marginTop: 6,
+    lineHeight: 22,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 9,
+    fontWeight: "800",
     color: ZEEPREP_THEME.colors.textSecondary,
-    marginTop: 2,
-    textAlign: "center",
+    letterSpacing: 0.5,
+    marginTop: 1,
   },
   featureGrid: {
     flexDirection: "row",

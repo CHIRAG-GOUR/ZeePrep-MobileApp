@@ -22,8 +22,10 @@ export default function AdminDashboardScreen() {
 
   const isSmall = width < 360;
   const isLarge = width >= 600;
-  const suiteItemWidth = isSmall ? "47%" : isLarge ? "23%" : "47%";
-  const metricWidth = isSmall ? "47%" : isLarge ? "23%" : "47%";
+  const hPadding = isSmall ? 24 : isLarge ? 48 : 40;
+  const columns = isSmall ? 2 : isLarge ? 4 : 3;
+  const suiteItemWidth = Math.floor((width - hPadding - (columns - 1) * 10) / columns);
+  const metricWidth = Math.floor((width - hPadding - 10) / (isLarge ? 4 : 2));
 
   const [metrics, setMetrics] = useState({
     totalUsers: 0,
@@ -143,27 +145,43 @@ export default function AdminDashboardScreen() {
       ) : (
         <View style={styles.metricsGrid}>
           <View style={[styles.metricCard, { width: metricWidth }]}>
-            <Users color={ZEEPREP_THEME.colors.primary} size={24} />
-            <Text style={styles.metricVal}>{metrics.studentCount}</Text>
-            <Text style={styles.metricLbl}>Active Students</Text>
+            <View style={[styles.metricIconBox, { backgroundColor: "#EEF2FF" }]}>
+              <Users color={ZEEPREP_THEME.colors.primary} size={20} />
+            </View>
+            <View style={styles.metricTextCol}>
+              <Text style={styles.metricVal}>{metrics.studentCount}</Text>
+              <Text style={styles.metricLbl} numberOfLines={1}>STUDENTS</Text>
+            </View>
           </View>
 
           <View style={[styles.metricCard, { width: metricWidth }]}>
-            <UserCheck color="#059669" size={24} />
-            <Text style={styles.metricVal}>{metrics.teacherCount}</Text>
-            <Text style={styles.metricLbl}>Faculty Members</Text>
+            <View style={[styles.metricIconBox, { backgroundColor: "#ECFDF5" }]}>
+              <UserCheck color="#059669" size={20} />
+            </View>
+            <View style={styles.metricTextCol}>
+              <Text style={styles.metricVal}>{metrics.teacherCount}</Text>
+              <Text style={styles.metricLbl} numberOfLines={1}>FACULTY</Text>
+            </View>
           </View>
 
           <View style={[styles.metricCard, { width: metricWidth }]}>
-            <FileCheck color="#D97706" size={24} />
-            <Text style={styles.metricVal}>{metrics.totalExams}</Text>
-            <Text style={styles.metricLbl}>Total Assessments</Text>
+            <View style={[styles.metricIconBox, { backgroundColor: "#FEF3C7" }]}>
+              <FileCheck color="#D97706" size={20} />
+            </View>
+            <View style={styles.metricTextCol}>
+              <Text style={styles.metricVal}>{metrics.totalExams}</Text>
+              <Text style={styles.metricLbl} numberOfLines={1}>ASSESSMENTS</Text>
+            </View>
           </View>
 
           <View style={[styles.metricCard, { width: metricWidth }]}>
-            <Award color="#7C3AED" size={24} />
-            <Text style={styles.metricVal}>{metrics.totalReports}</Text>
-            <Text style={styles.metricLbl}>Student Scorecards</Text>
+            <View style={[styles.metricIconBox, { backgroundColor: "#F3E8FF" }]}>
+              <Award color="#7C3AED" size={20} />
+            </View>
+            <View style={styles.metricTextCol}>
+              <Text style={styles.metricVal}>{metrics.totalReports}</Text>
+              <Text style={styles.metricLbl} numberOfLines={1}>SCORECARDS</Text>
+            </View>
           </View>
         </View>
       )}
@@ -228,11 +246,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   metricCard: {
-    width: "48%",
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: ZEEPREP_THEME.colors.surface,
     borderRadius: 18,
-    padding: 16,
-    alignItems: "center",
+    padding: 12,
     borderWidth: 1,
     borderColor: ZEEPREP_THEME.colors.border,
     shadowColor: "#000",
@@ -240,18 +258,31 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.02,
     shadowRadius: 6,
     elevation: 1,
+    gap: 10,
+  },
+  metricIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  metricTextCol: {
+    flex: 1,
+    justifyContent: "center",
   },
   metricVal: {
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "900",
     color: ZEEPREP_THEME.colors.textPrimary,
-    marginTop: 8,
+    lineHeight: 22,
   },
   metricLbl: {
-    fontSize: 12,
+    fontSize: 9,
+    fontWeight: "800",
     color: ZEEPREP_THEME.colors.textSecondary,
-    marginTop: 2,
-    textAlign: "center",
+    letterSpacing: 0.5,
+    marginTop: 1,
   },
   suiteGrid: {
     flexDirection: "row",

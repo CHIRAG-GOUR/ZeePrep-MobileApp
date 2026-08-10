@@ -15,14 +15,14 @@ export default function AdminTabsLayout() {
           backgroundColor: ZEEPREP_THEME.colors.surface,
           borderTopColor: ZEEPREP_THEME.colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 88 : 64,
-          paddingBottom: Platform.OS === "ios" ? 28 : 8,
+          height: Platform.OS === "ios" ? 88 : 70,
+          paddingBottom: Platform.OS === "ios" ? 28 : 12,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-          marginTop: 2,
+          fontSize: 10,
+          fontWeight: "700",
+          marginBottom: 2,
         },
       }}
     >
@@ -30,7 +30,7 @@ export default function AdminTabsLayout() {
         name="index"
         options={{
           title: "Dashboard",
-          tabBarIcon: ({ color, size }) => <ShieldCheck color={color} size={size || 22} />,
+          tabBarIcon: ({ color, size }) => <ShieldCheck color={color} size={size || 20} />,
         }}
       />
 
@@ -38,7 +38,7 @@ export default function AdminTabsLayout() {
         name="user-management"
         options={{
           title: "Users",
-          tabBarIcon: ({ color, size }) => <Users color={color} size={size || 22} />,
+          tabBarIcon: ({ color, size }) => <Users color={color} size={size || 20} />,
         }}
       />
 
@@ -46,7 +46,7 @@ export default function AdminTabsLayout() {
         name="reports"
         options={{
           title: "Reports",
-          tabBarIcon: ({ color, size }) => <FileBarChart color={color} size={size || 22} />,
+          tabBarIcon: ({ color, size }) => <FileBarChart color={color} size={size || 20} />,
         }}
       />
 
@@ -54,7 +54,7 @@ export default function AdminTabsLayout() {
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color, size }) => <User color={color} size={size || 22} />,
+          tabBarIcon: ({ color, size }) => <User color={color} size={size || 20} />,
         }}
       />
 

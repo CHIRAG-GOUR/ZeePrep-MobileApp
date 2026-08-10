@@ -5,8 +5,6 @@ import {
   Activity,
   HelpCircle,
   FileCheck,
-  FolderKanban,
-  FileBarChart,
   User,
 } from "lucide-react-native";
 import { Platform } from "react-native";
@@ -23,14 +21,14 @@ export default function TeacherTabsLayout() {
           backgroundColor: ZEEPREP_THEME.colors.surface,
           borderTopColor: ZEEPREP_THEME.colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 88 : 64,
-          paddingBottom: Platform.OS === "ios" ? 28 : 8,
+          height: Platform.OS === "ios" ? 88 : 70,
+          paddingBottom: Platform.OS === "ios" ? 28 : 12,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 9,
-          fontWeight: "600",
-          marginTop: 2,
+          fontSize: 10,
+          fontWeight: "700",
+          marginBottom: 2,
         },
       }}
     >
@@ -39,7 +37,7 @@ export default function TeacherTabsLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size || 20} />,
         }}
       />
 
@@ -48,7 +46,7 @@ export default function TeacherTabsLayout() {
         name="submissions"
         options={{
           title: "Live Monitor",
-          tabBarIcon: ({ color, size }) => <Activity color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <Activity color={color} size={size || 20} />,
         }}
       />
 
@@ -57,7 +55,7 @@ export default function TeacherTabsLayout() {
         name="question-bank"
         options={{
           title: "Question Bank",
-          tabBarIcon: ({ color, size }) => <HelpCircle color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <HelpCircle color={color} size={size || 20} />,
         }}
       />
 
@@ -66,29 +64,34 @@ export default function TeacherTabsLayout() {
         name="exams"
         options={{
           title: "Exams",
-          tabBarIcon: ({ color, size }) => <FileCheck color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <FileCheck color={color} size={size || 20} />,
         }}
       />
 
-      {/* 5. Resources */}
+      {/* 5. Profile */}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color, size }) => <User color={color} size={size || 20} />,
+        }}
+      />
+
+      {/* Secondary Sub-screens Hidden from Bottom Tab Bar */}
       <Tabs.Screen
         name="resources"
         options={{
-          title: "Resources",
-          tabBarIcon: ({ color, size }) => <FolderKanban color={color} size={size || 18} />,
+          href: null,
         }}
       />
 
-      {/* 6. Reports */}
       <Tabs.Screen
         name="reports"
         options={{
-          title: "Reports",
-          tabBarIcon: ({ color, size }) => <FileBarChart color={color} size={size || 18} />,
+          href: null,
         }}
       />
 
-      {/* Secondary Screens Hidden from Bottom Tab Bar */}
       <Tabs.Screen
         name="exam-builder"
         options={{
@@ -105,13 +108,6 @@ export default function TeacherTabsLayout() {
 
       <Tabs.Screen
         name="roster"
-        options={{
-          href: null,
-        }}
-      />
-
-      <Tabs.Screen
-        name="profile"
         options={{
           href: null,
         }}

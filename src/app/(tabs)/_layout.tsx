@@ -1,6 +1,6 @@
 import React from "react";
 import { Tabs } from "expo-router";
-import { LayoutDashboard, FileText, FileBarChart, BookOpen, Trophy, Bot, User } from "lucide-react-native";
+import { LayoutDashboard, FileText, FileBarChart, BookOpen, User } from "lucide-react-native";
 import { Platform } from "react-native";
 import { ZEEPREP_THEME } from "../../constants/theme";
 
@@ -15,14 +15,14 @@ export default function TabsLayout() {
           backgroundColor: ZEEPREP_THEME.colors.surface,
           borderTopColor: ZEEPREP_THEME.colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 88 : 64,
-          paddingBottom: Platform.OS === "ios" ? 28 : 8,
+          height: Platform.OS === "ios" ? 88 : 70,
+          paddingBottom: Platform.OS === "ios" ? 28 : 12,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 9,
-          fontWeight: "600",
-          marginTop: 2,
+          fontSize: 10,
+          fontWeight: "700",
+          marginBottom: 2,
         },
       }}
     >
@@ -30,7 +30,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size || 20} />,
         }}
       />
 
@@ -38,7 +38,7 @@ export default function TabsLayout() {
         name="exams"
         options={{
           title: "Exams",
-          tabBarIcon: ({ color, size }) => <FileText color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <FileText color={color} size={size || 20} />,
         }}
       />
 
@@ -46,7 +46,7 @@ export default function TabsLayout() {
         name="reports"
         options={{
           title: "Reports",
-          tabBarIcon: ({ color, size }) => <FileBarChart color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <FileBarChart color={color} size={size || 20} />,
         }}
       />
 
@@ -54,23 +54,7 @@ export default function TabsLayout() {
         name="resources"
         options={{
           title: "Library",
-          tabBarIcon: ({ color, size }) => <BookOpen color={color} size={size || 18} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="leaderboard"
-        options={{
-          title: "Rankings",
-          tabBarIcon: ({ color, size }) => <Trophy color={color} size={size || 18} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="ai-tutor"
-        options={{
-          title: "AI Tutor",
-          tabBarIcon: ({ color, size }) => <Bot color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <BookOpen color={color} size={size || 20} />,
         }}
       />
 
@@ -78,7 +62,22 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color, size }) => <User color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <User color={color} size={size || 20} />,
+        }}
+      />
+
+      {/* Auxiliary Student Screens Hidden from Bottom Tab Bar */}
+      <Tabs.Screen
+        name="leaderboard"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="ai-tutor"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

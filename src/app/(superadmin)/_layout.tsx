@@ -1,6 +1,6 @@
 import React from "react";
 import { Tabs } from "expo-router";
-import { ShieldAlert, Users, Layers, TrendingUp, Activity, Settings, User } from "lucide-react-native";
+import { ShieldAlert, Users, Layers, TrendingUp, User } from "lucide-react-native";
 import { Platform } from "react-native";
 import { ZEEPREP_THEME } from "../../constants/theme";
 
@@ -15,14 +15,14 @@ export default function SuperAdminTabsLayout() {
           backgroundColor: ZEEPREP_THEME.colors.surface,
           borderTopColor: ZEEPREP_THEME.colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 88 : 64,
-          paddingBottom: Platform.OS === "ios" ? 28 : 8,
+          height: Platform.OS === "ios" ? 88 : 70,
+          paddingBottom: Platform.OS === "ios" ? 28 : 12,
           paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 9,
-          fontWeight: "600",
-          marginTop: 2,
+          fontSize: 10,
+          fontWeight: "700",
+          marginBottom: 2,
         },
       }}
     >
@@ -30,7 +30,7 @@ export default function SuperAdminTabsLayout() {
         name="index"
         options={{
           title: "Overview",
-          tabBarIcon: ({ color, size }) => <ShieldAlert color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <ShieldAlert color={color} size={size || 20} />,
         }}
       />
 
@@ -38,7 +38,7 @@ export default function SuperAdminTabsLayout() {
         name="user-approval"
         options={{
           title: "Approvals",
-          tabBarIcon: ({ color, size }) => <Users color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <Users color={color} size={size || 20} />,
         }}
       />
 
@@ -46,7 +46,7 @@ export default function SuperAdminTabsLayout() {
         name="academic-hierarchy"
         options={{
           title: "Hierarchy",
-          tabBarIcon: ({ color, size }) => <Layers color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <Layers color={color} size={size || 20} />,
         }}
       />
 
@@ -54,23 +54,7 @@ export default function SuperAdminTabsLayout() {
         name="analytics"
         options={{
           title: "Analytics",
-          tabBarIcon: ({ color, size }) => <TrendingUp color={color} size={size || 18} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="audit-logs"
-        options={{
-          title: "Audit Logs",
-          tabBarIcon: ({ color, size }) => <Activity color={color} size={size || 18} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          tabBarIcon: ({ color, size }) => <Settings color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <TrendingUp color={color} size={size || 20} />,
         }}
       />
 
@@ -78,11 +62,25 @@ export default function SuperAdminTabsLayout() {
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color, size }) => <User color={color} size={size || 18} />,
+          tabBarIcon: ({ color, size }) => <User color={color} size={size || 20} />,
         }}
       />
 
-      {/* Shared Screens Hidden from Bottom Tab Bar */}
+      {/* Auxiliary & Sub-screens Accessible via Dashboard Grid / Headers */}
+      <Tabs.Screen
+        name="audit-logs"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="settings"
+        options={{
+          href: null,
+        }}
+      />
+
       <Tabs.Screen
         name="submissions"
         options={{
