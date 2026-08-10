@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import { ZEEPREP_THEME } from "../constants/theme";
+import { useAuthStore } from "../stores/auth-store";
 
 interface AppHeaderProps {
   title: string;
@@ -16,16 +17,32 @@ export function AppHeader({
   title,
   subtitle,
   showBack = true,
-  fallbackRoute = "/(tabs)",
+  fallbackRoute,
   rightAction,
 }: AppHeaderProps) {
   const router = useRouter();
+  const user = useAuthStore((state) => state.user);
 
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
-    } else if (fallbackRoute) {
+      return;
+    }
+
+    if (fallbackRoute) {
       router.replace(fallbackRoute as any);
+      return;
+    }
+
+    // Role-aware fallback route so users stay in their exact portal
+    if (user?.role === "superadmin") {
+      router.replace("/(superadmin)" as any);
+    } else if (user?.role === "admin") {
+      router.replace("/(admin)" as any);
+    } else if (user?.role === "teacher") {
+      router.replace("/(teacher)" as any);
+    } else {
+      router.replace("/(tabs)" as any);
     }
   };
 

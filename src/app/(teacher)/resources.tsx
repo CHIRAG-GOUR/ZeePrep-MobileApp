@@ -96,7 +96,6 @@ export default function TeacherResourcesScreen() {
       <AppHeader
         title="Faculty Resources"
         subtitle="Manage & publish study materials for your classes"
-        fallbackRoute="/(teacher)"
         rightAction={
           <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
             <Plus color="#FFFFFF" size={16} />

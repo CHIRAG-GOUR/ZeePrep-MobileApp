@@ -51,7 +51,6 @@ export default function TeacherReportsScreen() {
       <AppHeader
         title="Student Diagnostic Reports"
         subtitle="Institutional assessment scorecards & performance analytics"
-        fallbackRoute="/(teacher)"
       />
 
       <ScrollView

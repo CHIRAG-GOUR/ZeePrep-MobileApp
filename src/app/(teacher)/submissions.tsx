@@ -49,7 +49,6 @@ export default function TeacherSubmissionsScreen() {
       <AppHeader
         title="Live Student Submissions"
         subtitle="Real-time attempt scores and completion diagnostics"
-        fallbackRoute="/(teacher)"
       />
 
       <ScrollView

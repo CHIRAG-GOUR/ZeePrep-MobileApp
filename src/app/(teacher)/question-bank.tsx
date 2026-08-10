@@ -136,9 +136,8 @@ export default function TeacherQuestionBankScreen() {
   return (
     <View style={styles.container}>
       <AppHeader
-        title="Institutional Question Bank"
+        title="Question Bank"
         subtitle="Manage Level 1, 2, 3 questions & AI item generator"
-        fallbackRoute="/(teacher)"
       />
 
       <View style={styles.filterBar}>
