@@ -25,6 +25,7 @@ import {
   Bot,
   User as UserIcon,
 } from "lucide-react-native";
+import { normalizeResourceType } from "../../utils/resource-normalizer";
 
 import SuperAdminRoleSwitcher from "../../components/SuperAdminRoleSwitcher";
 
@@ -252,20 +253,23 @@ export default function DashboardScreen() {
       </View>
 
       {resources.length > 0 ? (
-        resources.slice(0, 3).map((res) => (
-          <View key={res.id} style={styles.resourceItem}>
-            <View style={styles.resourceIconBox}>
-              <BookOpen color={ZEEPREP_THEME.colors.primary} size={20} />
+        resources.slice(0, 3).map((rawRes) => {
+          const res = normalizeResourceType(rawRes);
+          return (
+            <View key={res.id} style={styles.resourceItem}>
+              <View style={styles.resourceIconBox}>
+                <BookOpen color={ZEEPREP_THEME.colors.primary} size={20} />
+              </View>
+              <View style={styles.resourceInfo}>
+                <Text style={styles.resourceTitle}>{res.title}</Text>
+                <Text style={styles.resourceMeta}>
+                  {res.subject} • {res.displayType}
+                </Text>
+              </View>
+              <ChevronRight color={ZEEPREP_THEME.colors.textMuted} size={18} />
             </View>
-            <View style={styles.resourceInfo}>
-              <Text style={styles.resourceTitle}>{res.title}</Text>
-              <Text style={styles.resourceMeta}>
-                {res.subject} • {res.type.toUpperCase()}
-              </Text>
-            </View>
-            <ChevronRight color={ZEEPREP_THEME.colors.textMuted} size={18} />
-          </View>
-        ))
+          );
+        })
       ) : (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyText}>No study materials uploaded for your grade yet.</Text>

@@ -152,7 +152,7 @@ export default function AdminUserManagementScreen() {
                 <View style={styles.userNameRow}>
                   <Text style={styles.userName}>{u.name}</Text>
                   <View style={[styles.roleTag, u.role === "teacher" && styles.roleTagTeacher]}>
-                    <Text style={styles.roleTagText}>{u.role?.toUpperCase()}</Text>
+                    <Text style={styles.roleTagText}>{u.role ? String(u.role).toUpperCase() : "USER"}</Text>
                   </View>
                 </View>
                 <Text style={styles.userEmail}>{u.email}</Text>

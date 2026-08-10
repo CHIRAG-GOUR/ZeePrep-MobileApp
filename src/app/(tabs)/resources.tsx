@@ -96,7 +96,7 @@ export default function StudentResourcesScreen() {
                 onPress={() => setSelectedSubject(sub)}
               >
                 <Text style={[styles.subjectChipText, selectedSubject === sub && styles.subjectChipTextActive]}>
-                  {sub.toUpperCase()}
+                  {sub ? String(sub).toUpperCase() : "ALL"}
                 </Text>
               </TouchableOpacity>
             ))}
