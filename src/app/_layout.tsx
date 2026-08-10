@@ -29,18 +29,37 @@ export default function RootLayout() {
     const inTeacherGroup = segments[0] === "(teacher)";
     const inStudentGroup = segments[0] === "(tabs)";
 
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace("/(auth)/login" as any);
-    } else if (isAuthenticated && user) {
-      if (user.role === "superadmin" && !inSuperAdminGroup) {
-        router.replace("/(superadmin)" as any);
-      } else if (user.role === "admin" && !inAdminGroup) {
-        router.replace("/(admin)" as any);
-      } else if (user.role === "teacher" && !inTeacherGroup) {
-        router.replace("/(teacher)" as any);
-      } else if (user.role === "student" && !inStudentGroup && inAuthGroup) {
-        router.replace("/(tabs)" as any);
+    if (!isAuthenticated) {
+      if (!inAuthGroup) {
+        router.replace("/(auth)/login" as any);
       }
+      return;
+    }
+
+    if (user) {
+      // 1. If user is in (auth) group while already authenticated, route to their role dashboard
+      if (inAuthGroup) {
+        if (user.role === "superadmin") router.replace("/(superadmin)" as any);
+        else if (user.role === "admin") router.replace("/(admin)" as any);
+        else if (user.role === "teacher") router.replace("/(teacher)" as any);
+        else router.replace("/(tabs)" as any);
+        return;
+      }
+
+      // 2. Strict Role Protection Rules:
+      // Students cannot access teacher, admin, or superadmin screens
+      if (user.role === "student") {
+        if (inTeacherGroup || inAdminGroup || inSuperAdminGroup) {
+          router.replace("/(tabs)" as any);
+        }
+      }
+      // Teachers cannot access superadmin-only root management screens
+      else if (user.role === "teacher") {
+        if (inSuperAdminGroup) {
+          router.replace("/(teacher)" as any);
+        }
+      }
+      // Admins & SuperAdmins have access to administrative, teacher, and student screens
     }
   }, [isAuthenticated, isLoading, user, segments]);
 

@@ -18,6 +18,7 @@ import { ZEEPREP_THEME } from "../../constants/theme";
 import { FolderKanban, Plus, FileText, Video, Link as LinkIcon, X } from "lucide-react-native";
 
 import { AppHeader } from "../../components/AppHeader";
+import { normalizeResourceType } from "../../utils/resource-normalizer";
 
 export default function TeacherResourcesScreen() {
   const user = useAuthStore((state) => state.user);
@@ -118,26 +119,29 @@ export default function TeacherResourcesScreen() {
         {loading ? (
           <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginTop: 40 }} />
         ) : resources.length > 0 ? (
-          resources.map((res) => (
-            <View key={res.id} style={styles.card}>
-              <View style={styles.iconBox}>
-                {res.type === "video" ? (
-                  <Video color={ZEEPREP_THEME.colors.primary} size={20} />
-                ) : res.type === "pdf" ? (
-                  <FileText color={ZEEPREP_THEME.colors.primary} size={20} />
-                ) : (
-                  <LinkIcon color={ZEEPREP_THEME.colors.primary} size={20} />
-                )}
-              </View>
+          resources.map((rawRes) => {
+            const res = normalizeResourceType(rawRes);
+            return (
+              <View key={res.id} style={styles.card}>
+                <View style={styles.iconBox}>
+                  {res.type === "video" ? (
+                    <Video color={ZEEPREP_THEME.colors.primary} size={20} />
+                  ) : res.type === "pdf" ? (
+                    <FileText color={ZEEPREP_THEME.colors.primary} size={20} />
+                  ) : (
+                    <LinkIcon color={ZEEPREP_THEME.colors.primary} size={20} />
+                  )}
+                </View>
 
-              <View style={styles.cardContent}>
-                <Text style={styles.resTitle}>{res.title}</Text>
-                <Text style={styles.resMeta}>
-                  {res.subject} • Grade {res.grade || "12"} • {res.type.toUpperCase()}
-                </Text>
+                <View style={styles.cardContent}>
+                  <Text style={styles.resTitle}>{res.title}</Text>
+                  <Text style={styles.resMeta}>
+                    {res.subject} • Grade {res.grade} • {res.displayType}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))
+            );
+          })
         ) : (
           <View style={styles.emptyBox}>
             <FolderKanban size={40} color={ZEEPREP_THEME.colors.textMuted} />

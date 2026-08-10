@@ -15,6 +15,7 @@ import { getStudyResources } from "../../services/firestore";
 import type { StudyResource } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
 import { BookOpen, Search, ExternalLink, FileText, Video, Link as LinkIcon } from "lucide-react-native";
+import { normalizeResourceType } from "../../utils/resource-normalizer";
 
 export default function StudentResourcesScreen() {
   const user = useAuthStore((state) => state.user);
@@ -47,7 +48,8 @@ export default function StudentResourcesScreen() {
     fetchResources();
   };
 
-  const filteredResources = resources.filter((res) => {
+  const filteredResources = resources.filter((rawRes) => {
+    const res = normalizeResourceType(rawRes);
     const matchesSearch =
       res.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       res.subject.toLowerCase().includes(searchQuery.toLowerCase());
@@ -116,35 +118,38 @@ export default function StudentResourcesScreen() {
         {loading ? (
           <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginTop: 40 }} />
         ) : filteredResources.length > 0 ? (
-          filteredResources.map((res) => (
-            <TouchableOpacity
-              key={res.id}
-              style={styles.card}
-              onPress={() => {
-                if (res.url) Linking.openURL(res.url);
-              }}
-              activeOpacity={0.85}
-            >
-              <View style={styles.cardIconBox}>
-                {res.type === "video" ? (
-                  <Video color={ZEEPREP_THEME.colors.primary} size={22} />
-                ) : res.type === "pdf" ? (
-                  <FileText color={ZEEPREP_THEME.colors.primary} size={22} />
-                ) : (
-                  <LinkIcon color={ZEEPREP_THEME.colors.primary} size={22} />
-                )}
-              </View>
+          filteredResources.map((rawRes) => {
+            const res = normalizeResourceType(rawRes);
+            return (
+              <TouchableOpacity
+                key={res.id}
+                style={styles.card}
+                onPress={() => {
+                  if (res.url) Linking.openURL(res.url);
+                }}
+                activeOpacity={0.85}
+              >
+                <View style={styles.cardIconBox}>
+                  {res.type === "video" ? (
+                    <Video color={ZEEPREP_THEME.colors.primary} size={22} />
+                  ) : res.type === "pdf" ? (
+                    <FileText color={ZEEPREP_THEME.colors.primary} size={22} />
+                  ) : (
+                    <LinkIcon color={ZEEPREP_THEME.colors.primary} size={22} />
+                  )}
+                </View>
 
-              <View style={styles.cardContent}>
-                <Text style={styles.resTitle}>{res.title}</Text>
-                <Text style={styles.resMeta}>
-                  {res.subject} • {res.type.toUpperCase()}
-                </Text>
-              </View>
+                <View style={styles.cardContent}>
+                  <Text style={styles.resTitle}>{res.title}</Text>
+                  <Text style={styles.resMeta}>
+                    {res.subject} • {res.displayType}
+                  </Text>
+                </View>
 
-              <ExternalLink size={18} color={ZEEPREP_THEME.colors.primary} />
-            </TouchableOpacity>
-          ))
+                <ExternalLink size={18} color={ZEEPREP_THEME.colors.primary} />
+              </TouchableOpacity>
+            );
+          })
         ) : (
           <View style={styles.emptyCard}>
             <BookOpen size={40} color={ZEEPREP_THEME.colors.textMuted} />

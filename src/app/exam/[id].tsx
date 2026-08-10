@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
 import { useExamStore } from "../../stores/exam-store";
+import { normalizeQuestionOption } from "../../utils/question-normalizer";
 import {
   getExamDetails,
   submitStudentExamAttempt,
@@ -345,15 +346,16 @@ export default function ExamEngineScreen() {
           {/* MCQ Options */}
           {currentQ.options && currentQ.options.length > 0 ? (
             <View style={styles.optionsContainer}>
-              {currentQ.options.map((opt, optIdx) => {
-                const isOptionSelected = currentAnswer === opt || currentAnswer === optIdx;
-                const optionLabel = String.fromCharCode(65 + optIdx);
+              {currentQ.options.map((rawOpt, optIdx) => {
+                const optObj = normalizeQuestionOption(rawOpt, optIdx);
+                const isOptionSelected = currentAnswer === rawOpt || currentAnswer === optObj.text || currentAnswer === optIdx;
+                const optionLabel = optObj.id;
 
                 return (
                   <TouchableOpacity
                     key={optIdx}
                     style={[styles.optionCard, isOptionSelected && styles.optionCardSelected]}
-                    onPress={() => handleSelectAnswer(currentQ.id, opt)}
+                    onPress={() => handleSelectAnswer(currentQ.id, optObj.text)}
                     activeOpacity={0.7}
                   >
                     <View
@@ -377,7 +379,7 @@ export default function ExamEngineScreen() {
                         isOptionSelected && styles.optionTextSelected,
                       ]}
                     >
-                      {opt}
+                      {optObj.text}
                     </Text>
                   </TouchableOpacity>
                 );

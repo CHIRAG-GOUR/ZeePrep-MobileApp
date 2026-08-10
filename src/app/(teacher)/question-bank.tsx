@@ -19,6 +19,7 @@ import { ZEEPREP_THEME } from "../../constants/theme";
 import { HelpCircle, Plus, Filter, CheckCircle2, Bookmark, X } from "lucide-react-native";
 
 import { AppHeader } from "../../components/AppHeader";
+import { normalizeQuestion } from "../../utils/question-normalizer";
 
 export default function TeacherQuestionBankScreen() {
   const user = useAuthStore((state) => state.user);
@@ -182,28 +183,31 @@ export default function TeacherQuestionBankScreen() {
         {loading ? (
           <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginTop: 40 }} />
         ) : questions.length > 0 ? (
-          questions.map((q, idx) => (
-            <View key={q.id || idx} style={styles.card}>
-              <View style={styles.cardTop}>
-                <View style={styles.levelBadge}>
-                  <Text style={styles.levelBadgeText}>{q.level?.toUpperCase() || "LEVEL 1"}</Text>
+          questions.map((rawQ, idx) => {
+            const q = normalizeQuestion(rawQ);
+            return (
+              <View key={q.id || idx} style={styles.card}>
+                <View style={styles.cardTop}>
+                  <View style={styles.levelBadge}>
+                    <Text style={styles.levelBadgeText}>{q.level.toUpperCase()}</Text>
+                  </View>
+                  <Text style={styles.marksText}>+{q.marks} Marks</Text>
                 </View>
-                <Text style={styles.marksText}>+{q.marks || 1} Marks</Text>
+
+                <Text style={styles.questionText}>{q.text}</Text>
+
+                {q.options && q.options.length > 0 ? (
+                  <View style={styles.optionsBox}>
+                    {q.options.map((opt, oIdx) => (
+                      <Text key={opt.id || oIdx} style={styles.optionText}>
+                        {String.fromCharCode(65 + oIdx)}. {opt.text}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
               </View>
-
-              <Text style={styles.questionText}>{q.text}</Text>
-
-              {q.options && q.options.length > 0 ? (
-                <View style={styles.optionsBox}>
-                  {q.options.map((opt, oIdx) => (
-                    <Text key={oIdx} style={styles.optionText}>
-                      {String.fromCharCode(65 + oIdx)}. {opt}
-                    </Text>
-                  ))}
-                </View>
-              ) : null}
-            </View>
-          ))
+            );
+          })
         ) : (
           <View style={styles.emptyBox}>
             <HelpCircle size={40} color={ZEEPREP_THEME.colors.textMuted} />

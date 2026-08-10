@@ -2,12 +2,11 @@ import React from "react";
 import { Tabs } from "expo-router";
 import {
   LayoutDashboard,
-  PlusCircle,
+  Activity,
   HelpCircle,
   FileCheck,
-  Activity,
-  Users,
   FolderKanban,
+  FileBarChart,
   User,
 } from "lucide-react-native";
 import { Platform } from "react-native";
@@ -35,67 +34,86 @@ export default function TeacherTabsLayout() {
         },
       }}
     >
+      {/* 1. Home */}
       <Tabs.Screen
         name="index"
         options={{
-          title: "Overview",
+          title: "Home",
           tabBarIcon: ({ color, size }) => <LayoutDashboard color={color} size={size || 18} />,
         }}
       />
 
+      {/* 2. Live Monitor */}
+      <Tabs.Screen
+        name="submissions"
+        options={{
+          title: "Live Monitor",
+          tabBarIcon: ({ color, size }) => <Activity color={color} size={size || 18} />,
+        }}
+      />
+
+      {/* 3. Question Bank */}
       <Tabs.Screen
         name="question-bank"
         options={{
-          title: "Item Bank",
+          title: "Question Bank",
           tabBarIcon: ({ color, size }) => <HelpCircle color={color} size={size || 18} />,
         }}
       />
 
-      <Tabs.Screen
-        name="exam-builder"
-        options={{
-          title: "Creator",
-          tabBarIcon: ({ color, size }) => <PlusCircle color={color} size={size || 18} />,
-        }}
-      />
-
+      {/* 4. Exams */}
       <Tabs.Screen
         name="exams"
         options={{
-          title: "Assessments",
+          title: "Exams",
           tabBarIcon: ({ color, size }) => <FileCheck color={color} size={size || 18} />,
         }}
       />
 
+      {/* 5. Resources */}
       <Tabs.Screen
-        name="submissions"
+        name="resources"
         options={{
-          title: "Monitor",
-          tabBarIcon: ({ color, size }) => <Activity color={color} size={size || 18} />,
+          title: "Resources",
+          tabBarIcon: ({ color, size }) => <FolderKanban color={color} size={size || 18} />,
+        }}
+      />
+
+      {/* 6. Reports */}
+      <Tabs.Screen
+        name="reports"
+        options={{
+          title: "Reports",
+          tabBarIcon: ({ color, size }) => <FileBarChart color={color} size={size || 18} />,
+        }}
+      />
+
+      {/* Secondary Screens Hidden from Bottom Tab Bar */}
+      <Tabs.Screen
+        name="exam-builder"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="questions"
+        options={{
+          href: null,
         }}
       />
 
       <Tabs.Screen
         name="roster"
         options={{
-          title: "Roster",
-          tabBarIcon: ({ color, size }) => <Users color={color} size={size || 18} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="resources"
-        options={{
-          title: "Materials",
-          tabBarIcon: ({ color, size }) => <FolderKanban color={color} size={size || 18} />,
+          href: null,
         }}
       />
 
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => <User color={color} size={size || 18} />,
+          href: null,
         }}
       />
     </Tabs>

@@ -23,6 +23,7 @@ import {
   Activity,
   FolderKanban,
   User as UserIcon,
+  FileBarChart,
 } from "lucide-react-native";
 
 import SuperAdminRoleSwitcher from "../../components/SuperAdminRoleSwitcher";
@@ -118,14 +119,62 @@ export default function TeacherDashboardScreen() {
       <View style={styles.featureGrid}>
         <TouchableOpacity
           style={styles.featureCard}
+          onPress={() => router.push("/(teacher)/submissions")}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.featureIcon, { backgroundColor: "#F3E8FF" }]}>
+            <Activity color="#7C3AED" size={20} />
+          </View>
+          <Text style={styles.featureTitle}>Live Monitor</Text>
+          <Text style={styles.featureSub}>Live Scores</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.featureCard}
           onPress={() => router.push("/(teacher)/question-bank")}
           activeOpacity={0.85}
         >
           <View style={[styles.featureIcon, { backgroundColor: "#EEF2FF" }]}>
             <HelpCircle color={ZEEPREP_THEME.colors.primary} size={20} />
           </View>
-          <Text style={styles.featureTitle}>Item Bank</Text>
-          <Text style={styles.featureSub}>Questions</Text>
+          <Text style={styles.featureTitle}>Question Bank</Text>
+          <Text style={styles.featureSub}>Item Bank</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.featureCard}
+          onPress={() => router.push("/(teacher)/exams")}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.featureIcon, { backgroundColor: "#FEF3C7" }]}>
+            <FileCheck color="#D97706" size={20} />
+          </View>
+          <Text style={styles.featureTitle}>Exams</Text>
+          <Text style={styles.featureSub}>Assessments</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.featureCard}
+          onPress={() => router.push("/(teacher)/resources")}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.featureIcon, { backgroundColor: "#E0E7FF" }]}>
+            <FolderKanban color="#4F46E5" size={20} />
+          </View>
+          <Text style={styles.featureTitle}>Resources</Text>
+          <Text style={styles.featureSub}>Materials</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.featureCard}
+          onPress={() => router.push("/(teacher)/reports")}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.featureIcon, { backgroundColor: "#ECFDF5" }]}>
+            <FileBarChart color="#059669" size={20} />
+          </View>
+          <Text style={styles.featureTitle}>Reports</Text>
+          <Text style={styles.featureSub}>Scorecards</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -138,54 +187,6 @@ export default function TeacherDashboardScreen() {
           </View>
           <Text style={styles.featureTitle}>Creator</Text>
           <Text style={styles.featureSub}>Build Exam</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.featureCard}
-          onPress={() => router.push("/(teacher)/exams")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#FEF3C7" }]}>
-            <FileCheck color="#D97706" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Exams</Text>
-          <Text style={styles.featureSub}>Published</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.featureCard}
-          onPress={() => router.push("/(teacher)/submissions")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#F3E8FF" }]}>
-            <Activity color="#7C3AED" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Monitor</Text>
-          <Text style={styles.featureSub}>Live Scores</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.featureCard}
-          onPress={() => router.push("/(teacher)/resources")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#E0E7FF" }]}>
-            <FolderKanban color="#4F46E5" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Materials</Text>
-          <Text style={styles.featureSub}>Resources</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.featureCard}
-          onPress={() => router.push("/(teacher)/profile")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#F1F5F9" }]}>
-            <UserIcon color="#475569" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Profile</Text>
-          <Text style={styles.featureSub}>Faculty ID</Text>
         </TouchableOpacity>
       </View>
 
