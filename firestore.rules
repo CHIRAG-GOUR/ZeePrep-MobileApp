@@ -1,0 +1,163 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ─────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isRole(role) {
+      return isSignedIn() && (
+        request.auth.token.role == role || 
+        getUserData().role == role
+      );
+    }
+
+    function isSuperadmin() {
+      return isRole('superadmin') || (isSignedIn() && (
+        request.auth.token.email == 'pa1@skillizee.io' || 
+        request.auth.token.email == 'tech@skillizee.io' ||
+        getUserData().email == 'pa1@skillizee.io' ||
+        getUserData().email == 'tech@skillizee.io'
+      ));
+    }
+
+    function isAdmin() {
+      return isSuperadmin() || isRole('admin');
+    }
+
+    function isTeacher() {
+      return isSuperadmin() || isAdmin() || isRole('teacher');
+    }
+
+    function isStudent() {
+      return isSignedIn() && (isRole('student') || !getUserData().role);
+    }
+
+    // ─── Users Collection Rules ───────────────────────────────────────
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isSignedIn() && (
+        isSuperadmin() || 
+        isAdmin() || 
+        (isUser(userId) && (
+          request.resource.data.role == 'student' ||
+          request.resource.data.role == 'teacher'
+        ))
+      );
+      allow update: if isSuperadmin() || isAdmin() || (
+        isUser(userId) && request.resource.data.role == resource.data.role
+      );
+      allow delete: if isSuperadmin() || isAdmin();
+    }
+
+    // ─── Teacher Registration Links Rules ──────────────────────────────
+    match /teacherRegistrationLinks/{linkId} {
+      allow read: if true;
+      allow create, delete: if isSuperadmin() || isAdmin();
+      allow update: if true;
+    }
+
+    // ─── Invitations Collection Rules ─────────────────────────────────
+    match /invitations/{invitationId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // ─── Login IDs Index Rules ─────────────────────────────────────────
+    match /loginIds/{loginId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // ─── Login Audit Rules ─────────────────────────────────────────────
+    match /loginAudit/{auditId} {
+      allow read: if isSuperadmin() || isAdmin();
+      allow create: if true;
+      allow update, delete: if isSuperadmin();
+    }
+
+    // ─── Question Bank Rules ──────────────────────────────────────────
+    match /questions/{questionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isTeacher();
+    }
+
+    match /questionBankVersions/{versionId} {
+      allow read: if isSignedIn();
+      allow write: if isTeacher();
+    }
+
+    // ─── Exams Rules ──────────────────────────────────────────────────
+    match /exams/{examId} {
+      allow read: if isSignedIn();
+      allow write: if isTeacher();
+    }
+
+    // ─── Exam Attempts Rules ──────────────────────────────────────────
+    match /examAttempts/{attemptId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isSuperadmin() || isAdmin();
+    }
+
+    // ─── Diagnostic Reports Rules ─────────────────────────────────────
+    match /reports/{reportId} {
+      allow read: if isSignedIn();
+      allow write: if isTeacher();
+    }
+
+    match /overall_reports/{reportId} {
+      allow read: if isSignedIn();
+      allow write: if isTeacher();
+    }
+
+    // ─── Study Resources Rules ────────────────────────────────────────
+    match /study_resources/{resourceId} {
+      allow read: if isSignedIn();
+      allow write: if isTeacher();
+    }
+
+    match /study_time_logs/{logId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isSuperadmin() || isAdmin();
+    }
+
+    // ─── Doubts Rules ─────────────────────────────────────────────────
+    match /doubts/{doubtId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isTeacher();
+    }
+
+    // ─── Audit Logs Rules ─────────────────────────────────────────────
+    match /auditLogs/{logId} {
+      allow read: if isSuperadmin() || isAdmin();
+      allow create: if true;
+      allow update, delete: if isSuperadmin();
+    }
+
+    // ─── Mail & Notifications Rules ───────────────────────────────────
+    match /mail/{mailId} {
+      allow read, write: if true;
+    }
+
+    match /notifications/{notifId} {
+      allow read, write: if true;
+    }
+
+    // ─── System Settings Rules ────────────────────────────────────────
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isSuperadmin();
+    }
+  }
+}
