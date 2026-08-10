@@ -34,19 +34,24 @@ import {
 } from "lucide-react-native";
 
 import SuperAdminRoleSwitcher from "../../components/SuperAdminRoleSwitcher";
+import { AdminStatTile } from "../../components/AdminStatTile";
 
 export default function SuperAdminDashboardScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const { width } = useWindowDimensions();
 
-  // Pixel-perfect Responsive Grid Calculations
+  // Pixel-perfect 2-Column Responsive Grid Calculations for Mobile Overview Statistics
   const isSmall = width < 360;
   const isLarge = width >= 600;
   const hPadding = isSmall ? 24 : isLarge ? 48 : 40;
-  const columns = isSmall ? 2 : isLarge ? 4 : 3;
-  const suiteItemWidth = Math.floor((width - hPadding - (columns - 1) * 10) / columns);
-  const metricWidth = Math.floor((width - hPadding - 10) / (isLarge ? 4 : 2));
+  
+  // 2 columns on mobile screens (< 600px), 4 columns on wide screens (>= 600px)
+  const metricColumns = isLarge ? 4 : 2;
+  const suiteColumns = isSmall ? 2 : isLarge ? 4 : 3;
+  
+  const metricTileWidth = Math.floor((width - hPadding - (metricColumns - 1) * 12) / metricColumns);
+  const suiteItemWidth = Math.floor((width - hPadding - (suiteColumns - 1) * 10) / suiteColumns);
 
   const [metrics, setMetrics] = useState({
     totalUsers: 164,
@@ -134,87 +139,79 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
       ) : null}
 
-      {/* 8 Primary Telemetry Metric Cards */}
+      {/* Compact 2-Column Overview Statistics Grid */}
       <View style={styles.metricsGrid}>
-        <View style={[styles.metricCard, { width: metricWidth }]}>
-          <View style={[styles.metricIconBox, { backgroundColor: "#EEF2FF" }]}>
-            <School color={ZEEPREP_THEME.colors.primary} size={20} />
-          </View>
-          <View style={styles.metricTextCol}>
-            <Text style={styles.metricVal}>3</Text>
-            <Text style={styles.metricLbl} numberOfLines={1}>SCHOOLS</Text>
-          </View>
-        </View>
+        <AdminStatTile
+          icon={<School color={ZEEPREP_THEME.colors.primary} size={22} />}
+          value={3}
+          label="SCHOOLS"
+          iconBgColor="#EEF2FF"
+          cardWidth={metricTileWidth}
+          accessibilityLabel="3 Total Schools"
+        />
 
-        <View style={[styles.metricCard, { width: metricWidth }]}>
-          <View style={[styles.metricIconBox, { backgroundColor: "#ECFDF5" }]}>
-            <UserCheck color="#059669" size={20} />
-          </View>
-          <View style={styles.metricTextCol}>
-            <Text style={styles.metricVal}>{metrics.teacherCount}</Text>
-            <Text style={styles.metricLbl} numberOfLines={1}>TEACHERS</Text>
-          </View>
-        </View>
+        <AdminStatTile
+          icon={<UserCheck color="#059669" size={22} />}
+          value={metrics.teacherCount}
+          label="TEACHERS"
+          iconBgColor="#ECFDF5"
+          cardWidth={metricTileWidth}
+          accessibilityLabel={`${metrics.teacherCount} Total Teachers`}
+        />
 
-        <View style={[styles.metricCard, { width: metricWidth }]}>
-          <View style={[styles.metricIconBox, { backgroundColor: "#F3E8FF" }]}>
-            <Users color="#7C3AED" size={20} />
-          </View>
-          <View style={styles.metricTextCol}>
-            <Text style={styles.metricVal}>{metrics.studentCount}</Text>
-            <Text style={styles.metricLbl} numberOfLines={1}>STUDENTS</Text>
-          </View>
-        </View>
+        <AdminStatTile
+          icon={<Users color="#7C3AED" size={22} />}
+          value={metrics.studentCount}
+          label="STUDENTS"
+          iconBgColor="#F3E8FF"
+          cardWidth={metricTileWidth}
+          accessibilityLabel={`${metrics.studentCount} Total Students`}
+        />
 
-        <View style={[styles.metricCard, { width: metricWidth }]}>
-          <View style={[styles.metricIconBox, { backgroundColor: "#FEF3C7" }]}>
-            <FileCheck color="#D97706" size={20} />
-          </View>
-          <View style={styles.metricTextCol}>
-            <Text style={styles.metricVal}>{metrics.totalExams}</Text>
-            <Text style={styles.metricLbl} numberOfLines={1}>EXAMS</Text>
-          </View>
-        </View>
+        <AdminStatTile
+          icon={<FileCheck color="#D97706" size={22} />}
+          value={metrics.totalExams}
+          label="EXAMS"
+          iconBgColor="#FEF3C7"
+          cardWidth={metricTileWidth}
+          accessibilityLabel={`${metrics.totalExams} Total Exams`}
+        />
 
-        <View style={[styles.metricCard, { width: metricWidth }]}>
-          <View style={[styles.metricIconBox, { backgroundColor: "#EFF6FF" }]}>
-            <Activity color="#2563EB" size={20} />
-          </View>
-          <View style={styles.metricTextCol}>
-            <Text style={styles.metricVal}>1</Text>
-            <Text style={styles.metricLbl} numberOfLines={1}>ACTIVE</Text>
-          </View>
-        </View>
+        <AdminStatTile
+          icon={<Activity color="#2563EB" size={22} />}
+          value={1}
+          label="ACTIVE EXAMS"
+          iconBgColor="#EFF6FF"
+          cardWidth={metricTileWidth}
+          accessibilityLabel="1 Active Exam"
+        />
 
-        <View style={[styles.metricCard, { width: metricWidth }]}>
-          <View style={[styles.metricIconBox, { backgroundColor: "#FFF1F2" }]}>
-            <HelpCircle color="#E11D48" size={20} />
-          </View>
-          <View style={styles.metricTextCol}>
-            <Text style={styles.metricVal}>25</Text>
-            <Text style={styles.metricLbl} numberOfLines={1}>BANKS</Text>
-          </View>
-        </View>
+        <AdminStatTile
+          icon={<HelpCircle color="#E11D48" size={22} />}
+          value={25}
+          label="QUESTION BANKS"
+          iconBgColor="#FFF1F2"
+          cardWidth={metricTileWidth}
+          accessibilityLabel="25 Question Banks"
+        />
 
-        <View style={[styles.metricCard, { width: metricWidth }]}>
-          <View style={[styles.metricIconBox, { backgroundColor: "#F0FDF4" }]}>
-            <FileBarChart color="#16A34A" size={20} />
-          </View>
-          <View style={styles.metricTextCol}>
-            <Text style={styles.metricVal}>{metrics.totalReports}</Text>
-            <Text style={styles.metricLbl} numberOfLines={1}>REPORTS</Text>
-          </View>
-        </View>
+        <AdminStatTile
+          icon={<FileBarChart color="#16A34A" size={22} />}
+          value={metrics.totalReports}
+          label="REPORTS"
+          iconBgColor="#F0FDF4"
+          cardWidth={metricTileWidth}
+          accessibilityLabel={`${metrics.totalReports} Reports Generated`}
+        />
 
-        <View style={[styles.metricCard, { width: metricWidth }]}>
-          <View style={[styles.metricIconBox, { backgroundColor: "#F0F9FF" }]}>
-            <Award color="#0284C7" size={20} />
-          </View>
-          <View style={styles.metricTextCol}>
-            <Text style={styles.metricVal}>92%</Text>
-            <Text style={styles.metricLbl} numberOfLines={1}>PASS RATIO</Text>
-          </View>
-        </View>
+        <AdminStatTile
+          icon={<Award color="#0284C7" size={22} />}
+          value="92%"
+          label="PASS RATIO"
+          iconBgColor="#F0F9FF"
+          cardWidth={metricTileWidth}
+          accessibilityLabel="92 Percent Pass Ratio"
+        />
       </View>
 
       {/* Full 11-Tab Navigation Grid Suite */}
