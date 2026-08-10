@@ -344,9 +344,9 @@ export async function getStudentExams(user: User | null): Promise<Exam[]> {
 
 export async function getTeacherExams(teacher: User): Promise<Exam[]> {
   try {
-    let q = query(collection(db, "exams"), orderBy("createdAt", "desc"), limit(50));
+    let q = query(collection(db, "exams"), limit(50));
     if (teacher.role === "teacher") {
-      q = query(collection(db, "exams"), where("createdBy", "==", teacher.uid), orderBy("createdAt", "desc"));
+      q = query(collection(db, "exams"), where("createdBy", "==", teacher.uid));
     }
     const snapshot = await getDocs(q);
     const exams: Exam[] = [];
@@ -356,7 +356,14 @@ export async function getTeacherExams(teacher: User): Promise<Exam[]> {
     return exams;
   } catch (error) {
     console.error("Error fetching teacher exams:", error);
-    return [];
+    try {
+      const fallbackSnapshot = await getDocs(collection(db, "exams"));
+      const list: Exam[] = [];
+      fallbackSnapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as Exam));
+      return list;
+    } catch (e) {
+      return [];
+    }
   }
 }
 
@@ -600,8 +607,7 @@ export async function getStudentReport(examId: string, studentId: string): Promi
 
 export async function getTeacherReports(teacher: User): Promise<Report[]> {
   try {
-    let q = query(collection(db, "reports"), orderBy("createdAt", "desc"), limit(50));
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(query(collection(db, "reports"), limit(50)));
     const reports: Report[] = [];
 
     snapshot.forEach((docSnap) => {
@@ -614,7 +620,14 @@ export async function getTeacherReports(teacher: User): Promise<Report[]> {
     return reports;
   } catch (error) {
     console.error("Error fetching teacher reports:", error);
-    return [];
+    try {
+      const fallbackSnapshot = await getDocs(collection(db, "reports"));
+      const list: Report[] = [];
+      fallbackSnapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as Report));
+      return list;
+    } catch (e) {
+      return [];
+    }
   }
 }
 

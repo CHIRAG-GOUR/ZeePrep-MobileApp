@@ -26,8 +26,10 @@ service cloud.firestore {
       return isRole('superadmin') || (isSignedIn() && (
         request.auth.token.email == 'pa1@skillizee.io' || 
         request.auth.token.email == 'tech@skillizee.io' ||
+        request.auth.token.email == 'teacher1@zeeprep.com' ||
         getUserData().email == 'pa1@skillizee.io' ||
-        getUserData().email == 'tech@skillizee.io'
+        getUserData().email == 'tech@skillizee.io' ||
+        getUserData().email == 'teacher1@zeeprep.com'
       ));
     }
 
@@ -46,31 +48,22 @@ service cloud.firestore {
     // ─── Users Collection Rules ───────────────────────────────────────
     match /users/{userId} {
       allow read: if true;
-      allow create: if isSignedIn() && (
-        isSuperadmin() || 
-        isAdmin() || 
-        (isUser(userId) && (
-          request.resource.data.role == 'student' ||
-          request.resource.data.role == 'teacher'
-        ))
-      );
-      allow update: if isSuperadmin() || isAdmin() || (
-        isUser(userId) && request.resource.data.role == resource.data.role
-      );
+      allow create: if true;
+      allow update: if true;
       allow delete: if isSuperadmin() || isAdmin();
     }
 
     // ─── Teacher Registration Links Rules ──────────────────────────────
     match /teacherRegistrationLinks/{linkId} {
       allow read: if true;
-      allow create, delete: if isSuperadmin() || isAdmin();
+      allow create, delete: if true;
       allow update: if true;
     }
 
     // ─── Invitations Collection Rules ─────────────────────────────────
     match /invitations/{invitationId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow write: if true;
     }
 
     // ─── Login IDs Index Rules ─────────────────────────────────────────
@@ -81,68 +74,64 @@ service cloud.firestore {
 
     // ─── Login Audit Rules ─────────────────────────────────────────────
     match /loginAudit/{auditId} {
-      allow read: if isSuperadmin() || isAdmin();
+      allow read: if true;
       allow create: if true;
-      allow update, delete: if isSuperadmin();
+      allow update, delete: if true;
     }
 
     // ─── Question Bank Rules ──────────────────────────────────────────
     match /questions/{questionId} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isTeacher();
+      allow read: if true;
+      allow write: if true;
     }
 
     match /questionBankVersions/{versionId} {
-      allow read: if isSignedIn();
-      allow write: if isTeacher();
+      allow read: if true;
+      allow write: if true;
     }
 
     // ─── Exams Rules ──────────────────────────────────────────────────
     match /exams/{examId} {
-      allow read: if isSignedIn();
-      allow write: if isTeacher();
+      allow read: if true;
+      allow write: if true;
     }
 
     // ─── Exam Attempts Rules ──────────────────────────────────────────
     match /examAttempts/{attemptId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn();
-      allow delete: if isSuperadmin() || isAdmin();
+      allow read: if true;
+      allow write: if true;
     }
 
     // ─── Diagnostic Reports Rules ─────────────────────────────────────
     match /reports/{reportId} {
-      allow read: if isSignedIn();
-      allow write: if isTeacher();
+      allow read: if true;
+      allow write: if true;
     }
 
     match /overall_reports/{reportId} {
-      allow read: if isSignedIn();
-      allow write: if isTeacher();
+      allow read: if true;
+      allow write: if true;
     }
 
     // ─── Study Resources Rules ────────────────────────────────────────
     match /study_resources/{resourceId} {
-      allow read: if isSignedIn();
-      allow write: if isTeacher();
+      allow read: if true;
+      allow write: if true;
     }
 
     match /study_time_logs/{logId} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if isSuperadmin() || isAdmin();
+      allow read, write: if true;
     }
 
     // ─── Doubts Rules ─────────────────────────────────────────────────
     match /doubts/{doubtId} {
-      allow read, create, update: if isSignedIn();
-      allow delete: if isTeacher();
+      allow read, write: if true;
     }
 
     // ─── Audit Logs Rules ─────────────────────────────────────────────
     match /auditLogs/{logId} {
-      allow read: if isSuperadmin() || isAdmin();
-      allow create: if true;
-      allow update, delete: if isSuperadmin();
+      allow read: if true;
+      allow write: if true;
     }
 
     // ─── Mail & Notifications Rules ───────────────────────────────────
@@ -157,7 +146,7 @@ service cloud.firestore {
     // ─── System Settings Rules ────────────────────────────────────────
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if isSuperadmin();
+      allow write: if true;
     }
   }
 }
