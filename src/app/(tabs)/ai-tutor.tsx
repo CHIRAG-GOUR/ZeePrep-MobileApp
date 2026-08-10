@@ -11,6 +11,7 @@ import {
 import { useAuthStore } from "../../stores/auth-store";
 import { ZEEPREP_THEME } from "../../constants/theme";
 import { Bot, Send, Sparkles, BookOpen, CheckCircle2, HelpCircle } from "lucide-react-native";
+import { generateAITutorResponse } from "../../services/ai";
 
 interface ChatMessage {
   id: string;
@@ -33,7 +34,7 @@ export default function StudentAITutorScreen() {
     },
   ]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputQuery.trim()) return;
 
     const userMsg: ChatMessage = {
@@ -48,14 +49,12 @@ export default function StudentAITutorScreen() {
     setInputQuery("");
     setLoading(true);
 
-    setTimeout(() => {
-      let responseText = `Here is the diagnostic explanation for "${queryText}":\n\n1. Key Principle: Focus on fundamental concepts in Grade ${user?.grade || "12"} curriculum.\n2. Step-by-Step Breakdown: Analyze givens, apply appropriate formulas, and check units.\n3. Exam Tip: Double check calculations and show intermediate steps for maximum marks.`;
-
-      if (queryText.toLowerCase().includes("formula")) {
-        responseText = `Key Formulas for Grade ${user?.grade || "12"} ${user?.stream || "Science"}:\n- Force (F) = m * a\n- Work (W) = F * d * cos(θ)\n- Kinetic Energy = 1/2 * m * v^2\n- Potential Energy = m * g * h`;
-      } else if (queryText.toLowerCase().includes("exam") || queryText.toLowerCase().includes("prep")) {
-        responseText = `ZeePrep Recommended Exam Prep Strategy:\n1. Solve Level 1 diagnostic questions to build confidence.\n2. Practice Level 2 numericals under timed conditions.\n3. Review your scorecard diagnostic reports to address weak areas.`;
-      }
+    try {
+      const responseText = await generateAITutorResponse(
+        queryText,
+        user?.grade || "12",
+        user?.stream || "Science"
+      );
 
       const aiMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -65,8 +64,11 @@ export default function StudentAITutorScreen() {
       };
 
       setMessages((prev) => [...prev, aiMsg]);
+    } catch (e) {
+      console.error("AI Tutor response error:", e);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
