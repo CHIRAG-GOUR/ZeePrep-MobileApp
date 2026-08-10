@@ -139,193 +139,198 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
       ) : null}
 
-      {/* Compact 2-Column Overview Statistics Grid */}
-      <View style={styles.metricsGrid}>
-        <AdminStatTile
-          icon={<School color={ZEEPREP_THEME.colors.primary} size={22} />}
-          value={3}
-          label="SCHOOLS"
-          iconBgColor="#EEF2FF"
-          cardWidth={metricTileWidth}
-          accessibilityLabel="3 Total Schools"
-        />
+      {/* Super Admin Overview Statistics Grid (Explicit 3 Columns x 2 Rows) */}
+      <View style={styles.gridSection}>
+        {/* Row 1 */}
+        <View style={styles.gridRow}>
+          <AdminStatTile
+            icon={<School color={ZEEPREP_THEME.colors.primary} size={18} />}
+            value={3}
+            label="SCHOOLS"
+            iconBgColor="#EEF2FF"
+            accessibilityLabel="3 Total Schools"
+          />
 
-        <AdminStatTile
-          icon={<UserCheck color="#059669" size={22} />}
-          value={metrics.teacherCount}
-          label="TEACHERS"
-          iconBgColor="#ECFDF5"
-          cardWidth={metricTileWidth}
-          accessibilityLabel={`${metrics.teacherCount} Total Teachers`}
-        />
+          <AdminStatTile
+            icon={<UserCheck color="#059669" size={18} />}
+            value={metrics.teacherCount}
+            label="TEACHERS"
+            iconBgColor="#ECFDF5"
+            accessibilityLabel={`${metrics.teacherCount} Total Teachers`}
+          />
 
-        <AdminStatTile
-          icon={<Users color="#7C3AED" size={22} />}
-          value={metrics.studentCount}
-          label="STUDENTS"
-          iconBgColor="#F3E8FF"
-          cardWidth={metricTileWidth}
-          accessibilityLabel={`${metrics.studentCount} Total Students`}
-        />
+          <AdminStatTile
+            icon={<Users color="#7C3AED" size={18} />}
+            value={metrics.studentCount}
+            label="STUDENTS"
+            iconBgColor="#F3E8FF"
+            accessibilityLabel={`${metrics.studentCount} Total Students`}
+          />
+        </View>
 
-        <AdminStatTile
-          icon={<FileCheck color="#D97706" size={22} />}
-          value={metrics.totalExams}
-          label="EXAMS"
-          iconBgColor="#FEF3C7"
-          cardWidth={metricTileWidth}
-          accessibilityLabel={`${metrics.totalExams} Total Exams`}
-        />
+        {/* Row 2 */}
+        <View style={styles.gridRow}>
+          <AdminStatTile
+            icon={<FileCheck color="#D97706" size={18} />}
+            value={metrics.totalExams}
+            label="EXAMS"
+            iconBgColor="#FEF3C7"
+            accessibilityLabel={`${metrics.totalExams} Total Exams`}
+          />
 
-        <AdminStatTile
-          icon={<Activity color="#2563EB" size={22} />}
-          value={1}
-          label="ACTIVE EXAMS"
-          iconBgColor="#EFF6FF"
-          cardWidth={metricTileWidth}
-          accessibilityLabel="1 Active Exam"
-        />
+          <AdminStatTile
+            icon={<Award color="#0284C7" size={18} />}
+            value="92%"
+            label="PASS RATIO"
+            iconBgColor="#F0F9FF"
+            accessibilityLabel="92 Percent Pass Ratio"
+          />
 
-        <AdminStatTile
-          icon={<HelpCircle color="#E11D48" size={22} />}
-          value={25}
-          label="QUESTION BANKS"
-          iconBgColor="#FFF1F2"
-          cardWidth={metricTileWidth}
-          accessibilityLabel="25 Question Banks"
-        />
-
-        <AdminStatTile
-          icon={<FileBarChart color="#16A34A" size={22} />}
-          value={metrics.totalReports}
-          label="REPORTS"
-          iconBgColor="#F0FDF4"
-          cardWidth={metricTileWidth}
-          accessibilityLabel={`${metrics.totalReports} Reports Generated`}
-        />
-
-        <AdminStatTile
-          icon={<Award color="#0284C7" size={22} />}
-          value="92%"
-          label="PASS RATIO"
-          iconBgColor="#F0F9FF"
-          cardWidth={metricTileWidth}
-          accessibilityLabel="92 Percent Pass Ratio"
-        />
+          <AdminStatTile
+            icon={<Activity color="#16A34A" size={18} />}
+            value="HEALTHY"
+            label="STATUS"
+            iconBgColor="#F0FDF4"
+            accessibilityLabel="System Status Healthy"
+            isSmallText={true}
+          />
+        </View>
       </View>
 
-      {/* Full 11-Tab Navigation Grid Suite */}
+      {/* Full SuperAdmin Feature Suite (Explicit 3 Columns per Row) */}
       <Text style={styles.sectionTitle}>Full SuperAdmin Feature Suite</Text>
-      <View style={styles.suiteGrid}>
-        <TouchableOpacity
-          style={[styles.suiteItem, { width: suiteItemWidth }]}
-          onPress={() => router.push("/(superadmin)")}
-        >
-          <View style={[styles.suiteIcon, { backgroundColor: "#EEF2FF" }]}>
-            <ShieldAlert color={ZEEPREP_THEME.colors.primary} size={18} />
-          </View>
-          <Text style={styles.suiteTitle}>Dashboard</Text>
-        </TouchableOpacity>
+      <View style={styles.gridSection}>
+        {/* Row 1 */}
+        <View style={styles.gridRow}>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(superadmin)")}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#EEF2FF" }]}>
+              <ShieldAlert color={ZEEPREP_THEME.colors.primary} size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Dashboard</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.suiteItem, { width: suiteItemWidth }]}
-          onPress={() => router.push("/(superadmin)/submissions")}
-        >
-          <View style={[styles.suiteIcon, { backgroundColor: "#ECFDF5" }]}>
-            <Activity color="#059669" size={18} />
-          </View>
-          <Text style={styles.suiteTitle}>Live Monitor</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(superadmin)/submissions")}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#ECFDF5" }]}>
+              <Activity color="#059669" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Live Monitor</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.suiteItem, { width: suiteItemWidth }]}
-          onPress={() => router.push("/(superadmin)/user-approval")}
-        >
-          <View style={[styles.suiteIcon, { backgroundColor: "#FEF3C7" }]}>
-            <Users color="#D97706" size={18} />
-          </View>
-          <Text style={styles.suiteTitle}>User Control</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(superadmin)/user-approval")}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#FEF3C7" }]}>
+              <Users color="#D97706" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>User Control</Text>
+          </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.suiteItem, { width: suiteItemWidth }]}
-          onPress={() => router.push("/(superadmin)/academic-hierarchy")}
-        >
-          <View style={[styles.suiteIcon, { backgroundColor: "#F3E8FF" }]}>
-            <Layers color="#7C3AED" size={18} />
-          </View>
-          <Text style={styles.suiteTitle}>Hierarchy</Text>
-        </TouchableOpacity>
+        {/* Row 2 */}
+        <View style={styles.gridRow}>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(superadmin)/academic-hierarchy")}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#F3E8FF" }]}>
+              <Layers color="#7C3AED" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Hierarchy</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.suiteItem, { width: suiteItemWidth }]}
-          onPress={() => router.push("/(superadmin)/question-bank")}
-        >
-          <View style={[styles.suiteIcon, { backgroundColor: "#EEF2FF" }]}>
-            <HelpCircle color="#4F46E5" size={18} />
-          </View>
-          <Text style={styles.suiteTitle}>Question Bank</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(superadmin)/user-approval")}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#EFF6FF" }]}>
+              <UserCheck color="#2563EB" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Approvals</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.suiteItem, { width: suiteItemWidth }]}
-          onPress={() => router.push("/(superadmin)/exams")}
-        >
-          <View style={[styles.suiteIcon, { backgroundColor: "#FEF3C7" }]}>
-            <FileCheck color="#D97706" size={18} />
-          </View>
-          <Text style={styles.suiteTitle}>Exams</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(superadmin)/analytics")}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#FFF1F2" }]}>
+              <TrendingUp color="#E11D48" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Analytics</Text>
+          </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.suiteItem, { width: suiteItemWidth }]}
-          onPress={() => router.push("/(superadmin)/resources")}
-        >
-          <View style={[styles.suiteIcon, { backgroundColor: "#E0E7FF" }]}>
-            <FolderKanban color="#4F46E5" size={18} />
-          </View>
-          <Text style={styles.suiteTitle}>Resources</Text>
-        </TouchableOpacity>
+        {/* Row 3 */}
+        <View style={styles.gridRow}>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(superadmin)/question-bank")}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#EEF2FF" }]}>
+              <HelpCircle color="#4F46E5" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Question Bank</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.suiteItem, { width: suiteItemWidth }]}
-          onPress={() => router.push("/(superadmin)/reports")}
-        >
-          <View style={[styles.suiteIcon, { backgroundColor: "#ECFDF5" }]}>
-            <FileBarChart color="#059669" size={18} />
-          </View>
-          <Text style={styles.suiteTitle}>Reports</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(superadmin)/exams")}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#FEF3C7" }]}>
+              <FileCheck color="#D97706" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Exams</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.suiteItem, { width: suiteItemWidth }]}
-          onPress={() => router.push("/(superadmin)/analytics")}
-        >
-          <View style={[styles.suiteIcon, { backgroundColor: "#F3E8FF" }]}>
-            <TrendingUp color="#7C3AED" size={18} />
-          </View>
-          <Text style={styles.suiteTitle}>Analytics Hub</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(superadmin)/resources")}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#E0E7FF" }]}>
+              <FolderKanban color="#4F46E5" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Resources</Text>
+          </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.suiteItem, { width: suiteItemWidth }]}
-          onPress={() => router.push("/(superadmin)/audit-logs")}
-        >
-          <View style={[styles.suiteIcon, { backgroundColor: "#FEF3C7" }]}>
-            <Activity color="#D97706" size={18} />
-          </View>
-          <Text style={styles.suiteTitle}>Audit Logs</Text>
-        </TouchableOpacity>
+        {/* Row 4 */}
+        <View style={styles.gridRow}>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(superadmin)/reports")}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#ECFDF5" }]}>
+              <FileBarChart color="#059669" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Reports</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.suiteItem, { width: suiteItemWidth }]}
-          onPress={() => router.push("/(superadmin)/settings")}
-        >
-          <View style={[styles.suiteIcon, { backgroundColor: "#F1F5F9" }]}>
-            <Settings color="#475569" size={18} />
-          </View>
-          <Text style={styles.suiteTitle}>Settings</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(superadmin)/audit-logs")}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#FEF3C7" }]}>
+              <Activity color="#D97706" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Audit Logs</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(superadmin)/settings")}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#F3E8FF" }]}>
+              <Settings color="#7C3AED" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Settings</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Storage & System Telemetry Card */}
@@ -464,50 +469,13 @@ const styles = StyleSheet.create({
     color: "#B45309",
     marginTop: 2,
   },
-  metricsGrid: {
+  gridSection: {
+    marginBottom: 20,
+  },
+  gridRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 24,
-  },
-  metricCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: ZEEPREP_THEME.colors.surface,
-    borderRadius: 18,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: ZEEPREP_THEME.colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 6,
-    elevation: 1,
-    gap: 10,
-  },
-  metricIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  metricTextCol: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  metricVal: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: ZEEPREP_THEME.colors.textPrimary,
-    lineHeight: 22,
-  },
-  metricLbl: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: ZEEPREP_THEME.colors.textSecondary,
-    letterSpacing: 0.5,
-    marginTop: 1,
+    gap: 8,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 16,
@@ -516,18 +484,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 4,
   },
-  suiteGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 24,
-  },
-  suiteItem: {
-    width: "31%",
+  suiteCard: {
+    flex: 1,
     backgroundColor: ZEEPREP_THEME.colors.surface,
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: ZEEPREP_THEME.colors.border,
     shadowColor: "#000",
@@ -536,10 +500,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  suiteIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+  suiteIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,
