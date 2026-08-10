@@ -4,12 +4,12 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCe8dpGyUuOsTGiNmPbDoCTC04N8yVl914",
-  authDomain: "zeeprep01.firebaseapp.com",
-  projectId: "zeeprep01",
-  storageBucket: "zeeprep01.firebasestorage.app",
-  messagingSenderId: "51016839352",
-  appId: "1:51016839352:web:75db958ecdc0e43d1a3c63",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "",
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || "zeeprep01.firebaseapp.com",
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || "zeeprep01",
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || "zeeprep01.firebasestorage.app",
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || "",
 };
 
 // Initialize Firebase App
