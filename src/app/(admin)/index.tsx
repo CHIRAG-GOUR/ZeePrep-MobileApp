@@ -102,7 +102,7 @@ export default function AdminDashboardScreen() {
 
         <TouchableOpacity
           style={styles.suiteItem}
-          onPress={() => router.push("/(teacher)/question-bank" as any)}
+          onPress={() => router.push("/(admin)/question-bank" as any)}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#EEF2FF" }]}>
             <HelpCircle color="#4F46E5" size={20} />
@@ -112,7 +112,7 @@ export default function AdminDashboardScreen() {
 
         <TouchableOpacity
           style={styles.suiteItem}
-          onPress={() => router.push("/(teacher)/resources" as any)}
+          onPress={() => router.push("/(admin)/resources" as any)}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#E0E7FF" }]}>
             <FolderKanban color="#4F46E5" size={20} />
@@ -122,7 +122,7 @@ export default function AdminDashboardScreen() {
 
         <TouchableOpacity
           style={styles.suiteItem}
-          onPress={() => router.push("/(superadmin)/academic-hierarchy" as any)}
+          onPress={() => router.push("/(admin)/academic-hierarchy" as any)}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#F3E8FF" }]}>
             <Layers color="#7C3AED" size={20} />

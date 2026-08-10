@@ -190,7 +190,7 @@ export default function SuperAdminDashboardScreen() {
 
         <TouchableOpacity
           style={styles.suiteItem}
-          onPress={() => router.push("/(teacher)/submissions")}
+          onPress={() => router.push("/(superadmin)/submissions")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#ECFDF5" }]}>
             <Activity color="#059669" size={18} />
@@ -220,7 +220,7 @@ export default function SuperAdminDashboardScreen() {
 
         <TouchableOpacity
           style={styles.suiteItem}
-          onPress={() => router.push("/(teacher)/question-bank")}
+          onPress={() => router.push("/(superadmin)/question-bank")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#EEF2FF" }]}>
             <HelpCircle color="#4F46E5" size={18} />
@@ -230,7 +230,7 @@ export default function SuperAdminDashboardScreen() {
 
         <TouchableOpacity
           style={styles.suiteItem}
-          onPress={() => router.push("/(teacher)/exams")}
+          onPress={() => router.push("/(superadmin)/exams")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#FEF3C7" }]}>
             <FileCheck color="#D97706" size={18} />
@@ -240,7 +240,7 @@ export default function SuperAdminDashboardScreen() {
 
         <TouchableOpacity
           style={styles.suiteItem}
-          onPress={() => router.push("/(teacher)/resources")}
+          onPress={() => router.push("/(superadmin)/resources")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#E0E7FF" }]}>
             <FolderKanban color="#4F46E5" size={18} />
@@ -250,7 +250,7 @@ export default function SuperAdminDashboardScreen() {
 
         <TouchableOpacity
           style={styles.suiteItem}
-          onPress={() => router.push("/(admin)/reports" as any)}
+          onPress={() => router.push("/(superadmin)/reports")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#ECFDF5" }]}>
             <FileBarChart color="#059669" size={18} />

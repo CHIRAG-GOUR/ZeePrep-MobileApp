@@ -81,6 +81,42 @@ export default function SuperAdminTabsLayout() {
           tabBarIcon: ({ color, size }) => <User color={color} size={size || 18} />,
         }}
       />
+
+      {/* Shared Screens Hidden from Bottom Tab Bar */}
+      <Tabs.Screen
+        name="submissions"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="question-bank"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="exams"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="resources"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="reports"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

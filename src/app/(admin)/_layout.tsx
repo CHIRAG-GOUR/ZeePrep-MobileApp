@@ -57,6 +57,28 @@ export default function AdminTabsLayout() {
           tabBarIcon: ({ color, size }) => <User color={color} size={size || 22} />,
         }}
       />
+
+      {/* Hidden Admin Sub-screens */}
+      <Tabs.Screen
+        name="question-bank"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="resources"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="academic-hierarchy"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
