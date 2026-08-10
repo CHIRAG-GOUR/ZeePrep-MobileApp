@@ -12,17 +12,18 @@ import {
   Alert,
   Platform,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
 import { getStudyResources, addStudyResource } from "../../services/firestore";
 import type { StudyResource } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
-import { FolderKanban, Plus, FileText, Video, Link as LinkIcon, X } from "lucide-react-native";
+import { FolderKanban, Plus, FileText, Video, Music, Image as ImageIcon, Link as LinkIcon, X, Eye } from "lucide-react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { normalizeResourceType } from "../../utils/resource-normalizer";
-import { ResourceViewerModal, openInAppResource } from "../../components/ResourceViewerModal";
 
 export default function TeacherResourcesScreen() {
+  const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const [resources, setResources] = useState<StudyResource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,13 +63,16 @@ export default function TeacherResourcesScreen() {
 
   const handleResourcePress = (rawRes: any) => {
     const res = normalizeResourceType(rawRes);
-    if (!res.url) return;
-    
-    if (Platform.OS === "web") {
-      setActiveResource(res);
-    } else {
-      openInAppResource(res);
-    }
+    router.push({
+      pathname: "/resource/[id]",
+      params: {
+        id: res.id || `res-${Date.now()}`,
+        rawUrl: res.url,
+        title: res.title,
+        type: res.type,
+        subject: res.subject,
+      },
+    } as any);
   };
 
   const handleUpload = async () => {
@@ -134,7 +138,11 @@ export default function TeacherResourcesScreen() {
         ) : resources.length > 0 ? (
           resources.map((rawRes, index) => {
             const res = normalizeResourceType(rawRes);
+            const resType = (res.type || "").toString().toLowerCase();
             const uniqueKey = res.id ? `res-${res.id}` : `res-${index}-${res.title}`;
+            const actionLabel =
+              resType === "video" ? "Watch" : resType === "audio" ? "Listen" : "Open";
+
             return (
               <TouchableOpacity
                 key={uniqueKey}
@@ -143,20 +151,31 @@ export default function TeacherResourcesScreen() {
                 activeOpacity={0.85}
               >
                 <View style={styles.iconBox}>
-                  {res.type === "video" ? (
+                  {resType === "video" ? (
                     <Video color={ZEEPREP_THEME.colors.primary} size={20} />
-                  ) : res.type === "pdf" ? (
+                  ) : resType === "audio" ? (
+                    <Music color="#D97706" size={20} />
+                  ) : resType === "image" ? (
+                    <ImageIcon color="#059669" size={20} />
+                  ) : resType === "pdf" ? (
                     <FileText color={ZEEPREP_THEME.colors.primary} size={20} />
                   ) : (
-                    <LinkIcon color={ZEEPREP_THEME.colors.primary} size={20} />
+                    <LinkIcon color="#4F46E5" size={20} />
                   )}
                 </View>
 
                 <View style={styles.cardContent}>
-                  <Text style={styles.resTitle}>{res.title}</Text>
+                  <Text style={styles.resTitle} numberOfLines={1}>
+                    {res.title}
+                  </Text>
                   <Text style={styles.resMeta}>
                     {res.subject} • Grade {res.grade} • {res.displayType}
                   </Text>
+                </View>
+
+                <View style={styles.openBtnBadge}>
+                  <Eye size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.openBtnText}>{actionLabel}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -216,13 +235,6 @@ export default function TeacherResourcesScreen() {
           </View>
         </View>
       </Modal>
-
-      {/* In-App Resource Viewer Modal */}
-      <ResourceViewerModal
-        visible={!!activeResource}
-        onClose={() => setActiveResource(null)}
-        resource={activeResource}
-      />
     </View>
   );
 }
@@ -309,6 +321,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: ZEEPREP_THEME.colors.textSecondary,
     marginTop: 2,
+  },
+  openBtnBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: ZEEPREP_THEME.colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  openBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
   },
   emptyBox: {
     backgroundColor: ZEEPREP_THEME.colors.surface,
