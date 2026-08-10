@@ -1,4 +1,9 @@
-import { signInWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+} from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { getUserByLoginId, getUserProfile } from "./firestore";
 import { useAuthStore } from "../stores/auth-store";
@@ -108,3 +113,21 @@ export function initAuthListener() {
     }
   });
 }
+
+// Send Password Reset Email via Firebase Auth
+export async function sendPasswordReset(email: string): Promise<{ success: boolean; message?: string }> {
+  try {
+    await sendPasswordResetEmail(auth, email.trim());
+    return { success: true, message: "Password reset link sent to your email address." };
+  } catch (error: any) {
+    console.error("Password reset error:", error);
+    let msg = "Failed to send reset email. Please verify the email address.";
+    if (error.code === "auth/user-not-found") {
+      msg = "No account found with this email address.";
+    } else if (error.code === "auth/invalid-email") {
+      msg = "Invalid email format.";
+    }
+    return { success: false, message: msg };
+  }
+}
+
