@@ -25,10 +25,14 @@ import {
   Trophy,
   Bot,
   User as UserIcon,
+  HelpCircle,
+  Bookmark,
+  FileText,
 } from "lucide-react-native";
 import { normalizeResourceType } from "../../utils/resource-normalizer";
 
 import SuperAdminRoleSwitcher from "../../components/SuperAdminRoleSwitcher";
+import { AdminStatTile } from "../../components/AdminStatTile";
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -111,113 +115,145 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* Quick Stats Grid */}
-      <View style={styles.statsGrid}>
-        <View style={[styles.statBox, { width: metricWidth }]}>
-          <View style={[styles.statIconBox, { backgroundColor: "#EEF2FF" }]}>
-            <FileCheck color={ZEEPREP_THEME.colors.primary} size={20} />
-          </View>
-          <View style={styles.statTextCol}>
-            <Text style={styles.statNumber}>{activeExams.length}</Text>
-            <Text style={styles.statLabel} numberOfLines={1}>AVAILABLE</Text>
-          </View>
-        </View>
+      {/* Student Overview Statistics Grid (Explicit 3-Column Horizontal Row) */}
+      <View style={styles.gridSection}>
+        <View style={styles.gridRow}>
+          <AdminStatTile
+            icon={<FileCheck color={ZEEPREP_THEME.colors.primary} size={18} />}
+            value={activeExams.length}
+            label="AVAILABLE"
+            iconBgColor="#EEF2FF"
+            accessibilityLabel={`${activeExams.length} Available Exams`}
+          />
 
-        <View style={[styles.statBox, { width: metricWidth }]}>
-          <View style={[styles.statIconBox, { backgroundColor: "#ECFDF5" }]}>
-            <TrendingUp color="#059669" size={20} />
-          </View>
-          <View style={styles.statTextCol}>
-            <Text style={styles.statNumber}>94%</Text>
-            <Text style={styles.statLabel} numberOfLines={1}>ACCURACY</Text>
-          </View>
-        </View>
+          <AdminStatTile
+            icon={<TrendingUp color="#059669" size={18} />}
+            value="94%"
+            label="ACCURACY"
+            iconBgColor="#ECFDF5"
+            accessibilityLabel="94 Percent Average Accuracy"
+          />
 
-        <View style={[styles.statBox, { width: metricWidth }]}>
-          <View style={[styles.statIconBox, { backgroundColor: "#FEF3C7" }]}>
-            <Award color="#D97706" size={20} />
-          </View>
-          <View style={styles.statTextCol}>
-            <Text style={styles.statNumber}>Top 5</Text>
-            <Text style={styles.statLabel} numberOfLines={1}>CLASS RANK</Text>
-          </View>
+          <AdminStatTile
+            icon={<Award color="#D97706" size={18} />}
+            value="Top 5"
+            label="CLASS RANK"
+            iconBgColor="#FEF3C7"
+            accessibilityLabel="Top 5 Class Rank"
+          />
         </View>
       </View>
 
-      {/* ZeePrep Suite Quick Access Feature Grid */}
+      {/* ZeePrep Feature Suite (Explicit 3 x 3 Grid) */}
       <Text style={styles.sectionTitle}>ZeePrep Feature Suite</Text>
-      <View style={styles.featureGrid}>
-        <TouchableOpacity
-          style={[styles.featureCard, { width: tileWidth }]}
-          onPress={() => router.push("/(tabs)/exams")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#EEF2FF" }]}>
-            <FileCheck color={ZEEPREP_THEME.colors.primary} size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Exams</Text>
-          <Text style={styles.featureSub}>Assessments</Text>
-        </TouchableOpacity>
+      <View style={styles.gridSection}>
+        {/* Row 1 */}
+        <View style={styles.gridRow}>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(tabs)/exams")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#EEF2FF" }]}>
+              <FileCheck color={ZEEPREP_THEME.colors.primary} size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Exams</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.featureCard, { width: tileWidth }]}
-          onPress={() => router.push("/(tabs)/reports")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#ECFDF5" }]}>
-            <FileBarChart color="#059669" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Reports</Text>
-          <Text style={styles.featureSub}>Scorecards</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(tabs)/reports")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#ECFDF5" }]}>
+              <FileBarChart color="#059669" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Reports</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.featureCard, { width: tileWidth }]}
-          onPress={() => router.push("/(tabs)/resources")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#FEF3C7" }]}>
-            <BookOpen color="#D97706" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Library</Text>
-          <Text style={styles.featureSub}>Materials</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(tabs)/resources")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#FEF3C7" }]}>
+              <BookOpen color="#D97706" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Library</Text>
+          </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.featureCard, { width: tileWidth }]}
-          onPress={() => router.push("/(tabs)/leaderboard")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#F3E8FF" }]}>
-            <Trophy color="#7C3AED" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Rankings</Text>
-          <Text style={styles.featureSub}>Leaderboard</Text>
-        </TouchableOpacity>
+        {/* Row 2 */}
+        <View style={styles.gridRow}>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(tabs)/leaderboard")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#F3E8FF" }]}>
+              <Trophy color="#7C3AED" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Rankings</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.featureCard, { width: tileWidth }]}
-          onPress={() => router.push("/(tabs)/ai-tutor")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#E0E7FF" }]}>
-            <Bot color="#4F46E5" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>AI Tutor</Text>
-          <Text style={styles.featureSub}>Copilot</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(tabs)/ai-tutor")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#E0E7FF" }]}>
+              <Bot color="#4F46E5" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>AI Tutor</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.featureCard, { width: tileWidth }]}
-          onPress={() => router.push("/(tabs)/profile")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#F1F5F9" }]}>
-            <UserIcon color="#475569" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Profile</Text>
-          <Text style={styles.featureSub}>Account</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(tabs)/profile")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#F1F5F9" }]}>
+              <UserIcon color="#475569" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Profile</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Row 3 */}
+        <View style={styles.gridRow}>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(tabs)/exams")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#EEF2FF" }]}>
+              <HelpCircle color="#4F46E5" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Practice Quiz</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(tabs)/resources")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#ECFDF5" }]}>
+              <FileText color="#059669" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Study Notes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(tabs)/resources")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#FEF3C7" }]}>
+              <Bookmark color="#D97706" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Bookmarks</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Active & Scheduled Exams Section */}
@@ -366,62 +402,22 @@ const styles = StyleSheet.create({
     color: ZEEPREP_THEME.colors.textSecondary,
     marginTop: 2,
   },
-  statsGrid: {
-    flexDirection: "row",
-    gap: 12,
+  gridSection: {
     marginBottom: 20,
   },
-  statBox: {
+  gridRow: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: ZEEPREP_THEME.colors.surface,
-    borderRadius: 16,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: ZEEPREP_THEME.colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 6,
-    elevation: 1,
     gap: 8,
+    marginBottom: 8,
   },
-  statIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statTextCol: {
+  suiteCard: {
     flex: 1,
-    justifyContent: "center",
-  },
-  statNumber: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: ZEEPREP_THEME.colors.textPrimary,
-    lineHeight: 20,
-  },
-  statLabel: {
-    fontSize: 8,
-    fontWeight: "800",
-    color: ZEEPREP_THEME.colors.textSecondary,
-    letterSpacing: 0.5,
-    marginTop: 1,
-  },
-  featureGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 24,
-  },
-  featureCard: {
-    width: "31%",
     backgroundColor: ZEEPREP_THEME.colors.surface,
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: ZEEPREP_THEME.colors.border,
     shadowColor: "#000",
@@ -430,23 +426,19 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  suiteIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  featureTitle: {
-    fontSize: 12,
+  suiteTitle: {
+    fontSize: 11,
     fontWeight: "700",
     color: ZEEPREP_THEME.colors.textPrimary,
-  },
-  featureSub: {
-    fontSize: 10,
-    color: ZEEPREP_THEME.colors.textSecondary,
-    marginTop: 1,
+    textAlign: "center",
   },
   sectionHeader: {
     flexDirection: "row",

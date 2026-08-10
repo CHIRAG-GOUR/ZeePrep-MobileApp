@@ -25,9 +25,12 @@ import {
   FolderKanban,
   User as UserIcon,
   FileBarChart,
+  FileText,
+  TrendingUp,
 } from "lucide-react-native";
 
 import SuperAdminRoleSwitcher from "../../components/SuperAdminRoleSwitcher";
+import { AdminStatTile } from "../../components/AdminStatTile";
 
 export default function TeacherDashboardScreen() {
   const router = useRouter();
@@ -108,103 +111,145 @@ export default function TeacherDashboardScreen() {
         </View>
       </View>
 
-      {/* Metrics Row */}
-      <View style={styles.statsGrid}>
-        <View style={[styles.statBox, { width: metricWidth }]}>
-          <View style={[styles.statIconBox, { backgroundColor: "#EEF2FF" }]}>
-            <FileCheck color={ZEEPREP_THEME.colors.primary} size={20} />
-          </View>
-          <View style={styles.statTextCol}>
-            <Text style={styles.statNumber}>{exams.length}</Text>
-            <Text style={styles.statLabel} numberOfLines={1}>EXAMS CREATED</Text>
-          </View>
-        </View>
+      {/* Teacher Overview Statistics Grid (Explicit 3-Column Horizontal Row) */}
+      <View style={styles.gridSection}>
+        <View style={styles.gridRow}>
+          <AdminStatTile
+            icon={<FileCheck color={ZEEPREP_THEME.colors.primary} size={18} />}
+            value={exams.length}
+            label="EXAMS"
+            iconBgColor="#EEF2FF"
+            accessibilityLabel={`${exams.length} Exams Created`}
+          />
 
-        <View style={[styles.statBox, { width: metricWidth }]}>
-          <View style={[styles.statIconBox, { backgroundColor: "#ECFDF5" }]}>
-            <Users color="#059669" size={20} />
-          </View>
-          <View style={styles.statTextCol}>
-            <Text style={styles.statNumber}>{reports.length}</Text>
-            <Text style={styles.statLabel} numberOfLines={1}>SUBMISSIONS</Text>
-          </View>
+          <AdminStatTile
+            icon={<Users color="#059669" size={18} />}
+            value={reports.length}
+            label="SUBMISSIONS"
+            iconBgColor="#ECFDF5"
+            accessibilityLabel={`${reports.length} Student Submissions`}
+          />
+
+          <AdminStatTile
+            icon={<TrendingUp color="#7C3AED" size={18} />}
+            value="88%"
+            label="AVG SCORE"
+            iconBgColor="#F3E8FF"
+            accessibilityLabel="88 Percent Average Class Score"
+          />
         </View>
       </View>
 
-      {/* Faculty Tools Feature Grid */}
+      {/* Faculty Control Suite (Explicit 3 x 3 Grid) */}
       <Text style={styles.sectionTitle}>Faculty Control Suite</Text>
-      <View style={styles.featureGrid}>
-        <TouchableOpacity
-          style={[styles.featureCard, { width: tileWidth }]}
-          onPress={() => router.push("/(teacher)/submissions")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#F3E8FF" }]}>
-            <Activity color="#7C3AED" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Live Monitor</Text>
-          <Text style={styles.featureSub}>Live Scores</Text>
-        </TouchableOpacity>
+      <View style={styles.gridSection}>
+        {/* Row 1 */}
+        <View style={styles.gridRow}>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(teacher)/submissions")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#F3E8FF" }]}>
+              <Activity color="#7C3AED" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Live Monitor</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.featureCard, { width: tileWidth }]}
-          onPress={() => router.push("/(teacher)/question-bank")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#EEF2FF" }]}>
-            <HelpCircle color={ZEEPREP_THEME.colors.primary} size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Question Bank</Text>
-          <Text style={styles.featureSub}>Item Bank</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(teacher)/question-bank")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#EEF2FF" }]}>
+              <HelpCircle color={ZEEPREP_THEME.colors.primary} size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Question Bank</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.featureCard, { width: tileWidth }]}
-          onPress={() => router.push("/(teacher)/exams")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#FEF3C7" }]}>
-            <FileCheck color="#D97706" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Exams</Text>
-          <Text style={styles.featureSub}>Assessments</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(teacher)/exams")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#FEF3C7" }]}>
+              <FileCheck color="#D97706" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Exams</Text>
+          </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.featureCard, { width: tileWidth }]}
-          onPress={() => router.push("/(teacher)/resources")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#E0E7FF" }]}>
-            <FolderKanban color="#4F46E5" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Resources</Text>
-          <Text style={styles.featureSub}>Materials</Text>
-        </TouchableOpacity>
+        {/* Row 2 */}
+        <View style={styles.gridRow}>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(teacher)/resources")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#E0E7FF" }]}>
+              <FolderKanban color="#4F46E5" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Resources</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.featureCard, { width: tileWidth }]}
-          onPress={() => router.push("/(teacher)/reports")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#ECFDF5" }]}>
-            <FileBarChart color="#059669" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Reports</Text>
-          <Text style={styles.featureSub}>Scorecards</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(teacher)/reports")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#ECFDF5" }]}>
+              <FileBarChart color="#059669" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Reports</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.featureCard, { width: tileWidth }]}
-          onPress={() => router.push("/(teacher)/exam-builder")}
-          activeOpacity={0.85}
-        >
-          <View style={[styles.featureIcon, { backgroundColor: "#ECFDF5" }]}>
-            <PlusCircle color="#059669" size={20} />
-          </View>
-          <Text style={styles.featureTitle}>Creator</Text>
-          <Text style={styles.featureSub}>Build Exam</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(teacher)/exam-builder")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#FEF3C7" }]}>
+              <PlusCircle color="#D97706" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Exam Creator</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Row 3 */}
+        <View style={styles.gridRow}>
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(teacher)/questions")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#EFF6FF" }]}>
+              <FileText color="#2563EB" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Questions</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(teacher)/roster")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#F3E8FF" }]}>
+              <Users color="#7C3AED" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Class Roster</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.suiteCard}
+            onPress={() => router.push("/(teacher)/profile")}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.suiteIconBox, { backgroundColor: "#F1F5F9" }]}>
+              <UserIcon color="#475569" size={18} />
+            </View>
+            <Text style={styles.suiteTitle} numberOfLines={1} adjustsFontSizeToFit>Profile</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Active Exams Section */}
@@ -336,62 +381,22 @@ const styles = StyleSheet.create({
     color: ZEEPREP_THEME.colors.textSecondary,
     marginTop: 2,
   },
-  statsGrid: {
-    flexDirection: "row",
-    gap: 12,
+  gridSection: {
     marginBottom: 20,
   },
-  statBox: {
+  gridRow: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: ZEEPREP_THEME.colors.surface,
-    borderRadius: 18,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: ZEEPREP_THEME.colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 6,
-    elevation: 1,
-    gap: 10,
+    gap: 8,
+    marginBottom: 8,
   },
-  statIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statTextCol: {
+  suiteCard: {
     flex: 1,
-    justifyContent: "center",
-  },
-  statNumber: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: ZEEPREP_THEME.colors.textPrimary,
-    lineHeight: 22,
-  },
-  statLabel: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: ZEEPREP_THEME.colors.textSecondary,
-    letterSpacing: 0.5,
-    marginTop: 1,
-  },
-  featureGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 24,
-  },
-  featureCard: {
-    width: "31%",
     backgroundColor: ZEEPREP_THEME.colors.surface,
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: ZEEPREP_THEME.colors.border,
     shadowColor: "#000",
@@ -400,23 +405,19 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  suiteIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  featureTitle: {
-    fontSize: 12,
+  suiteTitle: {
+    fontSize: 11,
     fontWeight: "700",
     color: ZEEPREP_THEME.colors.textPrimary,
-  },
-  featureSub: {
-    fontSize: 10,
-    color: ZEEPREP_THEME.colors.textSecondary,
-    marginTop: 1,
+    textAlign: "center",
   },
   sectionHeader: {
     flexDirection: "row",
