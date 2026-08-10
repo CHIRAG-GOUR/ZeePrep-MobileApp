@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -24,9 +24,11 @@ import {
   Play,
   Pause,
   RotateCcw,
+  RotateCw,
   Volume2,
   VolumeX,
-  ExternalLink,
+  Headphones,
+  Zap,
   FileCode,
 } from "lucide-react-native";
 import {
@@ -42,27 +44,26 @@ import { WebView } from "react-native-webview";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// Custom Video Component using expo-video
-function ExpoVideoPlayerContainer({ videoUrl }: { videoUrl: string }) {
+/**
+ * CUSTOM VIDEO PLAYER — Matched exactly to ZeePrep Web App CustomVideoPlayer design.
+ * Features: Play/Pause, Rewind (-10s), Fast Forward (+10s), Speed Selector (0.75x - 2x), Mute Toggle, No Download option.
+ */
+function ZeePrepCustomVideoPlayer({
+  videoUrl,
+  title,
+  subject,
+}: {
+  videoUrl: string;
+  title: string;
+  subject: string;
+}) {
+  const [speed, setSpeed] = useState<number>(1);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+
   const player = useVideoPlayer(videoUrl, (p) => {
     p.loop = false;
     p.play();
   });
-
-  return (
-    <View style={styles.videoContainer}>
-      <VideoView
-        style={styles.videoPlayer}
-        player={player}
-        nativeControls
-      />
-    </View>
-  );
-}
-
-// Custom Audio Component using expo-audio
-function ExpoAudioPlayerContainer({ audioUrl, title, subject }: { audioUrl: string; title: string; subject: string }) {
-  const player = useAudioPlayer(audioUrl);
 
   const togglePlay = () => {
     if (player.playing) {
@@ -70,6 +71,166 @@ function ExpoAudioPlayerContainer({ audioUrl, title, subject }: { audioUrl: stri
     } else {
       player.play();
     }
+  };
+
+  const seekRelative = (seconds: number) => {
+    const nextTime = Math.max(0, Math.min(player.duration || 0, player.currentTime + seconds));
+    player.currentTime = nextTime;
+  };
+
+  const changeSpeed = (newSpeed: number) => {
+    setSpeed(newSpeed);
+    player.playbackRate = newSpeed;
+  };
+
+  const toggleMute = () => {
+    const nextMute = !isMuted;
+    setIsMuted(nextMute);
+    player.muted = nextMute;
+  };
+
+  return (
+    <View style={styles.webVideoWrapper}>
+      {/* Top Media Header */}
+      <View style={styles.webMediaHeader}>
+        <View style={styles.webMediaBadgeBox}>
+          <VideoIcon size={16} color="#FFFFFF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.webMediaTitle} numberOfLines={1}>
+            {title}
+          </Text>
+          <Text style={styles.webMediaSub}>{subject} • Interactive Video Lesson</Text>
+        </View>
+      </View>
+
+      {/* Video Viewport Container */}
+      <View style={styles.videoPlayerBox}>
+        <VideoView style={styles.nativeVideoView} player={player} nativeControls={false} />
+      </View>
+
+      {/* ZeePrep Custom Controls Bar (No Download Option Anywhere) */}
+      <View style={styles.webControlsBar}>
+        {/* Playback Transport Buttons */}
+        <View style={styles.transportRow}>
+          <TouchableOpacity
+            style={styles.circleIconBtn}
+            onPress={() => seekRelative(-10)}
+            accessibilityLabel="-10 seconds"
+          >
+            <RotateCcw size={18} color="#CBD5E1" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.mainPlayBtn}
+            onPress={togglePlay}
+            accessibilityLabel={player.playing ? "Pause" : "Play"}
+          >
+            {player.playing ? (
+              <Pause size={24} color="#FFFFFF" />
+            ) : (
+              <Play size={24} color="#FFFFFF" style={{ marginLeft: 3 }} />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.circleIconBtn}
+            onPress={() => seekRelative(10)}
+            accessibilityLabel="+10 seconds"
+          >
+            <RotateCw size={18} color="#CBD5E1" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Speed Selector Chips */}
+        <View style={styles.speedChipGroup}>
+          {[0.75, 1, 1.25, 1.5, 2].map((spd) => (
+            <TouchableOpacity
+              key={`speed-${spd}`}
+              style={[styles.speedChip, speed === spd && styles.speedChipActive]}
+              onPress={() => changeSpeed(spd)}
+            >
+              <Text style={[styles.speedChipText, speed === spd && styles.speedChipTextActive]}>
+                {spd}x
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Volume / Mute Button */}
+        <TouchableOpacity style={styles.circleIconBtn} onPress={toggleMute}>
+          {isMuted ? <VolumeX size={18} color="#EF4444" /> : <Volume2 size={18} color="#CBD5E1" />}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * CUSTOM AUDIO PLAYER — Matched exactly to ZeePrep Web App CustomAudioPlayer design.
+ * Features: Animated 32-Bar Waveform Visualizer, Play/Pause, -10s/+10s, Speed selector, Volume toggle, No Download option.
+ */
+function ZeePrepCustomAudioPlayer({
+  audioUrl,
+  title,
+  subject,
+}: {
+  audioUrl: string;
+  title: string;
+  subject: string;
+}) {
+  const player = useAudioPlayer(audioUrl);
+  const [speed, setSpeed] = useState<number>(1);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [animTick, setAnimTick] = useState<number>(0);
+
+  // Animated Waveform Heights (32 bars matching web app)
+  const waveformHeights = Array.from({ length: 32 }, (_, i) => {
+    const base = Math.sin(i * 0.45) * 40 + 50; // 10% to 90%
+    if (player.playing) {
+      // Dynamic bouncing when playing
+      const pulse = Math.sin((i + animTick) * 0.6) * 20;
+      return Math.max(15, Math.min(95, base + pulse));
+    }
+    return base;
+  });
+
+  useEffect(() => {
+    let timer: any = null;
+    if (player.playing) {
+      timer = setInterval(() => {
+        setAnimTick((prev) => (prev + 1) % 100);
+      }, 120);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [player.playing]);
+
+  const togglePlay = () => {
+    if (player.playing) {
+      player.pause();
+    } else {
+      player.play();
+    }
+  };
+
+  const seekRelative = (seconds: number) => {
+    const duration = player.duration || 0;
+    const currentTime = player.currentTime || 0;
+    const nextTime = Math.max(0, Math.min(duration, currentTime + seconds));
+    player.seekTo(nextTime);
+  };
+
+  const changeSpeed = (newSpeed: number) => {
+    setSpeed(newSpeed);
+    player.setPlaybackRate(newSpeed);
+  };
+
+  const toggleMute = () => {
+    const nextMute = !isMuted;
+    setIsMuted(nextMute);
+    player.muted = nextMute;
   };
 
   const formatTime = (seconds: number) => {
@@ -81,37 +242,100 @@ function ExpoAudioPlayerContainer({ audioUrl, title, subject }: { audioUrl: stri
 
   const currentTime = player.currentTime || 0;
   const duration = player.duration || 0;
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const currentProgressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  const handleWaveformPress = (barIndex: number) => {
+    if (!duration) return;
+    const seekPct = barIndex / 32;
+    player.seekTo(seekPct * duration);
+  };
 
   return (
-    <View style={styles.audioContainer}>
-      <View style={styles.audioCard}>
-        <View style={styles.audioIconCircle}>
-          <Music size={44} color={ZEEPREP_THEME.colors.primary} />
-        </View>
-
-        <Text style={styles.audioTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={styles.audioSub}>{subject} • Audio Lecture</Text>
-
-        {/* Progress Bar */}
-        <View style={styles.progressRow}>
-          <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+    <View style={styles.webAudioContainer}>
+      <View style={styles.webAudioCard}>
+        {/* Header Info Bar */}
+        <View style={styles.webAudioHeader}>
+          <View style={styles.audioIconBadge}>
+            <Headphones size={22} color="#FFFFFF" />
           </View>
-          <Text style={styles.timeText}>{formatTime(duration)}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.audioTitleText} numberOfLines={1}>
+              {title}
+            </Text>
+            <Text style={styles.audioSubText}>{subject} • Interactive Audio Lesson & Podcast</Text>
+          </View>
         </View>
 
-        {/* Play/Pause Button */}
-        <TouchableOpacity style={styles.audioPlayBtn} onPress={togglePlay}>
-          {player.playing ? (
-            <Pause size={28} color="#FFFFFF" />
-          ) : (
-            <Play size={28} color="#FFFFFF" style={{ marginLeft: 4 }} />
-          )}
-        </TouchableOpacity>
+        {/* 32-Bar Interactive Waveform Visualizer */}
+        <View style={styles.waveformContainer}>
+          <View style={styles.waveformBarsRow}>
+            {waveformHeights.map((heightPct, idx) => {
+              const barProgressPct = (idx / 32) * 100;
+              const isPlayed = barProgressPct <= currentProgressPct;
+
+              return (
+                <TouchableOpacity
+                  key={`wave-${idx}`}
+                  style={[
+                    styles.waveformBar,
+                    { height: `${heightPct}%` },
+                    isPlayed ? styles.waveformBarActive : styles.waveformBarInactive,
+                  ]}
+                  onPress={() => handleWaveformPress(idx)}
+                  activeOpacity={0.8}
+                />
+              );
+            })}
+          </View>
+
+          {/* Time Progress Display */}
+          <View style={styles.timeDisplayRow}>
+            <Text style={styles.monoTimeText}>{formatTime(currentTime)}</Text>
+            <Text style={styles.monoTimeText}>{formatTime(duration)}</Text>
+          </View>
+        </View>
+
+        {/* Main Playback Controls Toolbar */}
+        <View style={styles.audioControlsRow}>
+          {/* Transport Buttons */}
+          <View style={styles.transportRow}>
+            <TouchableOpacity style={styles.circleIconBtn} onPress={() => seekRelative(-10)}>
+              <RotateCcw size={18} color="#CBD5E1" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.mainPlayBtn} onPress={togglePlay}>
+              {player.playing ? (
+                <Pause size={24} color="#FFFFFF" />
+              ) : (
+                <Play size={24} color="#FFFFFF" style={{ marginLeft: 3 }} />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.circleIconBtn} onPress={() => seekRelative(10)}>
+              <RotateCw size={18} color="#CBD5E1" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Speed Selector Chips */}
+          <View style={styles.speedChipGroup}>
+            {[0.75, 1, 1.25, 1.5, 2].map((spd) => (
+              <TouchableOpacity
+                key={`aud-speed-${spd}`}
+                style={[styles.speedChip, speed === spd && styles.speedChipActive]}
+                onPress={() => changeSpeed(spd)}
+              >
+                <Text style={[styles.speedChipText, speed === spd && styles.speedChipTextActive]}>
+                  {spd}x
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Mute Toggle */}
+          <TouchableOpacity style={styles.circleIconBtn} onPress={toggleMute}>
+            {isMuted ? <VolumeX size={18} color="#EF4444" /> : <Volume2 size={18} color="#CBD5E1" />}
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -191,17 +415,6 @@ export default function ResourceViewerScreen() {
         return;
       }
 
-      // Development logging diagnostics as required by Phase 12
-      console.log("[Resource Viewer Diagnostics]:", {
-        id: normalized.id,
-        title: normalized.title,
-        format: normalized.format,
-        rawType: normalized.rawType,
-        storagePath: normalized.storagePath,
-        rawUrl: normalized.url,
-        resolvedUrl: finalUrl,
-      });
-
       setResource(normalized);
       setResolvedUrl(finalUrl);
 
@@ -242,7 +455,7 @@ export default function ResourceViewerScreen() {
   const renderContent = () => {
     if (!resource || !resolvedUrl) return null;
 
-    // 1. TEXT FILES (.txt, .log, .md)
+    // 1. TEXT FILES (.txt, .log, .md) — In-app view only, NO download option
     if (resource.format === "text") {
       return (
         <View style={styles.textContainer}>
@@ -264,20 +477,24 @@ export default function ResourceViewerScreen() {
       );
     }
 
-    // 2. PDF DOCUMENTS
+    // 2. PDF DOCUMENTS — In-app view only with toolbar disabled (#toolbar=0&navpanes=0), NO download option
     if (resource.format === "pdf") {
+      const pdfEmbedUrl = resolvedUrl.includes("#")
+        ? resolvedUrl
+        : `${resolvedUrl}#toolbar=0&navpanes=0&scrollbar=1`;
+
       if (Platform.OS === "web") {
         return (
           <iframe
-            src={resolvedUrl}
+            src={pdfEmbedUrl}
             style={{ width: "100%", height: "100%", border: "none", backgroundColor: "#F8FAFC" }}
-            allowFullScreen
+            allowFullScreen={false}
           />
         );
       }
       return (
         <WebView
-          source={{ uri: resolvedUrl }}
+          source={{ uri: pdfEmbedUrl }}
           style={styles.webView}
           startInLoadingState
           renderLoading={() => (
@@ -290,7 +507,7 @@ export default function ResourceViewerScreen() {
       );
     }
 
-    // 3. IMAGES
+    // 3. IMAGES — In-app view only, NO download option
     if (resource.format === "image") {
       if (imageError) {
         return (
@@ -317,7 +534,7 @@ export default function ResourceViewerScreen() {
       );
     }
 
-    // 4. VIDEO (expo-video)
+    // 4. VIDEO — ZeePrep Web App Custom Video Player, NO download option
     if (resource.format === "video") {
       if (resolvedUrl.includes("youtube.com") || resolvedUrl.includes("youtu.be")) {
         let videoId = "";
@@ -326,7 +543,7 @@ export default function ResourceViewerScreen() {
         } else if (resolvedUrl.includes("v=")) {
           videoId = resolvedUrl.split("v=")[1]?.split("&")[0] || "";
         }
-        const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+        const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&controls=1`;
 
         if (Platform.OS === "web") {
           return (
@@ -334,20 +551,26 @@ export default function ResourceViewerScreen() {
               src={embedUrl}
               style={{ width: "100%", height: "100%", border: "none", backgroundColor: "#000" }}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
+              allowFullScreen={false}
             />
           );
         }
         return <WebView source={{ uri: embedUrl }} style={{ flex: 1, backgroundColor: "#000" }} />;
       }
 
-      return <ExpoVideoPlayerContainer videoUrl={resolvedUrl} />;
+      return (
+        <ZeePrepCustomVideoPlayer
+          videoUrl={resolvedUrl}
+          title={resource.title}
+          subject={resource.subject}
+        />
+      );
     }
 
-    // 5. AUDIO (expo-audio)
+    // 5. AUDIO — ZeePrep Web App Custom Audio Player, NO download option
     if (resource.format === "audio") {
       return (
-        <ExpoAudioPlayerContainer
+        <ZeePrepCustomAudioPlayer
           audioUrl={resolvedUrl}
           title={resource.title}
           subject={resource.subject}
@@ -355,7 +578,7 @@ export default function ResourceViewerScreen() {
       );
     }
 
-    // 6. OFFICE DOCUMENTS (DOC, DOCX, PPT, PPTX, XLS, XLSX)
+    // 6. OFFICE DOCUMENTS (DOC, DOCX, PPT, PPTX, XLS, XLSX) — In-app view only, NO download option
     if (resource.format === "doc") {
       const officeEmbedUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(resolvedUrl)}`;
       if (Platform.OS === "web") {
@@ -363,7 +586,7 @@ export default function ResourceViewerScreen() {
           <iframe
             src={officeEmbedUrl}
             style={{ width: "100%", height: "100%", border: "none", backgroundColor: "#F8FAFC" }}
-            allowFullScreen
+            allowFullScreen={false}
           />
         );
       }
@@ -382,7 +605,7 @@ export default function ResourceViewerScreen() {
       );
     }
 
-    // 7. WEB LINK
+    // 7. WEB LINK — In-app view only, NO download option
     if (Platform.OS === "web") {
       return (
         <iframe src={resolvedUrl} style={{ width: "100%", height: "100%", border: "none" }} />
@@ -583,15 +806,203 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  videoContainer: {
+
+  // ---------------- CUSTOM VIDEO PLAYER STYLES (ZEEPREP WEB MATCH) ----------------
+  webVideoWrapper: {
+    flex: 1,
+    backgroundColor: "#090D16",
+    justifyContent: "space-between",
+  },
+  webMediaHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#0F172A",
+    borderBottomWidth: 1,
+    borderBottomColor: "#1E293B",
+  },
+  webMediaBadgeBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#4F46E5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  webMediaTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  webMediaSub: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#94A3B8",
+    marginTop: 2,
+  },
+  videoPlayerBox: {
     flex: 1,
     backgroundColor: "#000000",
     justifyContent: "center",
   },
-  videoPlayer: {
+  nativeVideoView: {
     width: "100%",
-    height: 320,
+    height: 280,
   },
+  webControlsBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: "#0F172A",
+    borderTopWidth: 1,
+    borderTopColor: "#1E293B",
+  },
+  transportRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  circleIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#1E293B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mainPlayBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "#4F46E5",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 3,
+  },
+  speedChipGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#1E293B",
+    padding: 4,
+    borderRadius: 12,
+  },
+  speedChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  speedChipActive: {
+    backgroundColor: "#4F46E5",
+  },
+  speedChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#94A3B8",
+  },
+  speedChipTextActive: {
+    color: "#FFFFFF",
+  },
+
+  // ---------------- CUSTOM AUDIO PLAYER STYLES (ZEEPREP WEB MATCH) ----------------
+  webAudioContainer: {
+    flex: 1,
+    backgroundColor: "#090D16",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  webAudioCard: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#0F172A",
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#1E293B",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  webAudioHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1E293B",
+    marginBottom: 16,
+  },
+  audioIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#4F46E5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  audioTitleText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  audioSubText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#94A3B8",
+    marginTop: 2,
+  },
+  waveformContainer: {
+    backgroundColor: "#020617",
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#1E293B",
+    marginBottom: 20,
+  },
+  waveformBarsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 64,
+    paddingHorizontal: 4,
+  },
+  waveformBar: {
+    width: 4,
+    borderRadius: 2,
+  },
+  waveformBarActive: {
+    backgroundColor: "#6366F1",
+  },
+  waveformBarInactive: {
+    backgroundColor: "#1E293B",
+  },
+  timeDisplayRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  monoTimeText: {
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#94A3B8",
+  },
+  audioControlsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+
+  // Text File Styles
   textContainer: {
     flex: 1,
     backgroundColor: "#0F172A",
@@ -620,88 +1031,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#E2E8F0",
     lineHeight: 20,
-  },
-  audioContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-    backgroundColor: "#F8FAFC",
-  },
-  audioCard: {
-    width: "100%",
-    maxWidth: 360,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 28,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  audioIconCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: "#EEF2FF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-  },
-  audioTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: ZEEPREP_THEME.colors.textPrimary,
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  audioSub: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: ZEEPREP_THEME.colors.textSecondary,
-    marginBottom: 24,
-  },
-  progressRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    width: "100%",
-    marginBottom: 24,
-  },
-  timeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#64748B",
-    width: 36,
-    textAlign: "center",
-  },
-  progressBarBg: {
-    flex: 1,
-    height: 6,
-    backgroundColor: "#E2E8F0",
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressBarFill: {
-    height: "100%",
-    backgroundColor: ZEEPREP_THEME.colors.primary,
-    borderRadius: 3,
-  },
-  audioPlayBtn: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: ZEEPREP_THEME.colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: ZEEPREP_THEME.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
 });
