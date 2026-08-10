@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
@@ -37,6 +38,13 @@ import SuperAdminRoleSwitcher from "../../components/SuperAdminRoleSwitcher";
 export default function SuperAdminDashboardScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const { width } = useWindowDimensions();
+
+  // Dynamic Responsive Breakpoints (JioPhone vs Standard vs Foldables/Tablets)
+  const isSmall = width < 360;
+  const isLarge = width >= 600;
+  const suiteItemWidth = isSmall ? "47%" : isLarge ? "23%" : "31%";
+  const metricWidth = isSmall ? "47%" : isLarge ? "23%" : "47%";
 
   const [metrics, setMetrics] = useState({
     totalUsers: 164,
@@ -126,49 +134,49 @@ export default function SuperAdminDashboardScreen() {
 
       {/* 8 Primary Telemetry Metric Cards */}
       <View style={styles.metricsGrid}>
-        <View style={styles.metricCard}>
+        <View style={[styles.metricCard, { width: metricWidth }]}>
           <School color={ZEEPREP_THEME.colors.primary} size={22} />
           <Text style={styles.metricVal}>3</Text>
           <Text style={styles.metricLbl}>TOTAL SCHOOLS</Text>
         </View>
 
-        <View style={styles.metricCard}>
+        <View style={[styles.metricCard, { width: metricWidth }]}>
           <UserCheck color="#059669" size={22} />
           <Text style={styles.metricVal}>{metrics.teacherCount}</Text>
           <Text style={styles.metricLbl}>TOTAL TEACHERS</Text>
         </View>
 
-        <View style={styles.metricCard}>
+        <View style={[styles.metricCard, { width: metricWidth }]}>
           <Users color="#7C3AED" size={22} />
           <Text style={styles.metricVal}>{metrics.studentCount}</Text>
           <Text style={styles.metricLbl}>TOTAL STUDENTS</Text>
         </View>
 
-        <View style={styles.metricCard}>
+        <View style={[styles.metricCard, { width: metricWidth }]}>
           <FileCheck color="#D97706" size={22} />
           <Text style={styles.metricVal}>{metrics.totalExams}</Text>
           <Text style={styles.metricLbl}>TOTAL EXAMS</Text>
         </View>
 
-        <View style={styles.metricCard}>
+        <View style={[styles.metricCard, { width: metricWidth }]}>
           <Activity color="#2563EB" size={22} />
           <Text style={styles.metricVal}>1</Text>
           <Text style={styles.metricLbl}>ACTIVE EXAMS</Text>
         </View>
 
-        <View style={styles.metricCard}>
+        <View style={[styles.metricCard, { width: metricWidth }]}>
           <HelpCircle color="#D97706" size={22} />
           <Text style={styles.metricVal}>25</Text>
           <Text style={styles.metricLbl}>QUESTION BANKS</Text>
         </View>
 
-        <View style={styles.metricCard}>
+        <View style={[styles.metricCard, { width: metricWidth }]}>
           <FileBarChart color="#059669" size={22} />
           <Text style={styles.metricVal}>{metrics.totalReports}</Text>
           <Text style={styles.metricLbl}>REPORTS GENERATED</Text>
         </View>
 
-        <View style={styles.metricCard}>
+        <View style={[styles.metricCard, { width: metricWidth }]}>
           <Award color="#7C3AED" size={22} />
           <Text style={styles.metricVal}>92%</Text>
           <Text style={styles.metricLbl}>PASS PERCENTAGE</Text>
@@ -179,7 +187,7 @@ export default function SuperAdminDashboardScreen() {
       <Text style={styles.sectionTitle}>Full SuperAdmin Feature Suite</Text>
       <View style={styles.suiteGrid}>
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(superadmin)")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#EEF2FF" }]}>
@@ -189,7 +197,7 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(superadmin)/submissions")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#ECFDF5" }]}>
@@ -199,7 +207,7 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(superadmin)/user-approval")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#FEF3C7" }]}>
@@ -209,7 +217,7 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(superadmin)/academic-hierarchy")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#F3E8FF" }]}>
@@ -219,7 +227,7 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(superadmin)/question-bank")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#EEF2FF" }]}>
@@ -229,7 +237,7 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(superadmin)/exams")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#FEF3C7" }]}>
@@ -239,7 +247,7 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(superadmin)/resources")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#E0E7FF" }]}>
@@ -249,7 +257,7 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(superadmin)/reports")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#ECFDF5" }]}>
@@ -259,7 +267,7 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(superadmin)/analytics")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#F3E8FF" }]}>
@@ -269,7 +277,7 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(superadmin)/audit-logs")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#FEF3C7" }]}>
@@ -279,7 +287,7 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(superadmin)/settings")}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#F1F5F9" }]}>

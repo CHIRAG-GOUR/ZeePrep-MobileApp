@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, useWindowDimensions } from "react-native";
 import Svg, {
   Defs,
   LinearGradient,
@@ -17,8 +17,13 @@ interface AnimatedExamIllustrationProps {
 }
 
 export function AnimatedExamIllustration({ isFormActive = false }: AnimatedExamIllustrationProps) {
+  const { width } = useWindowDimensions();
+
+  // Dynamic responsive maxHeight scaling
+  const maxIllustrationHeight = width < 360 ? 150 : width > 600 ? 300 : 220;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { maxHeight: maxIllustrationHeight }]}>
       <Svg viewBox="0 0 800 600" style={styles.svg}>
         <Defs>
           <LinearGradient id="sandGradient" x1="0%" y1="0%" x2="0%" y2="100%">

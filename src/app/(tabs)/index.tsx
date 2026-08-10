@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
@@ -32,6 +33,12 @@ import SuperAdminRoleSwitcher from "../../components/SuperAdminRoleSwitcher";
 export default function DashboardScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const { width } = useWindowDimensions();
+
+  const isSmall = width < 360;
+  const isLarge = width >= 600;
+  const tileWidth = isSmall ? "47%" : isLarge ? "23%" : "47%";
+  const metricWidth = isSmall ? "47%" : isLarge ? "23%" : "47%";
 
   const [exams, setExams] = useState<Exam[]>([]);
   const [resources, setResources] = useState<StudyResource[]>([]);
@@ -104,19 +111,19 @@ export default function DashboardScreen() {
 
       {/* Quick Stats Grid */}
       <View style={styles.statsGrid}>
-        <View style={styles.statBox}>
+        <View style={[styles.statBox, { width: metricWidth }]}>
           <FileCheck color={ZEEPREP_THEME.colors.primary} size={22} />
           <Text style={styles.statNumber}>{activeExams.length}</Text>
           <Text style={styles.statLabel}>Available Exams</Text>
         </View>
 
-        <View style={styles.statBox}>
+        <View style={[styles.statBox, { width: metricWidth }]}>
           <TrendingUp color="#059669" size={22} />
           <Text style={styles.statNumber}>94%</Text>
           <Text style={styles.statLabel}>Avg Accuracy</Text>
         </View>
 
-        <View style={styles.statBox}>
+        <View style={[styles.statBox, { width: metricWidth }]}>
           <Award color="#D97706" size={22} />
           <Text style={styles.statNumber}>Top 5</Text>
           <Text style={styles.statLabel}>Class Rank</Text>
@@ -127,7 +134,7 @@ export default function DashboardScreen() {
       <Text style={styles.sectionTitle}>ZeePrep Feature Suite</Text>
       <View style={styles.featureGrid}>
         <TouchableOpacity
-          style={styles.featureCard}
+          style={[styles.featureCard, { width: tileWidth }]}
           onPress={() => router.push("/(tabs)/exams")}
           activeOpacity={0.85}
         >
@@ -139,7 +146,7 @@ export default function DashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.featureCard}
+          style={[styles.featureCard, { width: tileWidth }]}
           onPress={() => router.push("/(tabs)/reports")}
           activeOpacity={0.85}
         >
@@ -151,7 +158,7 @@ export default function DashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.featureCard}
+          style={[styles.featureCard, { width: tileWidth }]}
           onPress={() => router.push("/(tabs)/resources")}
           activeOpacity={0.85}
         >
@@ -163,7 +170,7 @@ export default function DashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.featureCard}
+          style={[styles.featureCard, { width: tileWidth }]}
           onPress={() => router.push("/(tabs)/leaderboard")}
           activeOpacity={0.85}
         >
@@ -175,7 +182,7 @@ export default function DashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.featureCard}
+          style={[styles.featureCard, { width: tileWidth }]}
           onPress={() => router.push("/(tabs)/ai-tutor")}
           activeOpacity={0.85}
         >
@@ -187,7 +194,7 @@ export default function DashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.featureCard}
+          style={[styles.featureCard, { width: tileWidth }]}
           onPress={() => router.push("/(tabs)/profile")}
           activeOpacity={0.85}
         >

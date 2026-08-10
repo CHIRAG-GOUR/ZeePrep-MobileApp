@@ -6,19 +6,24 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  useWindowDimensions,
+  TouchableOpacity,
 } from "react-native";
 import { useAuthStore } from "../../stores/auth-store";
 import { getPlatformMetrics } from "../../services/firestore";
 import { ZEEPREP_THEME } from "../../constants/theme";
-import { ShieldCheck, Users, UserCheck, FileCheck, Award } from "lucide-react-native";
-
-import { TouchableOpacity } from "react-native";
+import { ShieldCheck, Users, UserCheck, FileCheck, Award, Layers, FolderKanban, HelpCircle, FileBarChart } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { Layers, FolderKanban, HelpCircle, FileBarChart } from "lucide-react-native";
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const { width } = useWindowDimensions();
+
+  const isSmall = width < 360;
+  const isLarge = width >= 600;
+  const suiteItemWidth = isSmall ? "47%" : isLarge ? "23%" : "47%";
+  const metricWidth = isSmall ? "47%" : isLarge ? "23%" : "47%";
 
   const [metrics, setMetrics] = useState({
     totalUsers: 0,
@@ -81,7 +86,7 @@ export default function AdminDashboardScreen() {
       <Text style={styles.sectionTitle}>Admin Feature Suite</Text>
       <View style={styles.suiteGrid}>
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(admin)/user-management" as any)}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#FEF3C7" }]}>
@@ -91,7 +96,7 @@ export default function AdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(admin)/reports" as any)}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#ECFDF5" }]}>
@@ -101,7 +106,7 @@ export default function AdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(admin)/question-bank" as any)}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#EEF2FF" }]}>
@@ -111,7 +116,7 @@ export default function AdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(admin)/resources" as any)}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#E0E7FF" }]}>
@@ -121,7 +126,7 @@ export default function AdminDashboardScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.suiteItem}
+          style={[styles.suiteItem, { width: suiteItemWidth }]}
           onPress={() => router.push("/(admin)/academic-hierarchy" as any)}
         >
           <View style={[styles.suiteIcon, { backgroundColor: "#F3E8FF" }]}>
@@ -137,25 +142,25 @@ export default function AdminDashboardScreen() {
         <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginVertical: 30 }} />
       ) : (
         <View style={styles.metricsGrid}>
-          <View style={styles.metricCard}>
+          <View style={[styles.metricCard, { width: metricWidth }]}>
             <Users color={ZEEPREP_THEME.colors.primary} size={24} />
             <Text style={styles.metricVal}>{metrics.studentCount}</Text>
             <Text style={styles.metricLbl}>Active Students</Text>
           </View>
 
-          <View style={styles.metricCard}>
+          <View style={[styles.metricCard, { width: metricWidth }]}>
             <UserCheck color="#059669" size={24} />
             <Text style={styles.metricVal}>{metrics.teacherCount}</Text>
             <Text style={styles.metricLbl}>Faculty Members</Text>
           </View>
 
-          <View style={styles.metricCard}>
+          <View style={[styles.metricCard, { width: metricWidth }]}>
             <FileCheck color="#D97706" size={24} />
             <Text style={styles.metricVal}>{metrics.totalExams}</Text>
             <Text style={styles.metricLbl}>Total Assessments</Text>
           </View>
 
-          <View style={styles.metricCard}>
+          <View style={[styles.metricCard, { width: metricWidth }]}>
             <Award color="#7C3AED" size={24} />
             <Text style={styles.metricVal}>{metrics.totalReports}</Text>
             <Text style={styles.metricLbl}>Student Scorecards</Text>

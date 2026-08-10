@@ -11,6 +11,7 @@ import {
   ScrollView,
   Modal,
   Image,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -38,6 +39,10 @@ import { AnimatedExamIllustration } from "../../components/AnimatedExamIllustrat
 export default function LoginScreen() {
   const router = useRouter();
   const setUser = useAuthStore((state) => state.setUser);
+  const { width, height } = useWindowDimensions();
+
+  const isSmallScreen = width < 360;
+  const isLargeScreen = width >= 600;
 
   const [activeTab, setActiveTab] = useState<"teacher" | "student">("teacher");
   const [identifier, setIdentifier] = useState("");
@@ -194,24 +199,37 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: isSmallScreen ? 12 : isLargeScreen ? 32 : 20,
+            paddingVertical: isSmallScreen ? 16 : 32,
+            alignItems: "center",
+          },
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Header Branding */}
-        <View style={styles.header}>
-          <View style={styles.logoBadge}>
-            <BookOpen color={ZEEPREP_THEME.colors.primary} size={36} />
+        <View style={{ width: "100%", maxWidth: 520 }}>
+          {/* Top Header Branding */}
+          <View style={styles.header}>
+            <View style={[styles.logoBadge, isSmallScreen && { width: 54, height: 54, marginBottom: 8 }]}>
+              <BookOpen color={ZEEPREP_THEME.colors.primary} size={isSmallScreen ? 28 : 36} />
+            </View>
+            <Text style={[styles.brandTitle, isSmallScreen && { fontSize: 22 }]}>ZeePrep</Text>
+            <Text style={[styles.brandSubtitle, isSmallScreen && { fontSize: 11 }]}>
+              Intelligent Productivity & Diagnostic Portal
+            </Text>
+
+            {/* Dynamic Exam Vector Illustration */}
+            <AnimatedExamIllustration isFormActive={isFormActive} />
           </View>
-          <Text style={styles.brandTitle}>ZeePrep</Text>
-          <Text style={styles.brandSubtitle}>Intelligent Productivity & Diagnostic Portal</Text>
 
-          {/* Dynamic Exam Vector Illustration */}
-          <AnimatedExamIllustration isFormActive={isFormActive} />
-        </View>
-
-        {/* Outer Card Container */}
-        <View style={styles.card} onTouchStart={() => setIsFormActive(true)}>
+          {/* Outer Card Container */}
+          <View
+            style={[styles.card, isSmallScreen && { padding: 14, borderRadius: 16 }]}
+            onTouchStart={() => setIsFormActive(true)}
+          >
           {/* Role Selection Tabs */}
           <View style={styles.roleTabGrid}>
             <TouchableOpacity
@@ -374,6 +392,7 @@ export default function LoginScreen() {
             Connected Backend: zeeprep01 (Shared Production)
           </Text>
         </View>
+      </View>
 
         {/* Forgot Password Modal */}
         <Modal visible={showForgotModal} transparent animationType="fade">
