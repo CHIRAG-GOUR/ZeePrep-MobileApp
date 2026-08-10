@@ -33,6 +33,7 @@ import {
   Mail,
   UserPlus,
 } from "lucide-react-native";
+import { AnimatedExamIllustration } from "../../components/AnimatedExamIllustration";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -44,6 +45,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isFormActive, setIsFormActive] = useState(false);
 
   // Forgot Password Modal
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -204,18 +206,12 @@ export default function LoginScreen() {
           <Text style={styles.brandTitle}>ZeePrep</Text>
           <Text style={styles.brandSubtitle}>Intelligent Productivity & Diagnostic Portal</Text>
 
-          {/* Website Graphic Illustration */}
-          <View style={styles.illustrationContainer}>
-            <Image
-              source={require("../../../assets/images/login-illustration.png")}
-              style={styles.illustrationImage}
-              resizeMode="contain"
-            />
-          </View>
+          {/* Dynamic Exam Vector Illustration */}
+          <AnimatedExamIllustration isFormActive={isFormActive} />
         </View>
 
         {/* Outer Card Container */}
-        <View style={styles.card}>
+        <View style={styles.card} onTouchStart={() => setIsFormActive(true)}>
           {/* Role Selection Tabs */}
           <View style={styles.roleTabGrid}>
             <TouchableOpacity
@@ -226,6 +222,7 @@ export default function LoginScreen() {
               onPress={() => {
                 setActiveTab("teacher");
                 setErrorMessage("");
+                setIsFormActive(true);
               }}
               activeOpacity={0.8}
             >
@@ -251,6 +248,7 @@ export default function LoginScreen() {
               onPress={() => {
                 setActiveTab("student");
                 setErrorMessage("");
+                setIsFormActive(true);
               }}
               activeOpacity={0.8}
             >
@@ -292,7 +290,11 @@ export default function LoginScreen() {
                 }
                 placeholderTextColor="#94A3B8"
                 value={identifier}
-                onChangeText={setIdentifier}
+                onChangeText={(text) => {
+                  setIdentifier(text);
+                  if (text) setIsFormActive(true);
+                }}
+                onFocus={() => setIsFormActive(true)}
                 autoCapitalize="none"
                 keyboardType="email-address"
               />
@@ -315,7 +317,11 @@ export default function LoginScreen() {
                 placeholderTextColor="#94A3B8"
                 secureTextEntry={!showPassword}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (text) setIsFormActive(true);
+                }}
+                onFocus={() => setIsFormActive(true)}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
                 {showPassword ? (
