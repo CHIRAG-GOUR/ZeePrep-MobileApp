@@ -65,21 +65,45 @@ export async function createOrUpdateUserProfile(user: Partial<User> & { uid: str
 
 export async function getUserByLoginId(loginId: string): Promise<User | null> {
   try {
-    const cleanId = loginId.trim().toUpperCase();
+    const rawId = loginId.trim();
+    const cleanId = rawId.toUpperCase();
+
+    // 1. Check loginIds mapping collection
     const loginIdDoc = await getDoc(doc(db, "loginIds", cleanId));
     if (loginIdDoc.exists()) {
       const data = loginIdDoc.data();
       if (data?.uid) {
-        return await getUserProfile(data.uid);
+        const profile = await getUserProfile(data.uid);
+        if (profile) return profile;
+      }
+      if (data?.email) {
+        return { uid: data.uid || "", email: data.email, name: data.name || "User", role: data.role || "student", status: "active" } as User;
       }
     }
 
-    const q = query(collection(db, "users"), where("loginId", "==", loginId.trim()));
-    const snapshot = await getDocs(q);
+    // 2. Search users collection by loginId (exact and uppercase)
+    let q = query(collection(db, "users"), where("loginId", "==", cleanId));
+    let snapshot = await getDocs(q);
+    if (snapshot.empty) {
+      q = query(collection(db, "users"), where("loginId", "==", rawId));
+      snapshot = await getDocs(q);
+    }
+
     if (!snapshot.empty) {
       const userDoc = snapshot.docs[0];
       return { uid: userDoc.id, ...userDoc.data() } as User;
     }
+
+    // 3. Search invitations collection by initialUserId
+    const invQ = query(collection(db, "invitations"), where("initialUserId", "==", cleanId));
+    const invSnapshot = await getDocs(invQ);
+    if (!invSnapshot.empty) {
+      const invData = invSnapshot.docs[0].data();
+      if (invData?.email) {
+        return { uid: "", email: invData.email, name: invData.name || "User", role: invData.role || "student", status: "active" } as User;
+      }
+    }
+
     return null;
   } catch (error) {
     console.error("Error fetching user by login ID:", error);
