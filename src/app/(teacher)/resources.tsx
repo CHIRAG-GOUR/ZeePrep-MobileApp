@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Modal,
   Alert,
+  Platform,
 } from "react-native";
 import { useAuthStore } from "../../stores/auth-store";
 import { getStudyResources, addStudyResource } from "../../services/firestore";
@@ -19,12 +20,14 @@ import { FolderKanban, Plus, FileText, Video, Link as LinkIcon, X } from "lucide
 
 import { AppHeader } from "../../components/AppHeader";
 import { normalizeResourceType } from "../../utils/resource-normalizer";
+import { ResourceViewerModal, openInAppResource } from "../../components/ResourceViewerModal";
 
 export default function TeacherResourcesScreen() {
   const user = useAuthStore((state) => state.user);
   const [resources, setResources] = useState<StudyResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeResource, setActiveResource] = useState<any | null>(null);
 
   // Upload Modal State
   const [modalVisible, setModalVisible] = useState(false);
@@ -55,6 +58,17 @@ export default function TeacherResourcesScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchResources();
+  };
+
+  const handleResourcePress = (rawRes: any) => {
+    const res = normalizeResourceType(rawRes);
+    if (!res.url) return;
+    
+    if (Platform.OS === "web") {
+      setActiveResource(res);
+    } else {
+      openInAppResource(res);
+    }
   };
 
   const handleUpload = async () => {
@@ -118,10 +132,16 @@ export default function TeacherResourcesScreen() {
         {loading ? (
           <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginTop: 40 }} />
         ) : resources.length > 0 ? (
-          resources.map((rawRes) => {
+          resources.map((rawRes, index) => {
             const res = normalizeResourceType(rawRes);
+            const uniqueKey = res.id ? `res-${res.id}` : `res-${index}-${res.title}`;
             return (
-              <View key={res.id} style={styles.card}>
+              <TouchableOpacity
+                key={uniqueKey}
+                style={styles.card}
+                onPress={() => handleResourcePress(res)}
+                activeOpacity={0.85}
+              >
                 <View style={styles.iconBox}>
                   {res.type === "video" ? (
                     <Video color={ZEEPREP_THEME.colors.primary} size={20} />
@@ -138,7 +158,7 @@ export default function TeacherResourcesScreen() {
                     {res.subject} • Grade {res.grade} • {res.displayType}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })
         ) : (
@@ -196,6 +216,13 @@ export default function TeacherResourcesScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* In-App Resource Viewer Modal */}
+      <ResourceViewerModal
+        visible={!!activeResource}
+        onClose={() => setActiveResource(null)}
+        resource={activeResource}
+      />
     </View>
   );
 }

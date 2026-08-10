@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
+  Platform,
 } from "react-native";
 import { useAuthStore } from "../../stores/auth-store";
 import { getStudyResources } from "../../services/firestore";
@@ -16,6 +17,7 @@ import type { StudyResource } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
 import { BookOpen, Search, ExternalLink, FileText, Video, Link as LinkIcon } from "lucide-react-native";
 import { normalizeResourceType } from "../../utils/resource-normalizer";
+import { ResourceViewerModal, openInAppResource } from "../../components/ResourceViewerModal";
 
 export default function StudentResourcesScreen() {
   const user = useAuthStore((state) => state.user);
@@ -25,6 +27,7 @@ export default function StudentResourcesScreen() {
   const [selectedSubject, setSelectedSubject] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeResource, setActiveResource] = useState<any | null>(null);
 
   const fetchResources = async () => {
     setLoading(true);
@@ -58,7 +61,18 @@ export default function StudentResourcesScreen() {
     return matchesSearch && matchesSubject;
   });
 
-  const subjectsList = Array.from(new Set(resources.map((r) => r.subject)));
+  const subjectsList = Array.from(new Set(resources.map((r) => r.subject).filter(Boolean)));
+
+  const handleResourcePress = (rawRes: any) => {
+    const res = normalizeResourceType(rawRes);
+    if (!res.url) return;
+    
+    if (Platform.OS === "web") {
+      setActiveResource(res);
+    } else {
+      openInAppResource(res);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -82,6 +96,7 @@ export default function StudentResourcesScreen() {
         {subjectsList.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subjectScroll}>
             <TouchableOpacity
+              key="subject-all-chip"
               style={[styles.subjectChip, selectedSubject === "all" && styles.subjectChipActive]}
               onPress={() => setSelectedSubject("all")}
             >
@@ -89,9 +104,9 @@ export default function StudentResourcesScreen() {
                 ALL SUBJECTS
               </Text>
             </TouchableOpacity>
-            {subjectsList.map((sub) => (
+            {subjectsList.map((sub, idx) => (
               <TouchableOpacity
-                key={sub}
+                key={`subject-${sub}-${idx}`}
                 style={[styles.subjectChip, selectedSubject === sub && styles.subjectChipActive]}
                 onPress={() => setSelectedSubject(sub)}
               >
@@ -118,15 +133,14 @@ export default function StudentResourcesScreen() {
         {loading ? (
           <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginTop: 40 }} />
         ) : filteredResources.length > 0 ? (
-          filteredResources.map((rawRes) => {
+          filteredResources.map((rawRes, index) => {
             const res = normalizeResourceType(rawRes);
+            const uniqueKey = res.id ? `res-${res.id}` : `res-${index}-${res.title}`;
             return (
               <TouchableOpacity
-                key={res.id}
+                key={uniqueKey}
                 style={styles.card}
-                onPress={() => {
-                  if (res.url) Linking.openURL(res.url);
-                }}
+                onPress={() => handleResourcePress(res)}
                 activeOpacity={0.85}
               >
                 <View style={styles.cardIconBox}>
@@ -160,6 +174,13 @@ export default function StudentResourcesScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* In-App Resource Viewer Modal */}
+      <ResourceViewerModal
+        visible={!!activeResource}
+        onClose={() => setActiveResource(null)}
+        resource={activeResource}
+      />
     </View>
   );
 }
