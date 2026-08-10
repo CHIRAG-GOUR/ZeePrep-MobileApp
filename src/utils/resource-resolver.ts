@@ -6,6 +6,7 @@ export type ResolvedFormat =
   | "video"
   | "audio"
   | "doc"
+  | "text"
   | "link";
 
 export interface ResolvedResource {
@@ -30,7 +31,7 @@ export interface ResolvedResource {
  */
 export function resolveResource(rawRes: any): ResolvedResource {
   const id = rawRes.id || `res-${Date.now()}`;
-  const title = rawRes.title || "Untitled Resource";
+  const title = rawRes.title || rawRes.name || "Untitled Resource";
   const subject = rawRes.subject || "General";
   const grade = rawRes.grade || "";
   const topic = rawRes.topic || rawRes.chapter || "";
@@ -38,7 +39,7 @@ export function resolveResource(rawRes: any): ResolvedResource {
   const description = rawRes.description || "";
 
   // Extract raw URL from potential Firebase schema variations
-  let url = rawRes.url || rawRes.fileUrl || rawRes.downloadURL || "";
+  let url = rawRes.url || rawRes.fileUrl || rawRes.downloadURL || rawRes.storageUrl || "";
   let isValidUrl = true;
   let errorMessage: string | undefined = undefined;
 
@@ -49,7 +50,7 @@ export function resolveResource(rawRes: any): ResolvedResource {
   }
 
   // Detect file format and MIME type
-  const rawType = (rawRes.type || rawRes.resourceType || rawRes.mimeType || "").toLowerCase();
+  const rawType = (rawRes.type || rawRes.fileType || rawRes.resourceType || rawRes.mimeType || "").toLowerCase();
   const lowerUrl = url.toLowerCase();
 
   let format: ResolvedFormat = "link";
@@ -58,6 +59,14 @@ export function resolveResource(rawRes: any): ResolvedResource {
   if (rawType.includes("pdf") || lowerUrl.includes(".pdf")) {
     format = "pdf";
     displayType = "PDF DOCUMENT";
+  } else if (
+    rawType.includes("text") ||
+    rawType.includes("txt") ||
+    rawType.includes("plain") ||
+    lowerUrl.match(/\.(txt|log|md|csv|json)($|\?)/)
+  ) {
+    format = "text";
+    displayType = "TEXT DOCUMENT";
   } else if (
     rawType.includes("image") ||
     lowerUrl.match(/\.(jpg|jpeg|png|webp|gif|svg)($|\?)/)
@@ -134,7 +143,6 @@ export function canUserAccessResource(resource: ResolvedResource, user: User | n
       return { allowed: true };
     }
 
-    // Default permission granted if grade is not explicitly restricted
     return { allowed: true };
   }
 

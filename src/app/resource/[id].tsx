@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -7,12 +7,12 @@ import {
   ActivityIndicator,
   Image,
   Platform,
+  ScrollView,
   Dimensions,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
 import { getStudyResources } from "../../services/firestore";
-import type { StudyResource } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
 import {
   ArrowLeft,
@@ -27,16 +27,20 @@ import {
   RotateCcw,
   Volume2,
   VolumeX,
+  ExternalLink,
+  RefreshCw,
+  Eye,
+  FileCode,
 } from "lucide-react-native";
 import {
   resolveResource,
   canUserAccessResource,
   ResolvedResource,
 } from "../../utils/resource-resolver";
-import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
+import { Video, ResizeMode, Audio, AVPlaybackStatus } from "expo-av";
 import { WebView } from "react-native-webview";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function ResourceViewerScreen() {
   const router = useRouter();
@@ -55,118 +59,178 @@ export default function ResourceViewerScreen() {
   const [permissionDenied, setPermissionDenied] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Audio / Video Player States
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [videoStatus, setVideoStatus] = useState<AVPlaybackStatus | null>(null);
+  // Text file content state
+  const [textContent, setTextContent] = useState<string | null>(null);
+  const [textLoading, setTextLoading] = useState(false);
+
+  // Image loading state
+  const [imageError, setImageError] = useState(false);
+
+  // Audio Player State using expo-av Audio.Sound
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [audioPosition, setAudioPosition] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
 
   const loadResource = async () => {
     setLoading(true);
     setPermissionDenied(null);
     setErrorMsg(null);
+    setTextContent(null);
+    setImageError(false);
 
     try {
-      // 1. If params were passed directly from navigation card
+      let resolved: ResolvedResource | null = null;
+
       if (rawUrl) {
-        const resolved = resolveResource({
+        resolved = resolveResource({
           id,
           title: paramTitle || "Study Material",
           type: (paramType as any) || "pdf",
           subject: paramSubject || "General",
           url: rawUrl,
         });
+      } else {
+        const allResources = await getStudyResources(user);
+        const foundRaw = allResources.find((r) => r.id === id);
 
-        const perm = canUserAccessResource(resolved, user);
-        if (!perm.allowed) {
-          setPermissionDenied(perm.reason || "Access restricted.");
+        if (!foundRaw) {
+          setErrorMsg("This resource document could not be found in Firebase.");
           setLoading(false);
           return;
         }
-
-        if (!resolved.isValidUrl) {
-          setErrorMsg(resolved.errorMessage || "Invalid resource URL.");
-          setLoading(false);
-          return;
-        }
-
-        setResource(resolved);
-        setLoading(false);
-        return;
+        resolved = resolveResource(foundRaw);
       }
 
-      // 2. Fetch resource record from Firestore by ID
-      const allResources = await getStudyResources(user);
-      const foundRaw = allResources.find((r) => r.id === id);
-
-      if (!foundRaw) {
-        setErrorMsg("This resource could not be found in Firebase Storage.");
-        setLoading(false);
-        return;
-      }
-
-      const resolved = resolveResource(foundRaw);
       const perm = canUserAccessResource(resolved, user);
-
       if (!perm.allowed) {
-        setPermissionDenied(perm.reason || "Your account does not have permission to view this resource.");
+        setPermissionDenied(perm.reason || "Access restricted.");
         setLoading(false);
         return;
       }
 
       if (!resolved.isValidUrl) {
-        setErrorMsg(resolved.errorMessage || "Invalid Firebase Storage URL format.");
+        setErrorMsg(resolved.errorMessage || "Invalid resource URL format.");
         setLoading(false);
         return;
       }
 
       setResource(resolved);
+
+      // If text file, fetch content directly
+      if (resolved.format === "text") {
+        fetchTextFile(resolved.url);
+      }
     } catch (err) {
-      console.error("Error loading resource viewer:", err);
+      console.error("Error loading resource:", err);
       setErrorMsg("Unable to load this resource due to a network or permission issue.");
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchTextFile = async (url: string) => {
+    setTextLoading(true);
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const txt = await response.text();
+        setTextContent(txt);
+      } else {
+        setTextContent(`[Unable to display text content. HTTP ${response.status}]`);
+      }
+    } catch (err) {
+      console.error("Error fetching text file:", err);
+      setTextContent("[Error loading text content from Firebase Storage.]");
+    } finally {
+      setTextLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadResource();
+    return () => {
+      if (sound) {
+        sound.unloadAsync();
+      }
+    };
   }, [id, user]);
 
-  // Construct viewer embed URLs
-  const getEmbedUrl = (res: ResolvedResource) => {
-    const rawUrl = res.url;
-    if (res.format === "video" && (rawUrl.includes("youtube.com") || rawUrl.includes("youtu.be"))) {
-      let videoId = "";
-      if (rawUrl.includes("youtu.be/")) {
-        videoId = rawUrl.split("youtu.be/")[1]?.split("?")[0] || "";
-      } else if (rawUrl.includes("v=")) {
-        videoId = rawUrl.split("v=")[1]?.split("&")[0] || "";
+  // Audio Playback Controls
+  const toggleAudioPlayback = async () => {
+    if (!resource || resource.format !== "audio") return;
+
+    try {
+      if (sound) {
+        if (isPlayingAudio) {
+          await sound.pauseAsync();
+          setIsPlayingAudio(false);
+        } else {
+          await sound.playAsync();
+          setIsPlayingAudio(true);
+        }
+      } else {
+        setIsAudioLoading(true);
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: resource.url },
+          { shouldPlay: true },
+          (status) => {
+            if (status.isLoaded) {
+              setAudioPosition(status.positionMillis || 0);
+              setAudioDuration(status.durationMillis || 0);
+              setIsPlayingAudio(status.isPlaying);
+            }
+          }
+        );
+        setSound(newSound);
+        setIsPlayingAudio(true);
+        setIsAudioLoading(false);
       }
-      return `https://www.youtube.com/embed/${videoId}?autoplay=1&modestbranding=1&rel=0`;
+    } catch (err) {
+      console.error("Audio playback error:", err);
+      setIsAudioLoading(false);
     }
+  };
 
-    if (res.format === "pdf") {
-      return `https://docs.google.com/viewer?url=${encodeURIComponent(rawUrl)}&embedded=true`;
-    }
-
-    if (res.format === "doc") {
-      return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(rawUrl)}`;
-    }
-
-    return rawUrl;
+  const formatTime = (millis: number) => {
+    const totalSeconds = Math.floor(millis / 1000);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
   const renderContent = () => {
     if (!resource) return null;
 
-    const embedUrl = getEmbedUrl(resource);
+    // 1. TEXT FILES (.txt, .log, .md)
+    if (resource.format === "text") {
+      return (
+        <View style={styles.textContainer}>
+          <View style={styles.textHeaderBar}>
+            <FileCode size={16} color={ZEEPREP_THEME.colors.primary} />
+            <Text style={styles.textHeaderTitle}>Text Document Viewer</Text>
+          </View>
+          {textLoading ? (
+            <View style={styles.centerLoader}>
+              <ActivityIndicator size="large" color={ZEEPREP_THEME.colors.primary} />
+              <Text style={styles.loaderText}>Fetching text file content...</Text>
+            </View>
+          ) : (
+            <ScrollView style={styles.textScrollView} contentContainerStyle={{ padding: 16 }}>
+              <Text style={styles.textContent}>{textContent || "Empty file."}</Text>
+            </ScrollView>
+          )}
+        </View>
+      );
+    }
 
-    // 1. PDF Viewer
+    // 2. PDF DOCUMENTS
     if (resource.format === "pdf") {
       if (Platform.OS === "web") {
         return (
           <iframe
-            src={embedUrl}
+            src={resource.url}
             style={{ width: "100%", height: "100%", border: "none", backgroundColor: "#F8FAFC" }}
             allowFullScreen
           />
@@ -174,7 +238,7 @@ export default function ResourceViewerScreen() {
       }
       return (
         <WebView
-          source={{ uri: embedUrl }}
+          source={{ uri: resource.url }}
           style={styles.webView}
           startInLoadingState
           renderLoading={() => (
@@ -187,12 +251,126 @@ export default function ResourceViewerScreen() {
       );
     }
 
-    // 2. Office Document Viewer (DOC, DOCX, PPT, PPTX, XLS, XLSX)
+    // 3. IMAGES
+    if (resource.format === "image") {
+      if (imageError) {
+        return (
+          <View style={styles.errorCard}>
+            <ImageIcon size={48} color="#94A3B8" />
+            <Text style={styles.errorTitle}>Image Load Error</Text>
+            <Text style={styles.errorSub}>The image could not be rendered from Firebase Storage.</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => setImageError(false)}>
+              <Text style={styles.retryBtnText}>Retry Loading</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
+
+      return (
+        <View style={styles.imageContainer}>
+          <Image
+            source={{ uri: resource.url }}
+            style={styles.imageViewer}
+            resizeMode="contain"
+            onError={() => setImageError(true)}
+          />
+        </View>
+      );
+    }
+
+    // 4. VIDEO
+    if (resource.format === "video") {
+      if (resource.url.includes("youtube.com") || resource.url.includes("youtu.be")) {
+        let videoId = "";
+        if (resource.url.includes("youtu.be/")) {
+          videoId = resource.url.split("youtu.be/")[1]?.split("?")[0] || "";
+        } else if (resource.url.includes("v=")) {
+          videoId = resource.url.split("v=")[1]?.split("&")[0] || "";
+        }
+        const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+
+        if (Platform.OS === "web") {
+          return (
+            <iframe
+              src={embedUrl}
+              style={{ width: "100%", height: "100%", border: "none", backgroundColor: "#000" }}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          );
+        }
+        return <WebView source={{ uri: embedUrl }} style={{ flex: 1, backgroundColor: "#000" }} />;
+      }
+
+      return (
+        <View style={styles.videoContainer}>
+          <Video
+            source={{ uri: resource.url }}
+            style={styles.videoPlayer}
+            useNativeControls
+            resizeMode={ResizeMode.CONTAIN}
+            isLooping={false}
+          />
+        </View>
+      );
+    }
+
+    // 5. AUDIO
+    if (resource.format === "audio") {
+      return (
+        <View style={styles.audioContainer}>
+          <View style={styles.audioCard}>
+            <View style={styles.audioIconCircle}>
+              <Music size={44} color={ZEEPREP_THEME.colors.primary} />
+            </View>
+
+            <Text style={styles.audioTitle} numberOfLines={1}>
+              {resource.title}
+            </Text>
+            <Text style={styles.audioSub}>{resource.subject} • Audio Lecture</Text>
+
+            {/* Audio Progress Bar */}
+            <View style={styles.progressRow}>
+              <Text style={styles.timeText}>{formatTime(audioPosition)}</Text>
+              <View style={styles.progressBarBg}>
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    {
+                      width: audioDuration > 0 ? `${(audioPosition / audioDuration) * 100}%` : "0%",
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.timeText}>{formatTime(audioDuration)}</Text>
+            </View>
+
+            {/* Play/Pause Button */}
+            <TouchableOpacity
+              style={styles.audioPlayBtn}
+              onPress={toggleAudioPlayback}
+              disabled={isAudioLoading}
+            >
+              {isAudioLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : isPlayingAudio ? (
+                <Pause size={28} color="#FFFFFF" />
+              ) : (
+                <Play size={28} color="#FFFFFF" style={{ marginLeft: 4 }} />
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    // 6. OFFICE DOCUMENTS (DOC, DOCX, PPT, PPTX, XLS, XLSX)
     if (resource.format === "doc") {
+      const officeEmbedUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(resource.url)}`;
       if (Platform.OS === "web") {
         return (
           <iframe
-            src={embedUrl}
+            src={officeEmbedUrl}
             style={{ width: "100%", height: "100%", border: "none", backgroundColor: "#F8FAFC" }}
             allowFullScreen
           />
@@ -200,7 +378,7 @@ export default function ResourceViewerScreen() {
       }
       return (
         <WebView
-          source={{ uri: embedUrl }}
+          source={{ uri: officeEmbedUrl }}
           style={styles.webView}
           startInLoadingState
           renderLoading={() => (
@@ -213,88 +391,10 @@ export default function ResourceViewerScreen() {
       );
     }
 
-    // 3. Image Viewer
-    if (resource.format === "image") {
-      return (
-        <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: resource.url }}
-            style={styles.imageViewer}
-            resizeMode="contain"
-          />
-        </View>
-      );
-    }
-
-    // 4. Video Player (Native MP4/MOV or YouTube Embed)
-    if (resource.format === "video") {
-      if (resource.url.includes("youtube.com") || resource.url.includes("youtu.be")) {
-        if (Platform.OS === "web") {
-          return (
-            <iframe
-              src={embedUrl}
-              style={{ width: "100%", height: "100%", border: "none", backgroundColor: "#000" }}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          );
-        }
-        return (
-          <WebView
-            source={{ uri: embedUrl }}
-            style={{ flex: 1, backgroundColor: "#000" }}
-            allowsInlineMediaPlayback
-          />
-        );
-      }
-
-      return (
-        <View style={styles.mediaContainer}>
-          <Video
-            source={{ uri: resource.url }}
-            style={styles.videoPlayer}
-            useNativeControls
-            resizeMode={ResizeMode.CONTAIN}
-            isLooping={false}
-            onPlaybackStatusUpdate={(status) => setVideoStatus(status)}
-          />
-        </View>
-      );
-    }
-
-    // 5. Audio Player
-    if (resource.format === "audio") {
-      return (
-        <View style={styles.audioContainer}>
-          <View style={styles.audioCard}>
-            <View style={styles.audioIconCircle}>
-              <Music size={36} color={ZEEPREP_THEME.colors.primary} />
-            </View>
-
-            <Text style={styles.audioTitle}>{resource.title}</Text>
-            <Text style={styles.audioSub}>{resource.subject} • Audio Lecture</Text>
-
-            <View style={styles.audioMediaWrapper}>
-              <Video
-                source={{ uri: resource.url }}
-                style={styles.hiddenAudio}
-                useNativeControls
-                resizeMode={ResizeMode.CONTAIN}
-                onPlaybackStatusUpdate={(status) => setVideoStatus(status)}
-              />
-            </View>
-          </View>
-        </View>
-      );
-    }
-
-    // 6. External Web Link
+    // 7. WEB LINK
     if (Platform.OS === "web") {
       return (
-        <iframe
-          src={resource.url}
-          style={{ width: "100%", height: "100%", border: "none" }}
-        />
+        <iframe src={resource.url} style={{ width: "100%", height: "100%", border: "none" }} />
       );
     }
     return (
@@ -305,7 +405,7 @@ export default function ResourceViewerScreen() {
         renderLoading={() => (
           <View style={styles.centerLoader}>
             <ActivityIndicator size="large" color={ZEEPREP_THEME.colors.primary} />
-            <Text style={styles.loaderText}>Loading Resource Link...</Text>
+            <Text style={styles.loaderText}>Loading Web Resource...</Text>
           </View>
         )}
       />
@@ -340,7 +440,7 @@ export default function ResourceViewerScreen() {
         ) : null}
       </View>
 
-      {/* Main Content Area */}
+      {/* Main Content Body */}
       <View style={styles.body}>
         {loading ? (
           <View style={styles.centerLoader}>
@@ -361,14 +461,9 @@ export default function ResourceViewerScreen() {
             <AlertTriangle size={48} color="#D97706" />
             <Text style={styles.errorTitle}>Unable to Load Resource</Text>
             <Text style={styles.errorSub}>{errorMsg}</Text>
-            <View style={styles.errorActionRow}>
-              <TouchableOpacity style={styles.retryBtn} onPress={loadResource}>
-                <Text style={styles.retryBtnText}>Retry</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.back()}>
-                <Text style={styles.secondaryBtnText}>Back</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity style={styles.retryBtn} onPress={loadResource}>
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           renderContent()
@@ -475,10 +570,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 24,
   },
-  errorActionRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
   retryBtn: {
     backgroundColor: ZEEPREP_THEME.colors.primary,
     paddingHorizontal: 20,
@@ -490,52 +581,71 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-  secondaryBtn: {
-    backgroundColor: "#F1F5F9",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  secondaryBtnText: {
-    color: "#475569",
-    fontSize: 14,
-    fontWeight: "700",
-  },
   imageContainer: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: "#0F172A",
     alignItems: "center",
     justifyContent: "center",
+    padding: 16,
   },
   imageViewer: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * 0.75,
+    width: "100%",
+    height: "100%",
   },
-  mediaContainer: {
+  videoContainer: {
     flex: 1,
     backgroundColor: "#000000",
     justifyContent: "center",
   },
   videoPlayer: {
     width: "100%",
-    height: 300,
+    height: 280,
+  },
+  textContainer: {
+    flex: 1,
+    backgroundColor: "#0F172A",
+  },
+  textHeaderBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#1E293B",
+    borderBottomWidth: 1,
+    borderBottomColor: "#334155",
+  },
+  textHeaderTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#94A3B8",
+    letterSpacing: 0.5,
+  },
+  textScrollView: {
+    flex: 1,
+  },
+  textContent: {
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    fontSize: 13,
+    color: "#E2E8F0",
+    lineHeight: 20,
   },
   audioContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
-    backgroundColor: ZEEPREP_THEME.colors.background,
+    backgroundColor: "#F8FAFC",
   },
   audioCard: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: ZEEPREP_THEME.colors.surface,
+    backgroundColor: "#FFFFFF",
     borderRadius: 24,
-    padding: 24,
+    padding: 28,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: ZEEPREP_THEME.colors.border,
+    borderColor: "#E2E8F0",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
@@ -543,9 +653,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   audioIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     backgroundColor: "#EEF2FF",
     alignItems: "center",
     justifyContent: "center",
@@ -556,22 +666,51 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: ZEEPREP_THEME.colors.textPrimary,
     textAlign: "center",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   audioSub: {
     fontSize: 13,
     fontWeight: "600",
     color: ZEEPREP_THEME.colors.textSecondary,
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  audioMediaWrapper: {
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     width: "100%",
-    height: 60,
-    borderRadius: 12,
+    marginBottom: 24,
+  },
+  timeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#64748B",
+    width: 36,
+    textAlign: "center",
+  },
+  progressBarBg: {
+    flex: 1,
+    height: 6,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 3,
     overflow: "hidden",
   },
-  hiddenAudio: {
-    width: "100%",
-    height: 60,
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: ZEEPREP_THEME.colors.primary,
+    borderRadius: 3,
+  },
+  audioPlayBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: ZEEPREP_THEME.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: ZEEPREP_THEME.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
 });
