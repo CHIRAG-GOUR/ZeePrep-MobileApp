@@ -108,13 +108,14 @@ export default function SuperAdminDashboardScreen() {
       {/* Super Admin Role Switcher */}
       <SuperAdminRoleSwitcher />
 
-      {/* Super Admin Command Center Hero Banner */}
-      <View style={styles.commandBanner}>
-        <View style={styles.bannerBadge}>
-          <Text style={styles.bannerBadgeText}>SUPER ADMIN PLATFORM COMMAND CENTER</Text>
+      {/* Super Admin Command Center Hero Banner (Blue Gradient Card - Requirement 6) */}
+      <View style={styles.commandBannerBlueGradient}>
+        <View style={styles.bannerBadgeRect}>
+          <ShieldAlert size={14} color="#D97706" />
+          <Text style={styles.bannerBadgeTextRect}>SUPER ADMIN PLATFORM COMMAND CENTER</Text>
         </View>
-        <Text style={styles.bannerTitle}>Platform Overview & Telemetry</Text>
-        <Text style={styles.bannerSub}>
+        <Text style={styles.bannerTitleWhite}>Platform Overview & Telemetry</Text>
+        <Text style={styles.bannerSubWhite}>
           Real-time multi-school analytics, active user sessions, login tracking, and system health status.
         </Text>
       </View>
@@ -140,6 +141,7 @@ export default function SuperAdminDashboardScreen() {
       ) : null}
 
       {/* Super Admin Overview Statistics Grid (Explicit 3 Columns x 2 Rows) */}
+      <Text style={styles.diagnosticSectionHeader}>EXPLICIT 3x2 OVERVIEW METRICS</Text>
       <View style={styles.gridSection}>
         {/* Row 1 */}
         <View style={styles.gridRow}>
@@ -198,7 +200,7 @@ export default function SuperAdminDashboardScreen() {
       </View>
 
       {/* Full SuperAdmin Feature Suite (Explicit 3 Columns per Row) */}
-      <Text style={styles.sectionTitle}>Full SuperAdmin Feature Suite</Text>
+      <Text style={styles.diagnosticSectionHeader}>FULL SUPERADMIN FEATURE SUITE</Text>
       <View style={styles.gridSection}>
         {/* Row 1 */}
         <View style={styles.gridRow}>
@@ -333,58 +335,63 @@ export default function SuperAdminDashboardScreen() {
         </View>
       </View>
 
-      {/* Storage & System Telemetry Card */}
-      <Text style={styles.sectionTitle}>Storage & System Telemetry</Text>
-      <View style={styles.telemetryCard}>
-        <View style={styles.telemetryRow}>
+      {/* Storage & System Telemetry Card (Requirement 6: Divide-y Divide-slate-100 & No Capsule Pills) */}
+      <Text style={styles.diagnosticSectionHeader}>STORAGE & SYSTEM TELEMETRY</Text>
+      <View style={styles.telemetryCardOverhaul}>
+        <View style={styles.telemetryRowItem}>
           <Text style={styles.telemetryLabel}>Firestore Storage</Text>
-          <Text style={styles.telemetryVal}>142.8 MB / 1 GB</Text>
+          <Text style={styles.telemetryValBlack}>142.8 MB / 1 GB</Text>
         </View>
-        <View style={styles.divider} />
-        <View style={styles.telemetryRow}>
+        <View style={styles.telemetryDivider} />
+        <View style={styles.telemetryRowItem}>
           <Text style={styles.telemetryLabel}>API Requests Executed</Text>
-          <Text style={styles.telemetryVal}>12,450 Reads</Text>
+          <Text style={styles.telemetryValBlack}>12,450 Reads</Text>
         </View>
-        <View style={styles.divider} />
-        <View style={styles.telemetryRow}>
+        <View style={styles.telemetryDivider} />
+        <View style={styles.telemetryRowItem}>
           <Text style={styles.telemetryLabel}>Auth & Database Status</Text>
-          <View style={styles.statusPill}>
+          {/* Requirement 5: Clean Rectangular Badge */}
+          <View style={styles.systemHealthyRectBadge}>
             <CheckCircle2 size={12} color="#059669" />
-            <Text style={styles.statusPillText}>HEALTHY</Text>
+            <Text style={styles.systemHealthyRectText}>HEALTHY</Text>
           </View>
         </View>
       </View>
 
-      {/* Login Analytics & Active Users */}
-      <Text style={styles.sectionTitle}>Login Analytics & Active Users</Text>
-      <View style={styles.telemetryCard}>
-        <View style={styles.telemetryRow}>
+      {/* Login Analytics & Active Users (Requirement 5: Active Now Pulsing Dot) */}
+      <Text style={styles.diagnosticSectionHeader}>LOGIN ANALYTICS & ACTIVE TELEMETRY</Text>
+      <View style={styles.telemetryCardOverhaul}>
+        <View style={styles.telemetryRowItem}>
           <Text style={styles.telemetryLabel}>Daily Active Logins</Text>
-          <Text style={styles.telemetryVal}>1 Users</Text>
+          {/* Requirement 5: Green Pulsing Dot + Bold Emerald Text */}
+          <View style={styles.activeNowRow}>
+            <View style={styles.pulsingGreenDot} />
+            <Text style={styles.activeNowTextEmerald}>Active Now (1 User)</Text>
+          </View>
         </View>
-        <View style={styles.divider} />
-        <View style={styles.telemetryRow}>
+        <View style={styles.telemetryDivider} />
+        <View style={styles.telemetryRowItem}>
           <Text style={styles.telemetryLabel}>Weekly Active Users</Text>
-          <Text style={styles.telemetryVal}>1 Users</Text>
+          <Text style={styles.telemetryValBlack}>1 Users</Text>
         </View>
-        <View style={styles.divider} />
-        <View style={styles.telemetryRow}>
+        <View style={styles.telemetryDivider} />
+        <View style={styles.telemetryRowItem}>
           <Text style={styles.telemetryLabel}>Avg Session Duration</Text>
-          <Text style={styles.telemetryVal}>24m 18s</Text>
+          <Text style={styles.telemetryValBlack}>24m 18s</Text>
         </View>
       </View>
 
       {/* Platform Academic Performance */}
-      <Text style={styles.sectionTitle}>Platform Academic Performance</Text>
-      <View style={styles.telemetryCard}>
-        <View style={styles.telemetryRow}>
+      <Text style={styles.diagnosticSectionHeader}>PLATFORM ACADEMIC PERFORMANCE</Text>
+      <View style={styles.telemetryCardOverhaul}>
+        <View style={styles.telemetryRowItem}>
           <Text style={styles.telemetryLabel}>Platform Average Score</Text>
-          <Text style={[styles.telemetryVal, { color: ZEEPREP_THEME.colors.primary }]}>78%</Text>
+          <Text style={styles.metricValPrimary}>78%</Text>
         </View>
-        <View style={styles.divider} />
-        <View style={styles.telemetryRow}>
+        <View style={styles.telemetryDivider} />
+        <View style={styles.telemetryRowItem}>
           <Text style={styles.telemetryLabel}>Passing Ratio</Text>
-          <Text style={[styles.telemetryVal, { color: "#059669" }]}>92% Pass</Text>
+          <Text style={styles.metricValEmerald}>92% Pass</Text>
         </View>
       </View>
     </ScrollView>
@@ -514,36 +521,99 @@ const styles = StyleSheet.create({
     color: ZEEPREP_THEME.colors.textPrimary,
     textAlign: "center",
   },
-  telemetryCard: {
-    backgroundColor: ZEEPREP_THEME.colors.surface,
+
+  // Requirement 6: Blue Gradient Banner Card
+  commandBannerBlueGradient: {
+    backgroundColor: "#1E1B4B",
     borderRadius: 20,
-    padding: 18,
+    padding: 22,
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: ZEEPREP_THEME.colors.border,
-    marginBottom: 16,
+    borderColor: "#312E81",
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  telemetryRow: {
+  bannerBadgeRect: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    marginBottom: 10,
+  },
+  bannerBadgeTextRect: {
+    color: "#F59E0B",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  bannerTitleWhite: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  bannerSubWhite: {
+    fontSize: 12,
+    color: "#C7D2FE",
+    marginTop: 4,
+    lineHeight: 18,
+  },
+
+  // Requirement 5 & 6: Diagnostic Section Headers & Telemetry Card Overhaul
+  diagnosticSectionHeader: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: ZEEPREP_THEME.colors.primary,
+    letterSpacing: 1.2,
+    marginBottom: 10,
+    marginTop: 12,
+    textTransform: "uppercase",
+  },
+  telemetryCardOverhaul: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  telemetryRowItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 4,
+    paddingVertical: 10,
+  },
+  telemetryDivider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
   },
   telemetryLabel: {
     fontSize: 13,
-    color: ZEEPREP_THEME.colors.textSecondary,
     fontWeight: "600",
+    color: "#64748B",
   },
-  telemetryVal: {
+  telemetryValBlack: {
     fontSize: 14,
     fontWeight: "800",
-    color: ZEEPREP_THEME.colors.textPrimary,
+    color: "#0F172A",
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#F1F5F9",
-    marginVertical: 10,
-  },
-  statusPill: {
+
+  // Requirement 5: Telemetry Badges & Active Now
+  systemHealthyRectBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
@@ -551,10 +621,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
   },
-  statusPillText: {
+  systemHealthyRectText: {
     fontSize: 10,
+    fontWeight: "900",
+    color: "#065F46",
+  },
+  activeNowRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  pulsingGreenDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#10B981",
+  },
+  activeNowTextEmerald: {
+    fontSize: 13,
     fontWeight: "800",
+    color: "#059669",
+  },
+  metricValPrimary: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: ZEEPREP_THEME.colors.primary,
+  },
+  metricValEmerald: {
+    fontSize: 16,
+    fontWeight: "900",
     color: "#059669",
   },
 });

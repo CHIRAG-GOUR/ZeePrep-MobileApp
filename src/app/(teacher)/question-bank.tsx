@@ -16,7 +16,18 @@ import { getQuestionBank, addQuestionToBank } from "../../services/firestore";
 import { suggestQuestionItems } from "../../services/ai";
 import type { Question, QuestionLevel } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
-import { HelpCircle, Plus, Filter, CheckCircle2, Bookmark, X } from "lucide-react-native";
+import {
+  HelpCircle,
+  Plus,
+  Filter,
+  CheckCircle2,
+  Bookmark,
+  X,
+  Upload,
+  Sparkles,
+  PlusCircle,
+  History,
+} from "lucide-react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { normalizeQuestion } from "../../utils/question-normalizer";
@@ -25,6 +36,7 @@ export default function TeacherQuestionBankScreen() {
   const user = useAuthStore((state) => state.user);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedLevel, setSelectedLevel] = useState<QuestionLevel | "all">("all");
+  const [activeNavTab, setActiveNavTab] = useState<"bank" | "upload" | "ai" | "single" | "versions">("bank");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -140,6 +152,80 @@ export default function TeacherQuestionBankScreen() {
         subtitle="Manage Level 1, 2, 3 questions & AI item generator"
       />
 
+      {/* 3 + 2 Grid Navigation Card Container */}
+      <View style={styles.gridNavContainer}>
+        {/* ROW 1: 3 Equal Columns */}
+        <View style={styles.gridRow3}>
+          <TouchableOpacity
+            style={[styles.gridTabBtn, activeNavTab === "bank" && styles.gridTabActive]}
+            onPress={() => setActiveNavTab("bank")}
+            activeOpacity={0.85}
+          >
+            <HelpCircle size={15} color={activeNavTab === "bank" ? "#FFFFFF" : "#334155"} />
+            <Text style={[styles.gridTabText, activeNavTab === "bank" && styles.gridTabTextActive]} numberOfLines={1}>
+              Question Bank
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.gridTabBtn, activeNavTab === "upload" && styles.gridTabActive]}
+            onPress={() => {
+              setActiveNavTab("upload");
+              setModalVisible(true);
+            }}
+            activeOpacity={0.85}
+          >
+            <Upload size={15} color={activeNavTab === "upload" ? "#FFFFFF" : "#334155"} />
+            <Text style={[styles.gridTabText, activeNavTab === "upload" && styles.gridTabTextActive]} numberOfLines={1}>
+              Upload Questions
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.gridTabBtn, activeNavTab === "ai" && styles.gridTabActive]}
+            onPress={() => {
+              setActiveNavTab("ai");
+              setAiModalVisible(true);
+            }}
+            activeOpacity={0.85}
+          >
+            <Sparkles size={15} color={activeNavTab === "ai" ? "#FFFFFF" : "#334155"} />
+            <Text style={[styles.gridTabText, activeNavTab === "ai" && styles.gridTabTextActive]} numberOfLines={1}>
+              AI Generator
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ROW 2: 2 Equal Columns */}
+        <View style={styles.gridRow2}>
+          <TouchableOpacity
+            style={[styles.gridTabBtn, activeNavTab === "single" && styles.gridTabActive]}
+            onPress={() => {
+              setActiveNavTab("single");
+              setModalVisible(true);
+            }}
+            activeOpacity={0.85}
+          >
+            <PlusCircle size={15} color={activeNavTab === "single" ? "#FFFFFF" : "#334155"} />
+            <Text style={[styles.gridTabText, activeNavTab === "single" && styles.gridTabTextActive]} numberOfLines={1}>
+              Add Single Question
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.gridTabBtn, activeNavTab === "versions" && styles.gridTabActive]}
+            onPress={() => setActiveNavTab("versions")}
+            activeOpacity={0.85}
+          >
+            <History size={15} color={activeNavTab === "versions" ? "#FFFFFF" : "#334155"} />
+            <Text style={[styles.gridTabText, activeNavTab === "versions" && styles.gridTabTextActive]} numberOfLines={1}>
+              Versions & Levels
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Level Filters */}
       <View style={styles.filterBar}>
         <View style={styles.levelRow}>
           {(["all", "level1", "level2", "level3"] as const).map((l) => (
@@ -154,18 +240,6 @@ export default function TeacherQuestionBankScreen() {
             </TouchableOpacity>
           ))}
         </View>
-      </View>
-
-      <View style={styles.actionButtonsRow}>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
-          <Plus color="#FFFFFF" size={18} />
-          <Text style={styles.addBtnText}>Add Question</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.aiBtn} onPress={() => setAiModalVisible(true)}>
-          <Bookmark color="#D97706" size={18} />
-          <Text style={styles.aiBtnText}>AI Copilot Assist</Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -294,10 +368,50 @@ const styles = StyleSheet.create({
   },
   filterBar: {
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: ZEEPREP_THEME.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: ZEEPREP_THEME.colors.border,
+    marginBottom: 12,
+  },
+  gridNavContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 14,
+    gap: 8,
+  },
+  gridRow3: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  gridRow2: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  gridTabBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  gridTabActive: {
+    backgroundColor: ZEEPREP_THEME.colors.primary,
+    borderColor: ZEEPREP_THEME.colors.primary,
+  },
+  gridTabText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#334155",
+  },
+  gridTabTextActive: {
+    color: "#FFFFFF",
   },
   levelRow: {
     flexDirection: "row",
