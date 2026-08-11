@@ -1,8 +1,11 @@
 # Node modules
 node_modules/
+functions/node_modules/
 .expo/
 dist/
 web-build/
+firebase-debug.log
+firebase-debug.*.log
 
 # Environment variables & secrets
 .env
