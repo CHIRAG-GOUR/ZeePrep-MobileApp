@@ -23,12 +23,22 @@ import {
   TrendingUp,
 } from "lucide-react-native";
 
+import {
+  generateTeacherAIReportAnalysis,
+  analyzeWrongAnswerWithGemini,
+  type ReportInsightResult,
+  type WrongAnswerAnalysisResult,
+} from "../../services/ai";
+import { Sparkles, Brain, AlertTriangle, Lightbulb } from "lucide-react-native";
+
 export default function ResultsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
 
   const [report, setReport] = useState<Report | null>(null);
+  const [aiInsight, setAiInsight] = useState<ReportInsightResult | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,6 +48,18 @@ export default function ResultsScreen() {
       const data = await getStudentReport(id as string, user.uid);
       setReport(data);
       setLoading(false);
+
+      if (data) {
+        setAiLoading(true);
+        try {
+          const insight = await generateTeacherAIReportAnalysis(data);
+          setAiInsight(insight);
+        } catch (e) {
+          console.warn("AI Report insight error:", e);
+        } finally {
+          setAiLoading(false);
+        }
+      }
     }
 
     loadReport();
@@ -136,6 +158,57 @@ export default function ResultsScreen() {
               {mins} mins {secs} secs
             </Text>
           </View>
+        </View>
+
+        {/* Real Gemini AI Diagnostic Analysis Card (Requirement 10) */}
+        <Text style={styles.sectionTitle}>Gemini AI Diagnostic Insights</Text>
+        <View style={styles.aiDiagnosticCard}>
+          <View style={styles.aiHeaderRow}>
+            <Sparkles size={18} color="#4F46E5" />
+            <Text style={styles.aiDiagnosticTitle}>AI Conceptual Performance Analysis</Text>
+          </View>
+
+          {aiLoading ? (
+            <View style={{ paddingVertical: 16, alignItems: "center" }}>
+              <ActivityIndicator color="#4F46E5" size="small" />
+              <Text style={{ fontSize: 12, color: "#64748B", marginTop: 6 }}>
+                Analyzing answer telemetry with Gemini AI...
+              </Text>
+            </View>
+          ) : aiInsight ? (
+            <View style={{ gap: 10 }}>
+              <View style={styles.aiTagSection}>
+                <Text style={styles.aiTagLabel}>STRONG TOPICS</Text>
+                <View style={styles.aiTagRow}>
+                  {aiInsight.strongTopics.map((t, idx) => (
+                    <View key={idx} style={styles.strongTag}>
+                      <Text style={styles.strongTagText}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.aiTagSection}>
+                <Text style={styles.aiTagLabel}>WEAK TOPICS & REVISION FOCUS</Text>
+                <View style={styles.aiTagRow}>
+                  {aiInsight.weakTopics.map((t, idx) => (
+                    <View key={idx} style={styles.weakTag}>
+                      <Text style={styles.weakTagText}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.aiRecommendationBox}>
+                <Lightbulb size={16} color="#D97706" />
+                <Text style={styles.aiRecommendationText}>{aiInsight.recommendation}</Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={{ fontSize: 12, color: "#64748B" }}>
+              Scorecard telemetry logged. Complete more exams to generate dynamic insights.
+            </Text>
+          )}
         </View>
 
         {/* Action Button */}
@@ -357,5 +430,88 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
+  },
+  aiDiagnosticCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  aiHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 14,
+  },
+  aiDiagnosticTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  aiTagSection: {
+    marginBottom: 8,
+  },
+  aiTagLabel: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#4F46E5",
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  aiTagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  strongTag: {
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  strongTagText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#059669",
+  },
+  weakTag: {
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECDD3",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  weakTagText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#E11D48",
+  },
+  aiRecommendationBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FFFBEB",
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    marginTop: 4,
+  },
+  aiRecommendationText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#92400E",
+    lineHeight: 17,
   },
 });

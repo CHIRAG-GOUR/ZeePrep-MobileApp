@@ -115,6 +115,11 @@ export default function TeacherQuestionBankScreen() {
     }
   };
 
+  // AI Preview & Selection Review Modal State
+  const [aiPreviewItems, setAiPreviewItems] = useState<(AIGeneratedQuestionSuggestion & { selected: boolean })[]>([]);
+  const [aiReviewModalVisible, setAiReviewModalVisible] = useState(false);
+  const [savingSelected, setSavingSelected] = useState(false);
+
   const handleAiSuggest = async () => {
     if (!aiTopic.trim()) {
       Alert.alert("Topic Required", "Please enter a subject topic for AI question generation.");
@@ -123,25 +128,55 @@ export default function TeacherQuestionBankScreen() {
 
     setGenerating(true);
     try {
-      const items = await suggestQuestionItems(user?.subject || "Science", user?.grade || "10", aiTopic.trim(), 3);
-      for (const item of items) {
+      const items = await suggestQuestionItems(user?.subject || "Science", user?.grade || "10", aiTopic.trim(), 3, "level1");
+      if (items && items.length > 0) {
+        setAiPreviewItems(items.map((item) => ({ ...item, selected: true })));
+        setAiModalVisible(false);
+        setAiReviewModalVisible(true);
+      } else {
+        Alert.alert("Notice", "AI Engine returned no items. Please try again.");
+      }
+    } catch (err) {
+      console.error("AI question generation error:", err);
+      Alert.alert("Error", "Failed to generate AI questions.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSaveSelectedAiQuestions = async () => {
+    const selectedItems = aiPreviewItems.filter((i) => i.selected);
+    if (selectedItems.length === 0) {
+      Alert.alert("No Items Selected", "Please select at least one question to save to your bank.");
+      return;
+    }
+
+    setSavingSelected(true);
+    try {
+      for (const item of selectedItems) {
         const saved = await addQuestionToBank(
           {
-            ...item,
+            text: item.text,
+            options: item.options || [],
             correctAnswer: String(item.correctAnswer),
+            level: item.level || "level1",
+            subject: item.subject || user?.subject || "Science",
+            marks: item.level === "level2" ? 2 : item.level === "level3" ? 4 : 1,
             isTeacherAuthority: true,
           },
           user
         );
         if (saved) setQuestions((prev) => [saved, ...prev]);
       }
-      setAiModalVisible(false);
+      setAiReviewModalVisible(false);
+      setAiPreviewItems([]);
       setAiTopic("");
-      Alert.alert("AI Items Generated", "3 diagnostic questions generated and saved to your bank.");
+      Alert.alert("Saved", `${selectedItems.length} selected AI question(s) added to institutional bank.`);
     } catch (err) {
-      console.error("AI question generation error:", err);
+      console.error("Error saving selected questions:", err);
+      Alert.alert("Error", "Failed to save selected questions.");
     } finally {
-      setGenerating(false);
+      setSavingSelected(false);
     }
   };
 
@@ -353,6 +388,80 @@ export default function TeacherQuestionBankScreen() {
 
             <TouchableOpacity style={styles.submitModalBtn} onPress={handleAiSuggest} disabled={generating}>
               {generating ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitModalText}>Generate 3 Diagnostic Items</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* AI Generated Question Review & Selection Modal (Requirement 7: Teacher Review Workflow) */}
+      <Modal visible={aiReviewModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: "85%" }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Sparkles color="#4F46E5" size={20} />
+                <Text style={styles.modalTitle}>Review AI Generated Items</Text>
+              </View>
+              <TouchableOpacity onPress={() => setAiReviewModalVisible(false)}>
+                <X color="#64748B" size={24} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 12, color: "#64748B", marginBottom: 12 }}>
+              Select which AI-generated questions to save into your institutional Question Bank. Teacher questions are never overwritten.
+            </Text>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              {aiPreviewItems.map((item, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={[
+                    styles.aiItemReviewCard,
+                    item.selected ? styles.aiItemCardSelected : styles.aiItemCardUnselected,
+                  ]}
+                  onPress={() => {
+                    setAiPreviewItems((prev) =>
+                      prev.map((i, iIdx) => (iIdx === idx ? { ...i, selected: !i.selected } : i))
+                    );
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.aiItemHeader}>
+                    <View style={[styles.checkboxRect, item.selected && styles.checkboxRectSelected]}>
+                      {item.selected ? <CheckCircle2 size={14} color="#FFFFFF" /> : null}
+                    </View>
+                    <Text style={styles.aiItemTitle}>Question {idx + 1}</Text>
+                  </View>
+
+                  <Text style={styles.aiItemText}>{item.text}</Text>
+
+                  {item.options && item.options.length > 0 ? (
+                    <View style={styles.aiOptionsBox}>
+                      {item.options.map((opt, oIdx) => (
+                        <Text key={oIdx} style={styles.aiOptionText}>
+                          {String.fromCharCode(65 + oIdx)}. {opt}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
+
+                  <Text style={styles.aiExplanationText}>Explanation: {item.explanation}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.submitModalBtn}
+              onPress={handleSaveSelectedAiQuestions}
+              disabled={savingSelected}
+            >
+              {savingSelected ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitModalText}>
+                  Save Selected ({aiPreviewItems.filter((i) => i.selected).length}) to Bank
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -613,5 +722,66 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "700",
+  },
+  aiItemReviewCard: {
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1.5,
+  },
+  aiItemCardSelected: {
+    backgroundColor: "#EEF2FF",
+    borderColor: ZEEPREP_THEME.colors.primary,
+  },
+  aiItemCardUnselected: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+  },
+  aiItemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  checkboxRect: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#94A3B8",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  checkboxRectSelected: {
+    backgroundColor: ZEEPREP_THEME.colors.primary,
+    borderColor: ZEEPREP_THEME.colors.primary,
+  },
+  aiItemTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: ZEEPREP_THEME.colors.textPrimary,
+  },
+  aiItemText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginBottom: 8,
+  },
+  aiOptionsBox: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    padding: 8,
+    gap: 4,
+    marginBottom: 8,
+  },
+  aiOptionText: {
+    fontSize: 12,
+    color: "#475569",
+  },
+  aiExplanationText: {
+    fontSize: 11,
+    fontStyle: "italic",
+    color: "#64748B",
   },
 });
