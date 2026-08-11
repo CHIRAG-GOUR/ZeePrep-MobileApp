@@ -1,130 +1,154 @@
-const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
+const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const nodemailer = require("nodemailer");
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-// Modern Firebase v2 Secret definition (GEMINI_API_KEY)
-const geminiApiKeySecret = defineSecret("GEMINI_API_KEY");
+const db = admin.firestore();
 
-/**
- * ZeePrep Firebase Cloud Function v2 for Secure Gemini AI Execution
- * Uses modern Firebase Secret Manager & environment params (v2 API)
- */
-exports.generateGeminiAi = onCall(
-  { secrets: [geminiApiKeySecret], cors: true },
-  async (request) => {
-    // 1. Enforce Authentication Guard
-    if (!request.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "Authentication required to access ZeePrep Cloud AI Services."
-      );
+// SMTP Transporter for ZeePrep Email Service
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: "pa1@skillizee.io",
+    pass: "ecbecpdtvytsqsme",
+  },
+  headers: {
+    "X-Mailer": "ZeePrep LMS Email Dispatcher v4.0",
+    "X-Auto-Response-Suppress": "All",
+  },
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// 1. sendEmail Cloud Function (Preserves Web & Mobile Email Dispatch)
+// ═══════════════════════════════════════════════════════════════════════
+exports.sendEmail = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(204).send("");
+
+  const { to, subject, text, html } = req.body || {};
+  if (!to || !subject) {
+    return res.status(400).json({ error: "Missing required 'to' or 'subject' field" });
+  }
+
+  const recipient = Array.isArray(to) ? to.join(",") : String(to).trim();
+
+  try {
+    const mailOptions = {
+      from: '"ZeePrep LMS Portal" <pa1@skillizee.io>',
+      replyTo: "pa1@skillizee.io",
+      to: recipient,
+      subject: subject,
+      text: text || "ZeePrep LMS Notification",
+      html: html || `<p>${text || "ZeePrep LMS Notification"}</p>`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return res.status(200).json({ success: true, messageId: info.messageId });
+  } catch (err) {
+    console.error("[sendEmail] SMTP Error:", err);
+    return res.status(500).json({ error: err.message || "Failed to send email" });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// 2. deleteUserAccount Cloud Function (Preserves Web & Mobile User Deletion)
+// ═══════════════════════════════════════════════════════════════════════
+exports.deleteUserAccount = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === "OPTIONS") return res.status(204).send("");
+
+  const { uid, loginId } = req.body || {};
+  if (!uid) {
+    return res.status(400).json({ error: "Missing required 'uid' field" });
+  }
+
+  try {
+    console.log(`[deleteUserAccount] Deleting user ${uid} from Auth & Firestore...`);
+
+    try {
+      await admin.auth().deleteUser(uid);
+    } catch (authErr) {
+      if (authErr.code !== "auth/user-not-found") {
+        console.error(`[deleteUserAccount] Auth deletion error:`, authErr);
+      }
     }
 
-    const { taskType, prompt } = request.data || {};
-    if (!prompt || typeof prompt !== "string") {
-      throw new HttpsError(
-        "invalid-argument",
-        "Missing or invalid prompt string."
-      );
+    await db.collection("users").doc(uid).delete();
+    if (loginId) {
+      await db.collection("loginIds").doc(loginId).delete();
     }
 
-    // 2. Secret Key Resolution (v2 Secret Manager / process.env)
+    return res.status(200).json({
+      success: true,
+      message: `User ${uid} deleted completely from Auth & Firestore.`,
+    });
+  } catch (err) {
+    console.error("[deleteUserAccount] Error:", err);
+    return res.status(500).json({ error: err.message || "Failed to delete user account" });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// 3. apiGenerateGemini Cloud Function (Unified Gemini AI Endpoint)
+// ═══════════════════════════════════════════════════════════════════════
+exports.apiGenerateGemini = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === "OPTIONS") return res.status(204).send("");
+
+  try {
+    const { prompt, taskType } = req.body || {};
+    if (!prompt) {
+      return res.status(400).json({ error: "Missing prompt parameter" });
+    }
+
     const apiKey =
       process.env.GEMINI_API_KEY ||
-      geminiApiKeySecret.value() ||
-      process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+      process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
+      "AIzaSyCe8dpGyUuOsTGiNmPbDoCTC04N8yVl914";
 
-    if (!apiKey) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Gemini API Secret Key is not configured on Firebase Cloud Functions."
-      );
-    }
-
-    const modelEndpoints = [
+    const endpoints = [
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
     ];
 
-    for (const endpoint of modelEndpoints) {
+    for (const endpoint of endpoints) {
       try {
         const response = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: prompt }],
-              },
-            ],
+            contents: [{ parts: [{ text: prompt }] }],
           }),
         });
 
         if (response.ok) {
-          const json = await response.json();
-          const outputText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+          const data = await response.json();
+          const outputText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (outputText) {
-            return {
-              success: true,
-              taskType: taskType || "general",
-              resultText: outputText.trim(),
-              timestamp: new Date().toISOString(),
-            };
+            return res.status(200).json({ success: true, taskType: taskType || "general", resultText: outputText.trim() });
           }
         }
       } catch (err) {
-        console.warn("Gemini Cloud Function fetch attempt failed:", err);
+        console.warn("[apiGenerateGemini] Endpoint fetch failed:", err);
       }
     }
 
-    throw new HttpsError(
-      "unavailable",
-      "Gemini AI Service is temporarily unavailable on Cloud Functions."
-    );
+    return res.status(500).json({ error: "Gemini AI model unavailable" });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
-);
-
-/**
- * Public HTTP v2 Endpoint for Mobile Client Web Fallback / REST Invocation
- */
-exports.apiGenerateGemini = onRequest(
-  { secrets: [geminiApiKeySecret], cors: true },
-  async (req, res) => {
-    try {
-      const { prompt, taskType } = req.body || {};
-      if (!prompt) {
-        res.status(400).json({ error: "Missing prompt parameter" });
-        return;
-      }
-
-      const apiKey =
-        process.env.GEMINI_API_KEY ||
-        geminiApiKeySecret.value() ||
-        process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const outputText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        res.status(200).json({ success: true, taskType, resultText: outputText });
-        return;
-      }
-
-      res.status(500).json({ error: "Gemini API error from Cloud Function" });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  }
-);
+});
