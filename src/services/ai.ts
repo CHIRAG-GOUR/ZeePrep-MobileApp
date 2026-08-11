@@ -29,26 +29,51 @@ export interface ReportInsightResult {
   recommendation: string;
 }
 
-// Environment Key Resolution: Reads strictly from EXPO_PUBLIC_GEMINI_API_KEY or GEMINI_API_KEY secret environment tokens
+// Environment & Firebase Cloud Function Endpoint Resolution
 const RESOLVED_API_KEY =
   process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
   process.env.GEMINI_API_KEY ||
   "";
 
+const FIREBASE_CLOUD_FUNCTION_URL =
+  process.env.EXPO_PUBLIC_FIREBASE_CLOUD_FUNCTION_URL ||
+  "https://us-central1-zeeprep01.cloudfunctions.net/apiGenerateGemini";
+
 // Supported Gemini Models (tries 2.5-flash first, then 1.5-flash)
-const MODEL_ENDPOINTS = [
-  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${RESOLVED_API_KEY}`,
-  `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${RESOLVED_API_KEY}`,
-];
+const MODEL_ENDPOINTS = RESOLVED_API_KEY
+  ? [
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${RESOLVED_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${RESOLVED_API_KEY}`,
+    ]
+  : [];
 
 /**
- * Universal Secure Call Wrapper for Gemini API
- * Attempts requests against available Gemini model endpoints.
- * Sanitizes JSON responses and logs technical diagnostics safely.
+ * Universal Secure Call Wrapper for Gemini AI
+ * 1. Tries secure Firebase Cloud Function endpoint (zeeprep01)
+ * 2. Falls back to direct Gemini REST model endpoints
  */
-export async function callGeminiAPI(prompt: string): Promise<string | null> {
+export async function callGeminiAPI(prompt: string, taskType: string = "general"): Promise<string | null> {
+  // Option 1: Try Deployed Firebase Cloud Function
+  try {
+    const cloudRes = await fetch(FIREBASE_CLOUD_FUNCTION_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, taskType }),
+    });
+
+    if (cloudRes.ok) {
+      const cloudData = await cloudRes.json();
+      if (cloudData.success && cloudData.resultText) {
+        return cloudData.resultText.trim();
+      }
+    }
+  } catch (err) {
+    // Cloud function not yet deployed or unreachable, fall back to direct key execution
+  }
+
+  // Option 2: Fallback to Direct Gemini REST Endpoint if API key is loaded locally
   if (!RESOLVED_API_KEY) {
-    console.warn("[ZeePrep AI Service] No Gemini API key configured.");
+    console.warn("[ZeePrep AI Service] No Gemini API key or Cloud Function configured.");
     return null;
   }
 
