@@ -110,19 +110,28 @@ exports.apiGenerateGemini = functions.https.onRequest(async (req, res) => {
   if (req.method === "OPTIONS") return res.status(204).send("");
 
   try {
-    const { prompt, taskType } = req.body || {};
-    if (!prompt) {
-      return res.status(400).json({ error: "Missing prompt parameter" });
+    let body = req.body;
+    if (typeof body === "string") {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {}
+    }
+
+    const prompt = body?.prompt;
+    const taskType = body?.taskType;
+
+    if (!prompt || typeof prompt !== "string") {
+      return res.status(400).json({ error: "Missing required 'prompt' parameter string" });
     }
 
     const apiKey =
       process.env.GEMINI_API_KEY ||
       process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
-      "AIzaSyCe8dpGyUuOsTGiNmPbDoCTC04N8yVl914";
+      "";
 
     const endpoints = [
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
     ];
 
     for (const endpoint of endpoints) {

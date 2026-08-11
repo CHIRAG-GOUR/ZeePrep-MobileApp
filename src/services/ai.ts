@@ -39,11 +39,11 @@ const FIREBASE_CLOUD_FUNCTION_URL =
   process.env.EXPO_PUBLIC_FIREBASE_CLOUD_FUNCTION_URL ||
   "https://us-central1-zeeprep01.cloudfunctions.net/apiGenerateGemini";
 
-// Supported Gemini Models (tries 2.5-flash first, then 1.5-flash)
+// Supported Gemini Models (tries 2.5-flash first, then 2.5-pro)
 const MODEL_ENDPOINTS = RESOLVED_API_KEY
   ? [
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${RESOLVED_API_KEY}`,
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${RESOLVED_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${RESOLVED_API_KEY}`,
     ]
   : [];
 
