@@ -6,12 +6,16 @@ web-build/
 
 # Environment variables & secrets
 .env
-.env*.local
+.env*
+.env.local
+.env.development
+.env.production
 *.keystore
 *.jks
 *.p12
 *.pem
 service-account*.json
+secrets*.json
 
 # Native Android/iOS build outputs
 android/app/build/

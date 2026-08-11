@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useAuthStore } from "../../stores/auth-store";
 import { getQuestionBank, addQuestionToBank } from "../../services/firestore";
-import { suggestQuestionItems } from "../../services/ai";
+import { suggestQuestionItems, type AIGeneratedQuestionSuggestion } from "../../services/ai";
 import type { Question, QuestionLevel } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
 import {
@@ -437,7 +437,7 @@ export default function TeacherQuestionBankScreen() {
 
                   {item.options && item.options.length > 0 ? (
                     <View style={styles.aiOptionsBox}>
-                      {item.options.map((opt, oIdx) => (
+                      {item.options.map((opt: string, oIdx: number) => (
                         <Text key={oIdx} style={styles.aiOptionText}>
                           {String.fromCharCode(65 + oIdx)}. {opt}
                         </Text>

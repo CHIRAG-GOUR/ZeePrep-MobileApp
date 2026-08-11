@@ -29,12 +29,11 @@ export interface ReportInsightResult {
   recommendation: string;
 }
 
-// Environment Key Resolution: Check EXPO_PUBLIC_GEMINI_API_KEY, GEMINI_API_KEY, or EXPO_PUBLIC_FIREBASE_API_KEY fallback
+// Environment Key Resolution: Reads strictly from EXPO_PUBLIC_GEMINI_API_KEY or GEMINI_API_KEY secret environment tokens
 const RESOLVED_API_KEY =
   process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
   process.env.GEMINI_API_KEY ||
-  process.env.EXPO_PUBLIC_FIREBASE_API_KEY ||
-  "AIzaSyCe8dpGyUuOsTGiNmPbDoCTC04N8yVl914";
+  "";
 
 // Supported Gemini Models (tries 2.5-flash first, then 1.5-flash)
 const MODEL_ENDPOINTS = [
@@ -368,7 +367,7 @@ Return ONLY JSON with keys:
 export async function generateTeacherAIReportAnalysis(report: Report): Promise<ReportInsightResult> {
   const prompt = `You are ZeePrep Diagnostic Report Engine. Analyze the following exam scorecard:
 Exam Title: "${report.examTitle}"
-Subject: ${report.subject || "General"}
+Subject: ${(report as any).subject || "General"}
 Grade: ${report.grade || "12"}
 Score: ${report.obtainedMarks}/${report.totalMarks} (${report.accuracy}% accuracy)
 Time Spent: ${Math.round(report.timeSpentSeconds / 60)} minutes
