@@ -974,6 +974,49 @@ export async function getStudentReportsList(studentUid: string): Promise<Report[
   }
 }
 
+/**
+ * Computes Global Report Eligibility based on the 70% completed active exams threshold.
+ */
+export async function getGlobalReportStatus(user: User | null) {
+  if (!user) {
+    return {
+      isUnlocked: false,
+      completedCount: 0,
+      activeExamsCount: 0,
+      requiredCompletedCount: 1,
+      completionPercentage: 0,
+    };
+  }
+
+  try {
+    const allExams = await getStudentExams(user);
+    const activeExamsCount = Math.max(allExams.length, 1);
+    const requiredCompletedCount = Math.max(1, Math.ceil(activeExamsCount * 0.70));
+
+    const reports = await getStudentReportsList(user.uid);
+    const completedCount = reports.length;
+    const completionPercentage = Math.round((completedCount / activeExamsCount) * 100);
+    const isUnlocked = completedCount >= requiredCompletedCount;
+
+    return {
+      isUnlocked,
+      completedCount,
+      activeExamsCount,
+      requiredCompletedCount,
+      completionPercentage,
+    };
+  } catch (err) {
+    console.error("Error computing global report status:", err);
+    return {
+      isUnlocked: false,
+      completedCount: 0,
+      activeExamsCount: 1,
+      requiredCompletedCount: 1,
+      completionPercentage: 0,
+    };
+  }
+}
+
 export async function deleteUserAccountPermanently(
   targetUid: string,
   performedBy?: User

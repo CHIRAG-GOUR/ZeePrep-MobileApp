@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
-import { getStudentReportsList } from "../../services/firestore";
+import { getStudentReportsList, getGlobalReportStatus } from "../../services/firestore";
 import type { Report } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
 import {
@@ -22,6 +22,8 @@ import {
   CheckCircle2,
   XCircle,
   FileCheck,
+  Lock,
+  Sparkles,
 } from "lucide-react-native";
 
 export default function StudentReportsScreen() {
@@ -31,13 +33,30 @@ export default function StudentReportsScreen() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [globalStatus, setGlobalStatus] = useState<{
+    isUnlocked: boolean;
+    completedCount: number;
+    activeExamsCount: number;
+    requiredCompletedCount: number;
+    completionPercentage: number;
+  }>({
+    isUnlocked: false,
+    completedCount: 0,
+    activeExamsCount: 1,
+    requiredCompletedCount: 1,
+    completionPercentage: 0,
+  });
 
   const fetchReports = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const data = await getStudentReportsList(user.uid);
+      const [data, status] = await Promise.all([
+        getStudentReportsList(user.uid),
+        getGlobalReportStatus(user),
+      ]);
       setReports(data);
+      setGlobalStatus(status);
     } catch (err) {
       console.error("Error loading student reports:", err);
     } finally {
@@ -101,6 +120,34 @@ export default function StudentReportsScreen() {
           <Award size={20} color={ZEEPREP_THEME.colors.warning} />
           <Text style={styles.metricNumber}>{passedCount}</Text>
           <Text style={styles.metricLabel}>Passed Exams</Text>
+        </View>
+      </View>
+
+      {/* Global Diagnostic Report Banner (70% Threshold Rule) */}
+      <View style={[styles.globalReportBanner, globalStatus.isUnlocked ? styles.globalUnlocked : styles.globalLocked]}>
+        <View style={styles.globalHeaderRow}>
+          {globalStatus.isUnlocked ? (
+            <Sparkles size={20} color="#4F46E5" />
+          ) : (
+            <Lock size={20} color="#D97706" />
+          )}
+          <Text style={styles.globalTitle}>
+            {globalStatus.isUnlocked ? "Global Diagnostic Report Available" : "Global Report Locked"}
+          </Text>
+        </View>
+        <Text style={styles.globalSub}>
+          {globalStatus.isUnlocked
+            ? `You have completed ${globalStatus.completedCount} of ${globalStatus.activeExamsCount} assigned exams (${globalStatus.completionPercentage}%). Your comprehensive cross-subject report is ready.`
+            : `Progress: ${globalStatus.completedCount} of ${globalStatus.activeExamsCount} exams completed (${globalStatus.completionPercentage}%). Complete ${Math.max(1, globalStatus.requiredCompletedCount - globalStatus.completedCount)} more exam(s) to reach 70% and unlock your Global Report.`}
+        </Text>
+        {/* Progress Bar */}
+        <View style={styles.globalProgressTrack}>
+          <View
+            style={[
+              styles.globalProgressFill,
+              { width: `${Math.min(100, globalStatus.completionPercentage)}%` },
+            ]}
+          />
         </View>
       </View>
 
@@ -342,32 +389,75 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
   },
   viewDetailsText: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
     color: ZEEPREP_THEME.colors.primary,
   },
   emptyCard: {
     backgroundColor: ZEEPREP_THEME.colors.surface,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 32,
     alignItems: "center",
-    justifyContent: "center",
     borderWidth: 1,
     borderColor: ZEEPREP_THEME.colors.border,
-    gap: 8,
-    marginVertical: 20,
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: "700",
     color: ZEEPREP_THEME.colors.textPrimary,
+    marginTop: 12,
   },
   emptySub: {
     fontSize: 13,
     color: ZEEPREP_THEME.colors.textSecondary,
     textAlign: "center",
+    marginTop: 4,
     lineHeight: 18,
+  },
+  globalReportBanner: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+  },
+  globalUnlocked: {
+    backgroundColor: "#EEF2FF",
+    borderColor: "#C7D2FE",
+  },
+  globalLocked: {
+    backgroundColor: "#FFFBEB",
+    borderColor: "#FDE68A",
+  },
+  globalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  globalTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: ZEEPREP_THEME.colors.textPrimary,
+  },
+  globalSub: {
+    fontSize: 12,
+    color: ZEEPREP_THEME.colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  globalProgressTrack: {
+    height: 6,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  globalProgressFill: {
+    height: "100%",
+    backgroundColor: ZEEPREP_THEME.colors.primary,
+    borderRadius: 3,
   },
 });
