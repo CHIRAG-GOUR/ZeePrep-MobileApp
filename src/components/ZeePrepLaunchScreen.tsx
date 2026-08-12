@@ -45,9 +45,11 @@ export function ZeePrepLaunchScreen({ onComplete }: ZeePrepLaunchScreenProps) {
     hasPlayedColdLaunch = true;
 
     let isMounted = true;
-    let voiceHasStarted = false;
-    let voiceHasFinished = false;
     let fadeOutStarted = false;
+    let voiceHasStarted = false;
+    let musicHasStarted = false;
+    let voiceDone = false;
+    let musicDone = false;
 
     // Helper: Safely fade out audio and trigger screen transition
     const finishLaunchSequence = () => {
@@ -57,7 +59,7 @@ export function ZeePrepLaunchScreen({ onComplete }: ZeePrepLaunchScreenProps) {
       // Smoothly fade screen
       Animated.timing(screenOpacity, {
         toValue: 0,
-        duration: 500,
+        duration: 600,
         easing: Easing.inOut(Easing.quad),
         useNativeDriver: true,
       }).start(() => {
@@ -90,13 +92,13 @@ export function ZeePrepLaunchScreen({ onComplete }: ZeePrepLaunchScreenProps) {
     Animated.parallel([
       Animated.timing(bgGlowScale, {
         toValue: 1.25,
-        duration: 1400,
+        duration: 1600,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(bgGlowOpacity, {
         toValue: 0.45,
-        duration: 1200,
+        duration: 1400,
         useNativeDriver: true,
       }),
       Animated.spring(logoScale, {
@@ -107,34 +109,34 @@ export function ZeePrepLaunchScreen({ onComplete }: ZeePrepLaunchScreenProps) {
       }),
       Animated.timing(logoOpacity, {
         toValue: 1.0,
-        duration: 700,
+        duration: 800,
         useNativeDriver: true,
       }),
       Animated.timing(wordmarkOpacity, {
         toValue: 1.0,
-        duration: 800,
+        duration: 900,
         useNativeDriver: true,
       }),
       Animated.timing(wordmarkTranslateY, {
         toValue: 0,
-        duration: 800,
+        duration: 900,
         easing: Easing.out(Easing.back(1.5)),
         useNativeDriver: true,
       }),
       Animated.timing(taglineOpacity, {
         toValue: 1.0,
-        duration: 1000,
+        duration: 1100,
         useNativeDriver: true,
       }),
       Animated.timing(taglineTranslateY, {
         toValue: 0,
-        duration: 1000,
+        duration: 1100,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
     ]).start();
 
-    // Step 2: Initialize Audio & Monitor Voiceover Completion
+    // Step 2: Initialize Audio & Monitor Dual Audio Completion
     const setupAudioAndSync = async () => {
       try {
         const musicSource = require("../../assets/Intro Music 1.mp3");
@@ -146,7 +148,7 @@ export function ZeePrepLaunchScreen({ onComplete }: ZeePrepLaunchScreenProps) {
         musicPlayerRef.current = musicPlayer;
         voicePlayerRef.current = voicePlayer;
 
-        // 0.15s: Start Intro Voice sound ("ZeePrep — Learn. Practice. Perform.") at maximum loud volume (1.0)
+        // 0.15s: Start Intro Voice sound ("ZeePrep — Learn. Practice. Perform.") at loud volume (1.0)
         setTimeout(() => {
           if (!isMounted) return;
           try {
@@ -158,55 +160,66 @@ export function ZeePrepLaunchScreen({ onComplete }: ZeePrepLaunchScreenProps) {
           }
         }, 150);
 
-        // 2.15s (2 seconds after Intro sound starts): Start Intro Music at background volume (0.25)
+        // 0.8s: Start Intro Music at full rich volume (0.50) to harmonize with the voiceover
         setTimeout(() => {
           if (!isMounted) return;
           try {
-            musicPlayer.volume = 0.25;
+            musicPlayer.volume = 0.50;
             musicPlayer.play();
+            musicHasStarted = true;
           } catch (e) {
             console.warn("Music play notice:", e);
           }
-        }, 2150);
+        }, 800);
 
-        // Dynamic Poller: Wait for voiceover to finish 100% naturally
+        // Dual Audio Poller: Waits for BOTH Intro Voice AND Intro Music to complete 100% naturally
         const pollInterval = setInterval(() => {
           if (!isMounted) {
             clearInterval(pollInterval);
             return;
           }
 
-          if (voicePlayer) {
-            try {
-              const isPlaying = Boolean(voicePlayer.playing);
-              const curTime = voicePlayer.currentTime || 0;
-              const totalDur = voicePlayer.duration || 0;
-
-              // Check if voice has finished playing
-              if (voiceHasStarted && (!isPlaying || (totalDur > 0 && curTime >= totalDur - 0.25))) {
-                voiceHasFinished = true;
-                clearInterval(pollInterval);
-
-                // Polished 700ms hold after voice finishes before fading out
-                setTimeout(() => {
-                  if (isMounted) finishLaunchSequence();
-                }, 700);
+          try {
+            // Monitor Voice Status
+            if (voicePlayer && voiceHasStarted) {
+              const vPlaying = Boolean(voicePlayer.playing);
+              const vCur = voicePlayer.currentTime || 0;
+              const vDur = voicePlayer.duration || 0;
+              if (!vPlaying || (vDur > 0 && vCur >= vDur - 0.2)) {
+                voiceDone = true;
               }
-            } catch (e) {
-              // Ignored
             }
-          }
-        }, 200);
 
-        // Fail-safe max timeout (7.5s) to guarantee app never hangs
+            // Monitor Music Status
+            if (musicPlayer && musicHasStarted) {
+              const mPlaying = Boolean(musicPlayer.playing);
+              const mCur = musicPlayer.currentTime || 0;
+              const mDur = musicPlayer.duration || 0;
+              if (!mPlaying || (mDur > 0 && mCur >= mDur - 0.2)) {
+                musicDone = true;
+              }
+            }
+
+            // Only trigger transition once BOTH audios have finished completely
+            if (voiceDone && musicDone) {
+              clearInterval(pollInterval);
+              setTimeout(() => {
+                if (isMounted) finishLaunchSequence();
+              }, 400);
+            }
+          } catch (e) {
+            // Ignored
+          }
+        }, 150);
+
+        // Safety max timeout (9.5s) to guarantee app transition if device audio service locks
         setTimeout(() => {
           if (isMounted && !fadeOutStarted) {
             finishLaunchSequence();
           }
-        }, 7500);
+        }, 9500);
       } catch (err) {
         console.warn("Launch audio setup notice:", err);
-        // Fallback timing if audio fails
         setTimeout(() => {
           if (isMounted && !fadeOutStarted) {
             finishLaunchSequence();
