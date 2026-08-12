@@ -10,5 +10,12 @@
 # react-native-reanimated
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
+-keep class com.facebook.react.** { *; }
+-keep class expo.modules.** { *; }
 
-# Add any project specific keep options here:
+# Anti-Reverse Engineering: Strip Debug Log Statements in Release Build
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+}

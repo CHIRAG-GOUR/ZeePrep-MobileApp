@@ -21,6 +21,7 @@ service-account*.json
 secrets*.json
 
 # Native Android/iOS build artifacts
+*.apk
 android/build/
 android/app/build/
 android/.gradle/
