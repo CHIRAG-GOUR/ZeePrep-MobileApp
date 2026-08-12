@@ -146,18 +146,7 @@ export function ZeePrepLaunchScreen({ onComplete }: ZeePrepLaunchScreenProps) {
         musicPlayerRef.current = musicPlayer;
         voicePlayerRef.current = voicePlayer;
 
-        // 0.15s: Start ambient music at balanced volume (0.40)
-        setTimeout(() => {
-          if (!isMounted) return;
-          try {
-            musicPlayer.volume = 0.40;
-            musicPlayer.play();
-          } catch (e) {
-            console.warn("Music play notice:", e);
-          }
-        }, 150);
-
-        // 0.70s: Start whispered voiceover "ZeePrep — Learn. Practice. Perform." at full volume (1.0)
+        // 0.15s: Start Intro Voice sound ("ZeePrep — Learn. Practice. Perform.") at maximum loud volume (1.0)
         setTimeout(() => {
           if (!isMounted) return;
           try {
@@ -167,7 +156,18 @@ export function ZeePrepLaunchScreen({ onComplete }: ZeePrepLaunchScreenProps) {
           } catch (e) {
             console.warn("Voice play notice:", e);
           }
-        }, 700);
+        }, 150);
+
+        // 2.15s (2 seconds after Intro sound starts): Start Intro Music at background volume (0.25)
+        setTimeout(() => {
+          if (!isMounted) return;
+          try {
+            musicPlayer.volume = 0.25;
+            musicPlayer.play();
+          } catch (e) {
+            console.warn("Music play notice:", e);
+          }
+        }, 2150);
 
         // Dynamic Poller: Wait for voiceover to finish 100% naturally
         const pollInterval = setInterval(() => {
