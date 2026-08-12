@@ -11,6 +11,8 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
+import { AnimatedExamIllustration } from "../../components/AnimatedExamIllustration";
+import { useResponsive } from "../../hooks/useResponsive";
 import { useExamStore } from "../../stores/exam-store";
 import { normalizeQuestionOption } from "../../utils/question-normalizer";
 import {
@@ -36,6 +38,7 @@ export default function ExamEngineScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const responsive = useResponsive();
 
   const {
     currentExam,
@@ -108,11 +111,46 @@ export default function ExamEngineScreen() {
     };
   }, [id, user]);
 
+  const autoSubmitRef = useRef(false);
+
+  // Auto-submit handler for timer expiry (uses real Firestore submission)
+  const handleAutoSubmit = async () => {
+    if (autoSubmitRef.current || !currentExam || !user) return;
+    autoSubmitRef.current = true;
+    useExamStore.setState({ isSubmitting: true });
+    try {
+      await submitStudentExamAttempt(
+        currentExam,
+        questions,
+        user,
+        answers,
+        markedForReview,
+        [],
+        questionTimeMap
+      );
+      useExamStore.setState({ isExamActive: false, isSubmitting: false });
+      Alert.alert("Time's Up!", "Your exam has been automatically submitted.", [
+        { text: "View Scorecard", onPress: () => router.replace(`/results/${currentExam.id}` as any) },
+      ]);
+    } catch (err) {
+      console.error("Auto-submit error:", err);
+      useExamStore.setState({ isSubmitting: false });
+      autoSubmitRef.current = false;
+      Alert.alert("Submission Error", "Auto-submission failed. Please try submitting manually.");
+    }
+  };
+
   // Countdown Timer & Auto-Save Draft
   useEffect(() => {
     if (!isExamActive) return;
 
     const interval = setInterval(() => {
+      const { remainingSeconds: rs } = useExamStore.getState();
+      if (rs <= 1) {
+        clearInterval(interval);
+        handleAutoSubmit();
+        return;
+      }
       tickTimer();
 
       // Track time spent on active question

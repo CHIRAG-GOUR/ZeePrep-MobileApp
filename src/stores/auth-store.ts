@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import type { User, UserRole } from "../types";
 
-export type ViewMode = "superadmin" | "teacher" | "student";
+export type ViewMode = "superadmin" | "admin" | "teacher" | "student";
 
 interface AuthState {
   user: User | null;
@@ -96,9 +96,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 
-// Load persisted user session on startup
-Promise.all([getItem(USER_STORAGE_KEY), getItem(VIEW_MODE_STORAGE_KEY)])
-  .then(([storedUser, storedViewMode]) => {
+// Load persisted user session on startup with safety timeout
+const initStoreSession = async () => {
+  try {
+    const [storedUser, storedViewMode] = await Promise.race([
+      Promise.all([getItem(USER_STORAGE_KEY), getItem(VIEW_MODE_STORAGE_KEY)]),
+      new Promise<[string | null, string | null]>((resolve) =>
+        setTimeout(() => resolve([null, null]), 2000)
+      ),
+    ]);
+
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
@@ -111,11 +118,15 @@ Promise.all([getItem(USER_STORAGE_KEY), getItem(VIEW_MODE_STORAGE_KEY)])
           isAuthenticated: true,
           isLoading: false,
         });
+        return;
       } catch {
-        useAuthStore.setState({ isLoading: false });
+        // Fall through
       }
-    } else {
-      useAuthStore.setState({ isLoading: false });
     }
-  })
-  .catch(() => useAuthStore.setState({ isLoading: false }));
+  } catch {
+    // Fall through
+  }
+  useAuthStore.setState({ isLoading: false });
+};
+
+initStoreSession();

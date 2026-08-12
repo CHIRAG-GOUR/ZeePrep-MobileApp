@@ -1,0 +1,8 @@
+# EAS Ignore Rules - Let EAS execute clean expo prebuild
+node_modules/
+.expo/
+dist/
+web-build/
+android/
+ios/
+.env*

@@ -151,7 +151,7 @@ export interface Report {
   createdAt?: any;
 }
 
-export type ResourceType = "pdf" | "docx" | "pptx" | "excel" | "txt" | "image" | "video" | "audio" | "link";
+export type ResourceType = "pdf" | "docx" | "doc" | "word" | "pptx" | "excel" | "txt" | "text" | "image" | "video" | "audio" | "link";
 
 export interface StudyResource {
   id: string;
@@ -159,6 +159,7 @@ export interface StudyResource {
   description?: string;
   type: ResourceType;
   url: string;
+  storagePath?: string;
   subject: string;
   board?: string;
   grade: string;

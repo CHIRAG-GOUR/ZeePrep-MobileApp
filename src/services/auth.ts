@@ -100,7 +100,7 @@ export async function logoutUser(): Promise<void> {
 
 // Restore session listener
 export function initAuthListener() {
-  onAuthStateChanged(auth, async (firebaseUser) => {
+  return onAuthStateChanged(auth, async (firebaseUser) => {
     if (firebaseUser) {
       const profile = await getUserProfile(firebaseUser.uid);
       if (profile && profile.status === "active") {

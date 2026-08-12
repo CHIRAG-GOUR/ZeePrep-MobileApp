@@ -15,6 +15,7 @@ import { ZEEPREP_THEME } from "../../constants/theme";
 import { ShieldCheck, Users, UserCheck, FileCheck, Award, Layers, FolderKanban, HelpCircle, FileBarChart, User as UserIcon, Activity } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { AdminStatTile } from "../../components/AdminStatTile";
+import SuperAdminRoleSwitcher from "../../components/SuperAdminRoleSwitcher";
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
@@ -75,6 +76,8 @@ export default function AdminDashboardScreen() {
         />
       }
     >
+      <SuperAdminRoleSwitcher />
+
       {/* Admin Header Card */}
       <View style={styles.welcomeCard}>
         <View style={styles.badgeRow}>
@@ -85,8 +88,11 @@ export default function AdminDashboardScreen() {
         <Text style={styles.academicMeta}>Institutional User Governance & Portal Operations</Text>
       </View>
 
-      {/* Admin Feature Suite (Explicit 3 Columns per Row) */}
-      <Text style={styles.sectionTitle}>Admin Feature Suite</Text>
+      {/* Admin Feature Suite */}
+      <View style={styles.styledHeadingBox}>
+        <View style={styles.headingAccentBar} />
+        <Text style={styles.styledHeadingText}>Admin Feature Suite</Text>
+      </View>
       <View style={styles.gridSection}>
         {/* Row 1 */}
         <View style={styles.gridRow}>
@@ -265,11 +271,43 @@ const styles = StyleSheet.create({
     color: ZEEPREP_THEME.colors.textSecondary,
     marginTop: 2,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: ZEEPREP_THEME.colors.textPrimary,
+  styledHeadingBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     marginBottom: 14,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  headingAccentBar: {
+    width: 4,
+    height: 16,
+    backgroundColor: "#2563EB",
+    borderRadius: 2,
+    marginRight: 10,
+  },
+  styledHeadingText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#1E40AF",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 12,
+    marginTop: 16,
   },
   gridSection: {
     marginBottom: 20,

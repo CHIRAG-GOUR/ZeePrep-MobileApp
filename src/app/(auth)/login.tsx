@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -12,6 +12,7 @@ import {
   Modal,
   Image,
   useWindowDimensions,
+  Keyboard,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -51,11 +52,27 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isFormActive, setIsFormActive] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   // Forgot Password Modal
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSuccess, setForgotSuccess] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleLogin = async () => {
     if (!identifier.trim() || !password.trim()) {
@@ -196,14 +213,16 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
           {
             paddingHorizontal: isSmallScreen ? 12 : isLargeScreen ? 32 : 20,
-            paddingVertical: isSmallScreen ? 16 : 32,
+            paddingVertical: isSmallScreen ? 12 : 24,
+            paddingBottom: isKeyboardVisible ? (Platform.OS === "android" ? 180 : 120) : 32,
             alignItems: "center",
           },
         ]}
@@ -212,17 +231,19 @@ export default function LoginScreen() {
       >
         <View style={{ width: "100%", maxWidth: 520 }}>
           {/* Top Header Branding */}
-          <View style={styles.header}>
-            <View style={[styles.logoBadge, isSmallScreen && { width: 54, height: 54, marginBottom: 8 }]}>
-              <BookOpen color={ZEEPREP_THEME.colors.primary} size={isSmallScreen ? 28 : 36} />
+          <View style={[styles.header, isKeyboardVisible && { marginBottom: 12 }]}>
+            <View style={[styles.logoBadge, (isSmallScreen || isKeyboardVisible) && { width: 44, height: 44, marginBottom: 4 }]}>
+              <BookOpen color={ZEEPREP_THEME.colors.primary} size={isSmallScreen || isKeyboardVisible ? 22 : 36} />
             </View>
-            <Text style={[styles.brandTitle, isSmallScreen && { fontSize: 22 }]}>ZeePrep</Text>
-            <Text style={[styles.brandSubtitle, isSmallScreen && { fontSize: 11 }]}>
+            <Text style={[styles.brandTitle, (isSmallScreen || isKeyboardVisible) && { fontSize: 20 }]}>ZeePrep</Text>
+            <Text style={[styles.brandSubtitle, (isSmallScreen || isKeyboardVisible) && { fontSize: 10 }]}>
               Intelligent Productivity & Diagnostic Portal
             </Text>
 
-            {/* Dynamic Exam Vector Illustration */}
-            <AnimatedExamIllustration isFormActive={isFormActive} />
+            {/* Dynamic Exam Vector Illustration — Collapses when keyboard is active to maximize input visibility */}
+            {!isKeyboardVisible ? (
+              <AnimatedExamIllustration isFormActive={isFormActive} />
+            ) : null}
           </View>
 
           {/* Outer Card Container */}
@@ -300,11 +321,11 @@ export default function LoginScreen() {
             <View style={styles.inputWrapper}>
               <User size={20} color="#64748B" style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { fontSize: isSmallScreen ? 12 : 13 }]}
                 placeholder={
                   activeTab === "teacher"
-                    ? "teacher@school.com or ZP-TCH-XXXXXX"
-                    : "student@school.com or ZP-STU-XXXXXX"
+                    ? "Email or Faculty ID (e.g. teacher@school.com)"
+                    : "Email or Student ID (e.g. student@school.com)"
                 }
                 placeholderTextColor="#94A3B8"
                 value={identifier}
@@ -315,6 +336,8 @@ export default function LoginScreen() {
                 onFocus={() => setIsFormActive(true)}
                 autoCapitalize="none"
                 keyboardType="email-address"
+                numberOfLines={1}
+                multiline={false}
               />
             </View>
           </View>
@@ -622,9 +645,11 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: 48,
+    height: 50,
     color: ZEEPREP_THEME.colors.textPrimary,
-    fontSize: 14,
+    fontSize: 13,
+    paddingVertical: 0,
+    textAlignVertical: "center",
   },
   eyeBtn: {
     padding: 6,

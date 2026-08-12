@@ -59,3 +59,53 @@ export function formatFirebaseError(error: any): string {
 
   return error.message || "Operation failed. Please try again.";
 }
+
+/**
+ * Safely extracts string representation from a question option (string, object with text/label/value, null, undefined).
+ * Prevents "Objects are not valid as a React child" crashes in Exam & Question Bank rendering.
+ */
+export function getOptionText(option: any, index?: number): string {
+  if (option === null || option === undefined) return index !== undefined ? `Option ${index + 1}` : "";
+  if (typeof option === "string") return option;
+  if (typeof option === "number" || typeof option === "boolean") return String(option);
+  if (typeof option === "object") {
+    if (option.text && typeof option.text === "string") return option.text;
+    if (option.label && typeof option.label === "string") return option.label;
+    if (option.value && typeof option.value === "string") return option.value;
+    if (option.optionText && typeof option.optionText === "string") return option.optionText;
+    if (option.content && typeof option.content === "string") return option.content;
+  }
+  return index !== undefined ? `Option ${index + 1}` : "";
+}
+
+export function getDisplayName(userObj: any, fallback = "User"): string {
+  if (!userObj) return fallback;
+  if (typeof userObj === "string") return userObj;
+  return safeString(userObj.name || userObj.displayName || userObj.email || fallback, fallback);
+}
+
+export function getSubjectName(obj: any, fallback = "General"): string {
+  if (!obj) return fallback;
+  if (typeof obj === "string") return obj;
+  return safeString(obj.subject || obj.subjectName || obj.name || fallback, fallback);
+}
+
+export function getClassName(obj: any, fallback = "General"): string {
+  if (!obj) return fallback;
+  if (typeof obj === "string") return obj;
+  return safeString(obj.grade || obj.class || obj.className || obj.classId || fallback, fallback);
+}
+
+export function getResourceType(obj: any, fallback = "pdf"): string {
+  if (!obj) return fallback;
+  if (typeof obj === "string") return obj;
+  return safeString(obj.format || obj.type || obj.resourceType || fallback, fallback);
+}
+
+export function getFileExtension(filenameOrUrl: string): string {
+  if (!filenameOrUrl || typeof filenameOrUrl !== "string") return "";
+  const clean = filenameOrUrl.split("?")[0].split("#")[0];
+  const lastDot = clean.lastIndexOf(".");
+  if (lastDot === -1 || lastDot === clean.length - 1) return "";
+  return clean.substring(lastDot + 1).toLowerCase();
+}

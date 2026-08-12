@@ -5,6 +5,8 @@ import { ArrowLeft } from "lucide-react-native";
 import { ZEEPREP_THEME } from "../constants/theme";
 import { useAuthStore } from "../stores/auth-store";
 
+import SuperAdminRoleSwitcher from "./SuperAdminRoleSwitcher";
+
 interface AppHeaderProps {
   title: string;
   subtitle?: string;
@@ -48,6 +50,7 @@ export function AppHeader({
 
   return (
     <View style={styles.header}>
+      <SuperAdminRoleSwitcher />
       <View style={styles.row}>
         {showBack && (
           <TouchableOpacity

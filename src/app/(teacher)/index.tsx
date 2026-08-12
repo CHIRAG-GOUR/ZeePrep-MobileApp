@@ -140,8 +140,11 @@ export default function TeacherDashboardScreen() {
         </View>
       </View>
 
-      {/* Faculty Control Suite (Explicit 3 x 3 Grid) */}
-      <Text style={styles.sectionTitle}>Faculty Control Suite</Text>
+      {/* Faculty Control Suite */}
+      <View style={styles.styledHeadingBox}>
+        <View style={styles.headingAccentBar} />
+        <Text style={styles.styledHeadingText}>Faculty Control Suite</Text>
+      </View>
       <View style={styles.gridSection}>
         {/* Row 1 */}
         <View style={styles.gridRow}>
@@ -424,6 +427,37 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
+  },
+  styledHeadingBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 14,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  headingAccentBar: {
+    width: 4,
+    height: 16,
+    backgroundColor: "#2563EB",
+    borderRadius: 2,
+    marginRight: 10,
+  },
+  styledHeadingText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#1E40AF",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
   sectionTitle: {
     fontSize: 16,

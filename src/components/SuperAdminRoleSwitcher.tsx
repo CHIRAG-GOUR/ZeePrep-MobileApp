@@ -10,7 +10,7 @@ import {
 import { useRouter } from "expo-router";
 import { useAuthStore, isSuperAdminUser, ViewMode } from "../stores/auth-store";
 import { ZEEPREP_THEME } from "../constants/theme";
-import { Crown, ChevronDown, ShieldAlert, GraduationCap, UserCheck, Check } from "lucide-react-native";
+import { Crown, ChevronDown, ShieldAlert, ShieldCheck, GraduationCap, UserCheck, Check } from "lucide-react-native";
 
 export default function SuperAdminRoleSwitcher() {
   const router = useRouter();
@@ -29,6 +29,8 @@ export default function SuperAdminRoleSwitcher() {
 
     if (targetMode === "superadmin") {
       router.push("/(superadmin)");
+    } else if (targetMode === "admin") {
+      router.push("/(admin)");
     } else if (targetMode === "teacher") {
       router.push("/(teacher)");
     } else {
@@ -40,6 +42,8 @@ export default function SuperAdminRoleSwitcher() {
     switch (mode) {
       case "superadmin":
         return "Super Admin Portal";
+      case "admin":
+        return "Admin Control Portal";
       case "teacher":
         return "Faculty / Teacher Portal";
       case "student":
@@ -91,6 +95,22 @@ export default function SuperAdminRoleSwitcher() {
                 </View>
               </View>
               {currentMode === "superadmin" ? <Check size={18} color="#4F46E5" /> : null}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.roleOption, currentMode === "admin" && styles.roleOptionActive]}
+              onPress={() => handleSelectRole("admin")}
+            >
+              <View style={styles.optionLeft}>
+                <ShieldCheck size={18} color={currentMode === "admin" ? "#4F46E5" : "#64748B"} />
+                <View>
+                  <Text style={[styles.optionTitle, currentMode === "admin" && styles.optionTitleActive]}>
+                    Admin
+                  </Text>
+                  <Text style={styles.optionSub}>Institutional management & analytics</Text>
+                </View>
+              </View>
+              {currentMode === "admin" ? <Check size={18} color="#4F46E5" /> : null}
             </TouchableOpacity>
 
             <TouchableOpacity

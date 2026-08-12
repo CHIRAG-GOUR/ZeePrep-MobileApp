@@ -16,6 +16,7 @@ import { getQuestionBank, addQuestionToBank } from "../../services/firestore";
 import { suggestQuestionItems, type AIGeneratedQuestionSuggestion } from "../../services/ai";
 import type { Question, QuestionLevel } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
+import { safeUpperCase, getOptionText } from "../../utils/safe-helpers";
 import {
   HelpCircle,
   Plus,
@@ -297,9 +298,9 @@ export default function TeacherQuestionBankScreen() {
               <View key={q.id || idx} style={styles.card}>
                 <View style={styles.cardTop}>
                   <View style={styles.levelBadge}>
-                    <Text style={styles.levelBadgeText}>{q.level.toUpperCase()}</Text>
+                    <Text style={styles.levelBadgeText}>{safeUpperCase(q.level, "LEVEL 1")}</Text>
                   </View>
-                  <Text style={styles.marksText}>+{q.marks} Marks</Text>
+                  <Text style={styles.marksText}>+{q.marks || 1} Marks</Text>
                 </View>
 
                 <Text style={styles.questionText}>{q.text}</Text>
@@ -307,8 +308,8 @@ export default function TeacherQuestionBankScreen() {
                 {q.options && q.options.length > 0 ? (
                   <View style={styles.optionsBox}>
                     {q.options.map((opt, oIdx) => (
-                      <Text key={opt.id || oIdx} style={styles.optionText}>
-                        {String.fromCharCode(65 + oIdx)}. {opt.text}
+                      <Text key={oIdx} style={styles.optionText}>
+                        {String.fromCharCode(65 + oIdx)}. {getOptionText(opt, oIdx)}
                       </Text>
                     ))}
                   </View>

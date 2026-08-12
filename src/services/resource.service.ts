@@ -1,14 +1,33 @@
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { ref, getDownloadURL } from "firebase/storage";
+import { ref, getDownloadURL, uploadBytes } from "firebase/storage";
+import { Platform } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import { db, storage } from "../lib/firebase";
 import type { User } from "../types";
 
+async function setStorageItem(key: string, value: string): Promise<void> {
+  if (Platform.OS === "web") {
+    try { localStorage.setItem(key, value); } catch (e) {}
+  } else {
+    await SecureStore.setItemAsync(key, value);
+  }
+}
+
+async function getStorageItem(key: string): Promise<string | null> {
+  if (Platform.OS === "web") {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  } else {
+    return await SecureStore.getItemAsync(key);
+  }
+}
+
 export type ResourceTypeFormat =
   | "pdf"
+  | "word"
+  | "excel"
   | "image"
   | "video"
   | "audio"
-  | "doc"
   | "text"
   | "link";
 
@@ -33,6 +52,62 @@ export interface NormalizedResource {
   createdAt: string;
   isValidUrl: boolean;
   errorMessage?: string;
+}
+
+/**
+ * Auto-detects resource format from file name, URL or MIME type
+ */
+export function autoDetectFileFormat(fileNameOrUrl: string, mimeType: string = ""): { format: ResourceTypeFormat; displayType: string } {
+  const str = (fileNameOrUrl || "").toLowerCase();
+  const mime = (mimeType || "").toLowerCase();
+
+  if (mime.includes("pdf") || str.includes(".pdf")) {
+    return { format: "pdf", displayType: "PDF DOCUMENT" };
+  }
+  if (
+    mime.includes("word") ||
+    mime.includes("officedocument.wordprocessingml") ||
+    str.match(/\.(docx|doc)($|\?)/)
+  ) {
+    return { format: "word", displayType: "WORD DOC" };
+  }
+  if (
+    mime.includes("excel") ||
+    mime.includes("spreadsheet") ||
+    mime.includes("csv") ||
+    str.match(/\.(xlsx|xls|csv)($|\?)/)
+  ) {
+    return { format: "excel", displayType: "EXCEL WORKSHEET" };
+  }
+  if (
+    mime.includes("video") ||
+    str.match(/\.(mp4|mov|webm|avi|m4v)($|\?)/) ||
+    str.includes("youtube.com") ||
+    str.includes("youtu.be")
+  ) {
+    return { format: "video", displayType: "VIDEO LECTURE" };
+  }
+  if (
+    mime.includes("audio") ||
+    str.match(/\.(mp3|wav|m4a|aac|ogg)($|\?)/)
+  ) {
+    return { format: "audio", displayType: "AUDIO LECTURE" };
+  }
+  if (
+    mime.includes("image") ||
+    str.match(/\.(png|jpg|jpeg|webp|gif|svg)($|\?)/)
+  ) {
+    return { format: "image", displayType: "IMAGE / DIAGRAM" };
+  }
+  if (
+    mime.includes("text") ||
+    mime.includes("json") ||
+    str.match(/\.(txt|md|json|log)($|\?)/)
+  ) {
+    return { format: "text", displayType: "TEXT / NOTES" };
+  }
+
+  return { format: "link", displayType: "WEB LINK" };
 }
 
 /**
@@ -70,59 +145,9 @@ export function normalizeResource(rawRes: any): NormalizedResource {
   }
 
   // Detect file format and MIME type
-  const rawType = (rawRes.type || rawRes.resourceType || rawRes.fileType || rawRes.mimeType || "").toLowerCase();
+  const rawType = (rawRes.type || rawRes.format || rawRes.resourceType || rawRes.fileType || rawRes.mimeType || "").toLowerCase();
   const mimeType = rawRes.mimeType || "";
-  const lowerUrl = url.toLowerCase();
-  const lowerPath = storagePath.toLowerCase();
-
-  let format: ResourceTypeFormat = "link";
-  let displayType = "WEB LINK";
-
-  if (rawType.includes("pdf") || lowerUrl.includes(".pdf") || lowerPath.includes(".pdf")) {
-    format = "pdf";
-    displayType = "PDF DOCUMENT";
-  } else if (
-    rawType.includes("text") ||
-    rawType.includes("txt") ||
-    rawType.includes("plain") ||
-    lowerUrl.match(/\.(txt|log|md|csv|json)($|\?)/) ||
-    lowerPath.match(/\.(txt|log|md|csv|json)($|\?)/)
-  ) {
-    format = "text";
-    displayType = "TEXT DOCUMENT";
-  } else if (
-    rawType.includes("image") ||
-    lowerUrl.match(/\.(jpg|jpeg|png|webp|gif|svg)($|\?)/) ||
-    lowerPath.match(/\.(jpg|jpeg|png|webp|gif|svg)($|\?)/)
-  ) {
-    format = "image";
-    displayType = "IMAGE";
-  } else if (
-    rawType.includes("video") ||
-    lowerUrl.match(/\.(mp4|webm|mov|m4v)($|\?)/) ||
-    lowerPath.match(/\.(mp4|webm|mov|m4v)($|\?)/) ||
-    lowerUrl.includes("youtube.com") ||
-    lowerUrl.includes("youtu.be")
-  ) {
-    format = "video";
-    displayType = "VIDEO";
-  } else if (
-    rawType.includes("audio") ||
-    lowerUrl.match(/\.(mp3|wav|m4a|aac|ogg)($|\?)/) ||
-    lowerPath.match(/\.(mp3|wav|m4a|aac|ogg)($|\?)/)
-  ) {
-    format = "audio";
-    displayType = "AUDIO";
-  } else if (
-    rawType.includes("doc") ||
-    rawType.includes("ppt") ||
-    rawType.includes("xls") ||
-    lowerUrl.match(/\.(doc|docx|ppt|pptx|xls|xlsx)($|\?)/) ||
-    lowerPath.match(/\.(doc|docx|ppt|pptx|xls|xlsx)($|\?)/)
-  ) {
-    format = "doc";
-    displayType = "OFFICE DOCUMENT";
-  }
+  const detected = autoDetectFileFormat(url || title || storagePath, mimeType || rawType);
 
   return {
     id,
@@ -130,9 +155,9 @@ export function normalizeResource(rawRes: any): NormalizedResource {
     description,
     url,
     storagePath,
-    format,
+    format: detected.format,
     rawType,
-    displayType,
+    displayType: detected.displayType,
     mimeType,
     subject,
     grade,
@@ -231,38 +256,119 @@ export function canUserAccessResource(resource: NormalizedResource, user: User |
 
 /**
  * Fetches and normalizes study resources for the authenticated user from Firestore.
+ * Queries both 'study_resources' and 'resources' collections, deduplicates by ID,
+ * and caches locally via AsyncStorage for robust cold-start persistence.
  */
 export async function getResourcesForUser(user: User | null): Promise<NormalizedResource[]> {
+  const CACHE_KEY = "zeeprep_cached_resources";
+
+  // 1. Try to load cached resources for instant cold-start display
+  let cachedList: NormalizedResource[] = [];
   try {
-    let snapshot;
+    const rawCache = await getStorageItem(CACHE_KEY);
+    if (rawCache) {
+      cachedList = JSON.parse(rawCache);
+    }
+  } catch (e) {
+    // Ignore cache parse error
+  }
+
+  try {
+    const resourcesMap = new Map<string, NormalizedResource>();
+
+    // Query 'study_resources' collection
     try {
-      snapshot = await getDocs(collection(db, "study_resources"));
+      const snap1 = await getDocs(collection(db, "study_resources"));
+      snap1.forEach((docSnap) => {
+        const raw = { ...docSnap.data(), id: docSnap.id };
+        const normalized = normalizeResource(raw);
+        const perm = canUserAccessResource(normalized, user);
+        if (perm.allowed) {
+          resourcesMap.set(normalized.id, normalized);
+        }
+      });
     } catch (e1) {
-      snapshot = await getDocs(collection(db, "resources"));
+      console.warn("Notice querying study_resources:", e1);
     }
 
-    const list: NormalizedResource[] = [];
-    snapshot.forEach((docSnap) => {
-      const raw = { ...docSnap.data(), id: docSnap.id };
-      const normalized = normalizeResource(raw);
+    // Query 'resources' collection
+    try {
+      const snap2 = await getDocs(collection(db, "resources"));
+      snap2.forEach((docSnap) => {
+        const raw = { ...docSnap.data(), id: docSnap.id };
+        const normalized = normalizeResource(raw);
+        const perm = canUserAccessResource(normalized, user);
+        if (perm.allowed && !resourcesMap.has(normalized.id)) {
+          resourcesMap.set(normalized.id, normalized);
+        }
+      });
+    } catch (e2) {
+      console.warn("Notice querying resources:", e2);
+    }
 
-      // Verify access permissions
-      const perm = canUserAccessResource(normalized, user);
-      if (perm.allowed) {
-        list.push(normalized);
-      }
-    });
+    const list = Array.from(resourcesMap.values());
 
-    // Client-side sort by createdAt descending
+    // Sort by createdAt descending
     list.sort((a, b) => {
       const dateA = new Date(a.createdAt || 0).getTime();
       const dateB = new Date(b.createdAt || 0).getTime();
       return dateB - dateA;
     });
 
-    return list;
-  } catch (err) {
-    console.error("Error fetching resources in resource.service:", err);
-    return [];
+    if (list.length > 0) {
+      // Save to persistent storage
+      setStorageItem(CACHE_KEY, JSON.stringify(list)).catch(() => {});
+      return list;
+    }
+
+    return cachedList.length > 0 ? cachedList : list;
+  } catch (error) {
+    console.error("Error fetching study resources:", error);
+    return cachedList;
+  }
+}
+
+/**
+ * Uploads a local file blob to Firebase Storage and returns its canonical storagePath & downloadUrl.
+ * Ensures zero local-only (idb://, blob:, file://) URLs are saved as permanent resource sources in Firestore.
+ */
+export async function uploadResourceFileToStorage(
+  fileUri: string,
+  fileName: string,
+  grade: string = "General",
+  subject: string = "General"
+): Promise<{ storagePath: string; downloadUrl: string } | null> {
+  if (!storage) {
+    console.error("Firebase Storage instance not initialized.");
+    return null;
+  }
+
+  // If already a remote web/http URL, return as-is
+  if (fileUri.startsWith("http://") || fileUri.startsWith("https://")) {
+    return { storagePath: "", downloadUrl: fileUri };
+  }
+
+  try {
+    const cleanFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const sanitizedGrade = (grade || "General").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const sanitizedSubject = (subject || "General").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const storagePath = `study_resources/${sanitizedGrade}/${sanitizedSubject}/${Date.now()}_${cleanFileName}`;
+
+    const storageRef = ref(storage, storagePath);
+
+    // Fetch local file URI into a blob
+    const response = await fetch(fileUri);
+    const blob = await response.blob();
+
+    // Upload blob to Firebase Storage
+    await uploadBytes(storageRef, blob);
+
+    // Retrieve canonical download URL
+    const downloadUrl = await getDownloadURL(storageRef);
+
+    return { storagePath, downloadUrl };
+  } catch (error) {
+    console.error("Error uploading file to Firebase Storage:", error);
+    return null;
   }
 }

@@ -3,7 +3,7 @@ import { View, StyleSheet, Platform, useWindowDimensions, Text } from "react-nat
 import { ZEEPREP_THEME } from "../constants/theme";
 
 interface MobileWebShellProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export function MobileWebShell({ children }: MobileWebShellProps) {

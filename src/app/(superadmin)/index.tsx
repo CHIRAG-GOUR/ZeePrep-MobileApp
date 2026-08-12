@@ -108,10 +108,10 @@ export default function SuperAdminDashboardScreen() {
       {/* Super Admin Role Switcher */}
       <SuperAdminRoleSwitcher />
 
-      {/* Super Admin Command Center Hero Banner (Blue Gradient Card - Requirement 6) */}
+      {/* Super Admin Command Center Hero Banner (Sleek Web Blue) */}
       <View style={styles.commandBannerBlueGradient}>
         <View style={styles.bannerBadgeRect}>
-          <ShieldAlert size={14} color="#D97706" />
+          <ShieldAlert size={14} color="#F59E0B" />
           <Text style={styles.bannerBadgeTextRect}>SUPER ADMIN PLATFORM COMMAND CENTER</Text>
         </View>
         <Text style={styles.bannerTitleWhite}>Platform Overview & Telemetry</Text>
@@ -140,8 +140,11 @@ export default function SuperAdminDashboardScreen() {
         </TouchableOpacity>
       ) : null}
 
-      {/* Super Admin Overview Statistics Grid (Explicit 3 Columns x 2 Rows) */}
-      <Text style={styles.diagnosticSectionHeader}>EXPLICIT 3x2 OVERVIEW METRICS</Text>
+      {/* Super Admin Overview Statistics Grid */}
+      <View style={styles.styledHeadingBox}>
+        <View style={styles.headingAccentBar} />
+        <Text style={styles.styledHeadingText}>Institutional Performance Summary</Text>
+      </View>
       <View style={styles.gridSection}>
         {/* Row 1 */}
         <View style={styles.gridRow}>
@@ -199,8 +202,11 @@ export default function SuperAdminDashboardScreen() {
         </View>
       </View>
 
-      {/* Full SuperAdmin Feature Suite (Explicit 3 Columns per Row) */}
-      <Text style={styles.diagnosticSectionHeader}>FULL SUPERADMIN FEATURE SUITE</Text>
+      {/* Full SuperAdmin Feature Suite */}
+      <View style={styles.styledHeadingBox}>
+        <View style={styles.headingAccentBar} />
+        <Text style={styles.styledHeadingText}>Full SuperAdmin Feature Suite</Text>
+      </View>
       <View style={styles.gridSection}>
         {/* Row 1 */}
         <View style={styles.gridRow}>
@@ -335,8 +341,11 @@ export default function SuperAdminDashboardScreen() {
         </View>
       </View>
 
-      {/* Storage & System Telemetry Card (Requirement 6: Divide-y Divide-slate-100 & No Capsule Pills) */}
-      <Text style={styles.diagnosticSectionHeader}>STORAGE & SYSTEM TELEMETRY</Text>
+      {/* Storage & System Telemetry Card */}
+      <View style={styles.styledHeadingBox}>
+        <View style={styles.headingAccentBar} />
+        <Text style={styles.styledHeadingText}>Storage & System Telemetry</Text>
+      </View>
       <View style={styles.telemetryCardOverhaul}>
         <View style={styles.telemetryRowItem}>
           <Text style={styles.telemetryLabel}>Firestore Storage</Text>
@@ -522,35 +531,35 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // Requirement 6: Blue Gradient Banner Card
+  // Requirement 6: Blue Gradient Banner Card (Matches Web Theme)
   commandBannerBlueGradient: {
-    backgroundColor: "#1E1B4B",
+    backgroundColor: "#1E40AF",
     borderRadius: 20,
     padding: 22,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#312E81",
-    shadowColor: "#4F46E5",
+    borderWidth: 1.5,
+    borderColor: "#3B82F6",
+    shadowColor: "#2563EB",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.25,
     shadowRadius: 12,
-    elevation: 4,
+    elevation: 5,
   },
   bannerBadgeRect: {
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
+    borderColor: "rgba(255, 255, 255, 0.3)",
     marginBottom: 10,
   },
   bannerBadgeTextRect: {
-    color: "#F59E0B",
+    color: "#FDE047",
     fontSize: 10,
     fontWeight: "900",
     letterSpacing: 0.5,
@@ -562,9 +571,42 @@ const styles = StyleSheet.create({
   },
   bannerSubWhite: {
     fontSize: 12,
-    color: "#C7D2FE",
+    color: "#DBEAFE",
     marginTop: 4,
     lineHeight: 18,
+  },
+
+  // Styled Heading Box Container
+  styledHeadingBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 14,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  headingAccentBar: {
+    width: 4,
+    height: 16,
+    backgroundColor: "#2563EB",
+    borderRadius: 2,
+    marginRight: 10,
+  },
+  styledHeadingText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#1E40AF",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
 
   // Requirement 5 & 6: Diagnostic Section Headers & Telemetry Card Overhaul

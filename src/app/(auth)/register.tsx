@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Keyboard,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword } from "firebase/auth";
@@ -51,6 +52,22 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -99,21 +116,21 @@ export default function RegisterScreen() {
       });
 
       if (role === "teacher") {
-        setSuccessMessage("Registration submitted! Your faculty account is pending Super Admin approval.");
-        setLoading(false);
+        setSuccessMessage(`Account created! Your Faculty Login ID is: ${loginId}. Approval pending.`);
       } else {
         setUser(newUserProfile as any);
         router.replace("/(tabs)" as any);
       }
     } catch (error: any) {
-      console.error("Registration Error:", error);
+      console.error("Register Error:", error);
       let msg = "Failed to create account. Please try again.";
       if (error.code === "auth/email-already-in-use") {
-        msg = "This email address is already registered. Please sign in instead.";
+        msg = "An account with this email address already exists.";
       } else if (error.code === "auth/weak-password") {
-        msg = "Password should be at least 6 characters long.";
+        msg = "Password should be at least 6 characters.";
       }
       setErrorMessage(msg);
+    } finally {
       setLoading(false);
     }
   };
@@ -121,10 +138,14 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: isKeyboardVisible ? 200 : 32 },
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

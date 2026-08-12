@@ -361,26 +361,43 @@ export async function getStudentExams(user: User | null): Promise<Exam[]> {
 
 export async function getTeacherExams(teacher: User): Promise<Exam[]> {
   try {
-    let q = query(collection(db, "exams"), limit(50));
-    if (teacher.role === "teacher") {
-      q = query(collection(db, "exams"), where("createdBy", "==", teacher.uid));
-    }
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(collection(db, "exams"));
     const exams: Exam[] = [];
+
     snapshot.forEach((docSnap) => {
-      exams.push({ ...docSnap.data(), id: docSnap.id } as Exam);
+      const data = docSnap.data() as any;
+      const examObj: Exam = { ...data, id: docSnap.id };
+
+      // Superadmin / Admin see all exams
+      if (teacher.role === "superadmin" || teacher.role === "admin") {
+        exams.push(examObj);
+        return;
+      }
+
+      // Teacher matching: match by createdBy, teacherId, authorId, teacherUid, or teacher subject/grade
+      const isCreator =
+        data.createdBy === teacher.uid ||
+        data.teacherId === teacher.uid ||
+        data.authorId === teacher.uid ||
+        data.teacherUid === teacher.uid;
+
+      const isSubjectMatch =
+        teacher.subject &&
+        data.subject &&
+        String(data.subject).trim().toLowerCase() === String(teacher.subject).trim().toLowerCase();
+
+      if (isCreator || isSubjectMatch || !data.createdBy) {
+        exams.push(examObj);
+      }
     });
+
+    // Sort by createdAt descending
+    exams.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
     return exams;
   } catch (error) {
     console.error("Error fetching teacher exams:", error);
-    try {
-      const fallbackSnapshot = await getDocs(collection(db, "exams"));
-      const list: Exam[] = [];
-      fallbackSnapshot.forEach((d) => list.push({ ...d.data(), id: d.id } as Exam));
-      return list;
-    } catch (e) {
-      return [];
-    }
+    return [];
   }
 }
 
@@ -561,6 +578,24 @@ export async function submitStudentExamAttempt(
     submittedAt: new Date().toISOString(),
   };
 
+  // Build per-question detailed analysis
+  const detailedAnalysis = questions.map((q) => {
+    const studentAns = answers[q.id];
+    const isCorrect = studentAns !== undefined && studentAns !== "" && studentAns !== null &&
+      String(studentAns).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase();
+    return {
+      questionId: q.id,
+      questionText: String(q.text || ""),
+      correctAnswer: q.correctAnswer,
+      studentAnswer: studentAns !== undefined && studentAns !== null ? studentAns : "",
+      isCorrect,
+      timeSpentSeconds: timeSpentPerQuestion[q.id] || 0,
+      chapter: q.chapter || "",
+      topic: q.topic || "",
+      level: q.level || "level1",
+    };
+  });
+
   const report: Report = {
     id: reportId,
     examId: exam.id,
@@ -582,10 +617,21 @@ export async function submitStudentExamAttempt(
     unattempted: unattemptedCount,
     timeSpentSeconds: totalTimeSpent,
     accuracy,
+    detailedAnalysis,
     createdAt: new Date().toISOString(),
   };
 
+  // Store exam subject on report for AI analysis context
+  (report as any).subject = exam.subject || "";
+
   try {
+    // Prevent duplicate submission: check if report already exists
+    const existingReport = await getDoc(doc(db, "reports", reportId));
+    if (existingReport.exists()) {
+      console.warn(`[ZeePrep] Duplicate submission prevented for report ${reportId}`);
+      return { attempt, report: mapDocumentToReport(existingReport) };
+    }
+
     await setDoc(doc(db, "examAttempts", attemptId), attempt);
     await setDoc(doc(db, "reports", reportId), report);
     await clearExamDraftLocally(exam.id, user.uid);
@@ -638,39 +684,65 @@ function mapDocumentToReport(docSnap: any): Report {
 }
 
 // Fetch Reports
-export async function getStudentReport(examId: string, studentId: string): Promise<Report | null> {
+export async function getStudentReport(idOrExamId: string, studentId?: string): Promise<Report | null> {
   try {
-    const reportId = `report_${examId}_${studentId}`;
-    const attemptId = `attempt_${examId}_${studentId}`;
+    if (!idOrExamId) return null;
 
-    const reportDoc = await getDoc(doc(db, "reports", reportId));
-    if (reportDoc.exists()) {
-      return mapDocumentToReport(reportDoc);
+    // 1. Try direct lookup by ID (in case idOrExamId is a full report doc ID)
+    const directReportDoc = await getDoc(doc(db, "reports", idOrExamId));
+    if (directReportDoc.exists()) {
+      return mapDocumentToReport(directReportDoc);
     }
 
-    const attemptDoc = await getDoc(doc(db, "examAttempts", attemptId));
-    if (attemptDoc.exists()) {
-      return mapDocumentToReport(attemptDoc);
+    const directAttemptDoc = await getDoc(doc(db, "examAttempts", idOrExamId));
+    if (directAttemptDoc.exists()) {
+      return mapDocumentToReport(directAttemptDoc);
     }
 
-    const qReports = query(
-      collection(db, "reports"),
-      where("examId", "==", examId),
-      where("studentId", "==", studentId)
-    );
-    const snapReports = await getDocs(qReports);
-    if (!snapReports.empty) {
-      return mapDocumentToReport(snapReports.docs[0]);
-    }
+    // 2. Constructed IDs with studentId if present
+    if (studentId) {
+      const reportId = `report_${idOrExamId}_${studentId}`;
+      const attemptId = `attempt_${idOrExamId}_${studentId}`;
 
-    const qAttempts = query(
-      collection(db, "examAttempts"),
-      where("examId", "==", examId),
-      where("studentId", "==", studentId)
-    );
-    const snapAttempts = await getDocs(qAttempts);
-    if (!snapAttempts.empty) {
-      return mapDocumentToReport(snapAttempts.docs[0]);
+      const reportDoc = await getDoc(doc(db, "reports", reportId));
+      if (reportDoc.exists()) {
+        return mapDocumentToReport(reportDoc);
+      }
+
+      const attemptDoc = await getDoc(doc(db, "examAttempts", attemptId));
+      if (attemptDoc.exists()) {
+        return mapDocumentToReport(attemptDoc);
+      }
+
+      const qReports = query(
+        collection(db, "reports"),
+        where("examId", "==", idOrExamId),
+        where("studentId", "==", studentId)
+      );
+      const snapReports = await getDocs(qReports);
+      if (!snapReports.empty) {
+        return mapDocumentToReport(snapReports.docs[0]);
+      }
+
+      const qAttempts = query(
+        collection(db, "examAttempts"),
+        where("examId", "==", idOrExamId),
+        where("studentId", "==", studentId)
+      );
+      const snapAttempts = await getDocs(qAttempts);
+      if (!snapAttempts.empty) {
+        return mapDocumentToReport(snapAttempts.docs[0]);
+      }
+    } else {
+      // Direct query by examId without studentId
+      const qReports = query(
+        collection(db, "reports"),
+        where("examId", "==", idOrExamId)
+      );
+      const snapReports = await getDocs(qReports);
+      if (!snapReports.empty) {
+        return mapDocumentToReport(snapReports.docs[0]);
+      }
     }
 
     return null;
@@ -773,6 +845,7 @@ export async function addStudyResource(resourceData: Partial<StudyResource>, upl
       description: resourceData.description || "",
       type: resourceData.type || "pdf",
       url: resourceData.url || "",
+      storagePath: resourceData.storagePath || "",
       subject: resourceData.subject || uploader?.subject || "General",
       board: resourceData.board || uploader?.board || "CBSE",
       grade: resourceData.grade || uploader?.grade || "10",

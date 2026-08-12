@@ -28,6 +28,7 @@ export default function StudentResourcesScreen() {
   const [resources, setResources] = useState<NormalizedResource[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSubject, setSelectedSubject] = useState<string>("all");
+  const [selectedFormat, setSelectedFormat] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -53,13 +54,26 @@ export default function StudentResourcesScreen() {
     fetchResources();
   };
 
+  const FORMAT_TABS = [
+    { id: "all", label: "All Formats" },
+    { id: "video", label: "Video Lectures" },
+    { id: "pdf", label: "PDFs" },
+    { id: "word", label: "Word Docs" },
+    { id: "excel", label: "Excel Worksheets" },
+    { id: "audio", label: "Audio Lectures" },
+    { id: "image", label: "Images & Diagrams" },
+    { id: "text", label: "Text & Notes" },
+  ];
+
   const filteredResources = resources.filter((res) => {
     const matchesSearch =
       res.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       res.subject.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSubject =
       selectedSubject === "all" || res.subject.toLowerCase() === selectedSubject.toLowerCase();
-    return matchesSearch && matchesSubject;
+    const matchesFormat =
+      selectedFormat === "all" || res.format === selectedFormat;
+    return matchesSearch && matchesSubject && matchesFormat;
   });
 
   const subjectsList = Array.from(new Set(resources.map((r) => r.subject).filter(Boolean)));
@@ -83,7 +97,7 @@ export default function StudentResourcesScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Study Material Library</Text>
         <Text style={styles.headerSubtitle}>
-          Curated PDFs, video lectures, and notes uploaded by your faculty
+          Curated PDFs, video lectures, Word/Excel documents & notes from your faculty
         </Text>
 
         <View style={styles.searchWrapper}>
@@ -96,6 +110,21 @@ export default function StudentResourcesScreen() {
             onChangeText={setSearchQuery}
           />
         </View>
+
+        {/* 8 Expanded Format Filter Stream Tabs */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.formatScroll}>
+          {FORMAT_TABS.map((tab) => (
+            <TouchableOpacity
+              key={`fmt-${tab.id}`}
+              style={[styles.formatChip, selectedFormat === tab.id && styles.formatChipActive]}
+              onPress={() => setSelectedFormat(tab.id)}
+            >
+              <Text style={[styles.formatChipText, selectedFormat === tab.id && styles.formatChipTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
         {subjectsList.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subjectScroll}>
@@ -234,6 +263,31 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: ZEEPREP_THEME.colors.textPrimary,
+  },
+  formatScroll: {
+    flexDirection: "row",
+    marginBottom: 8,
+  },
+  formatChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "#EEF2FF",
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: "#E0E7FF",
+  },
+  formatChipActive: {
+    backgroundColor: ZEEPREP_THEME.colors.primary,
+    borderColor: ZEEPREP_THEME.colors.primary,
+  },
+  formatChipText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: ZEEPREP_THEME.colors.primary,
+  },
+  formatChipTextActive: {
+    color: "#FFFFFF",
   },
   subjectScroll: {
     flexDirection: "row",

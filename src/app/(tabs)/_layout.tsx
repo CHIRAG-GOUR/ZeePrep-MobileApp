@@ -4,7 +4,11 @@ import { LayoutDashboard, FileText, FileBarChart, BookOpen, User } from "lucide-
 import { Platform } from "react-native";
 import { ZEEPREP_THEME } from "../../constants/theme";
 
+import { useResponsive } from "../../hooks/useResponsive";
+
 export default function TabsLayout() {
+  const { isLandscape } = useResponsive();
+
   return (
     <Tabs
       screenOptions={{
@@ -15,12 +19,12 @@ export default function TabsLayout() {
           backgroundColor: ZEEPREP_THEME.colors.surface,
           borderTopColor: ZEEPREP_THEME.colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 88 : 70,
-          paddingBottom: Platform.OS === "ios" ? 28 : 12,
-          paddingTop: 8,
+          height: isLandscape ? 52 : (Platform.OS === "ios" ? 88 : 68),
+          paddingBottom: isLandscape ? 4 : (Platform.OS === "ios" ? 28 : 10),
+          paddingTop: isLandscape ? 4 : 8,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: isLandscape ? 9 : 10,
           fontWeight: "700",
           marginBottom: 2,
         },

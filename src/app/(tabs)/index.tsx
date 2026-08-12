@@ -144,8 +144,11 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* ZeePrep Feature Suite (Explicit 3 x 3 Grid) */}
-      <Text style={styles.sectionTitle}>ZeePrep Feature Suite</Text>
+      {/* ZeePrep Feature Suite */}
+      <View style={styles.styledHeadingBox}>
+        <View style={styles.headingAccentBar} />
+        <Text style={styles.styledHeadingText}>ZeePrep Feature Suite</Text>
+      </View>
       <View style={styles.gridSection}>
         {/* Row 1 */}
         <View style={styles.gridRow}>
@@ -446,11 +449,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
+  styledHeadingBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 14,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  headingAccentBar: {
+    width: 4,
+    height: 16,
+    backgroundColor: "#2563EB",
+    borderRadius: 2,
+    marginRight: 10,
+  },
+  styledHeadingText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#1E40AF",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
-    color: ZEEPREP_THEME.colors.textPrimary,
-    marginBottom: 10,
+    color: "#0F172A",
+    marginBottom: 12,
+    marginTop: 16,
   },
   seeAllText: {
     fontSize: 13,

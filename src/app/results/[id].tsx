@@ -177,36 +177,67 @@ export default function ResultsScreen() {
             </View>
           ) : aiInsight ? (
             <View style={{ gap: 10 }}>
-              <View style={styles.aiTagSection}>
-                <Text style={styles.aiTagLabel}>STRONG TOPICS</Text>
-                <View style={styles.aiTagRow}>
-                  {aiInsight.strongTopics.map((t, idx) => (
-                    <View key={idx} style={styles.strongTag}>
-                      <Text style={styles.strongTagText}>{t}</Text>
+              {Array.isArray(aiInsight.strongTopics) && aiInsight.strongTopics.length > 0 && (
+                <View style={styles.aiTagSection}>
+                  <Text style={styles.aiTagLabel}>STRONG TOPICS</Text>
+                  <View style={styles.aiTagRow}>
+                    {aiInsight.strongTopics.map((t, idx) => (
+                      <View key={idx} style={styles.strongTag}>
+                        <Text style={styles.strongTagText}>{typeof t === "string" ? t : String(t)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {Array.isArray(aiInsight.weakTopics) && aiInsight.weakTopics.length > 0 && (
+                <View style={styles.aiTagSection}>
+                  <Text style={styles.aiTagLabel}>WEAK TOPICS & REVISION FOCUS</Text>
+                  <View style={styles.aiTagRow}>
+                    {aiInsight.weakTopics.map((t, idx) => (
+                      <View key={idx} style={styles.weakTag}>
+                        <Text style={styles.weakTagText}>{typeof t === "string" ? t : String(t)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {Array.isArray(aiInsight.conceptualGaps) && aiInsight.conceptualGaps.length > 0 && (
+                <View style={styles.aiTagSection}>
+                  <Text style={styles.aiTagLabel}>CONCEPTUAL GAPS</Text>
+                  <View style={styles.aiTagRow}>
+                    {aiInsight.conceptualGaps.map((g, idx) => (
+                      <View key={idx} style={styles.weakTag}>
+                        <Text style={styles.weakTagText}>{typeof g === "string" ? g : String(g)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {Array.isArray(aiInsight.actionableAdvice) && aiInsight.actionableAdvice.length > 0 && (
+                <View style={styles.aiTagSection}>
+                  <Text style={styles.aiTagLabel}>ACTIONABLE ADVICE</Text>
+                  {aiInsight.actionableAdvice.map((a, idx) => (
+                    <View key={idx} style={styles.aiRecommendationBox}>
+                      <Lightbulb size={14} color="#D97706" />
+                      <Text style={styles.aiRecommendationText}>{typeof a === "string" ? a : String(a)}</Text>
                     </View>
                   ))}
                 </View>
-              </View>
+              )}
 
-              <View style={styles.aiTagSection}>
-                <Text style={styles.aiTagLabel}>WEAK TOPICS & REVISION FOCUS</Text>
-                <View style={styles.aiTagRow}>
-                  {aiInsight.weakTopics.map((t, idx) => (
-                    <View key={idx} style={styles.weakTag}>
-                      <Text style={styles.weakTagText}>{t}</Text>
-                    </View>
-                  ))}
+              {aiInsight.recommendation && typeof aiInsight.recommendation === "string" && (
+                <View style={styles.aiRecommendationBox}>
+                  <Lightbulb size={16} color="#D97706" />
+                  <Text style={styles.aiRecommendationText}>{aiInsight.recommendation}</Text>
                 </View>
-              </View>
-
-              <View style={styles.aiRecommendationBox}>
-                <Lightbulb size={16} color="#D97706" />
-                <Text style={styles.aiRecommendationText}>{aiInsight.recommendation}</Text>
-              </View>
+              )}
             </View>
           ) : (
             <Text style={{ fontSize: 12, color: "#64748B" }}>
-              Scorecard telemetry logged. Complete more exams to generate dynamic insights.
+              AI analysis is temporarily unavailable. Complete more exams to generate dynamic insights.
             </Text>
           )}
         </View>
