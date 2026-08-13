@@ -15,20 +15,25 @@
 - Initialized dedicated mobile codebase inside `E:\1. Skillizee\Zee Prep - Mobile App`.
 - Enforced strict isolation: The original web application (`E:\1. Skillizee\Zee Prep`) remains 100% untouched and read-only.
 
-### 2. Brand Launch Experience & Launcher Icons
-- **Launch Screen (`src/components/ZeePrepLaunchScreen.tsx`)**:
-  - Implemented light-themed, high-resolution opening splash animation featuring the official ZeePrep logo and glow effects.
-- **Dual-Audio Synchronized Engine**:
-  - Configured voiceover audio (`Intro.mp3`: *"ZeePrep — Learn. Practice. Perform."*) playing first at loud volume (`1.0`).
-  - Added background music (`Intro Music 1.mp3`) harmonizing with the voiceover.
-  - Implemented a **Dual Audio Completion Tracker** to ensure both audios finish 100% naturally before fading out into the app.
-- **Native Launcher Icons**:
-  - Generated native Android adaptive launcher icons (round, foreground, background, monochrome XML) featuring the official "Z" emblem.
+### 2. Role-Based Report Viewing Architecture (ZeePrep Web Spec Alignment)
+- **Student Report View (`src/app/results/[id].tsx`)**:
+  - Displays the **Generic Performance Report**:
+    - Pass/Needs Revision Status Badge
+    - Score Obtained / Total Marks (`18 / 25`)
+    - Percentage Score (`72%`)
+    - Accuracy (`75%`) & Total Time Spent (`14 mins 32 secs`)
+    - Performance Analytics Summary Cards (Total Questions, Total Possible Marks, Correct Answers, Incorrect Answers, Unattempted)
+    - Gemini AI Diagnostic Performance Insights (Strong Topics, Weak Topics, Conceptual Gaps, Actionable Advice, Recommendation)
+  - **Excludes** itemized question-by-question text & correct answer keys from students.
+- **Teacher & Admin Report View (`src/app/results/[id].tsx`, `src/app/(teacher)/reports.tsx`)**:
+  - Displays **Full Itemized Diagnostic Breakdown**:
+    - Complete summary stats + AI Diagnostic Analysis
+    - **PLUS** Itemized Question-by-Question breakdown (Question #, Question Text, Student Answer, Correct Answer, Question Weight, Awarded Marks, Time Spent per question).
 
 ### 3. Mobile Exam Window Layout Repair & Viewport Architecture
 - **Root Cause Defect Fix (`src/app/exam/[id].tsx`)**:
   - Eliminated the unconstrained horizontal numbered `ScrollView` strip from the main screen layout, which previously caused flex calculations to collapse the main question view and push question text off-screen.
-  - Replaced the permanent horizontal row with a compact `Question Navigator (▦)` trigger button in the top bar and bottom footer, launching a bottom-sheet modal grid.
+  - Replaced the permanent horizontal row with a compact `Question Navigator (▦)` trigger button launching a bottom-sheet modal grid.
 - **Mobile-First Layout Structure**:
   - **Top Fixed Header**: Back Arrow (with exit alert), Exam Title, Defensive Timer (`⏱ 24:36`), and Palette trigger (`▦`).
   - **Subheader Meta Row**: Question Badge (`Q X of N`), Marks Tag (`+X Marks`), Clear Answer (`Trash2`), and Mark for Review (`Bookmark`).
@@ -39,45 +44,35 @@
   - Guaranteed **NEVER** to render `NaN:NaN`, `undefined`, or negative numbers under any circumstances.
 - **Submit Examination Confirmation Modal**:
   - Intercepts `Submit Exam` tap with a confirmation modal displaying live counts for `Answered`, `Unanswered`, `Marked for Review`, and `Total Questions`.
-  - Prevents accidental exam submissions.
 - **Responsive & Orientation Support**:
   - Uses `useResponsive` hook for safe area insets (`safeTop`, `safeBottom`).
   - In Landscape mode, splits the content area into a 2-column layout (Left: Question Stem + Media, Right: Options Cards).
 
-### 4. Persistent Student Reports Engine & Firestore Synchronization
-- **Student Reports List (`src/services/firestore.ts`, `src/app/(tabs)/reports.tsx`)**:
-  - Implemented `getStudentReportsList(studentId)` querying both `reports` and `examAttempts` collections in Firestore.
-  - Structured the Reports screen into distinct sections: **Global Diagnostic Report** (aggregate analytics with 70% unlock threshold) and **Examination Reports** (individual exam scorecards sorted newest first).
-- **Report Detail Persistence (`src/app/results/[id].tsx`)**:
-  - Retains and retrieves stored AI diagnostic report insights (`aiInsight`) directly from Firestore without re-running Gemini API requests unnecessarily.
-  - Shows full scorecards, time per question, question weights, awarded marks, and diagnostic breakdowns permanently accessible from `Student -> Reports` at any time after exam completion.
-
-### 5. Dynamic Role-Based Screen Protection (SuperAdmin Exemption)
+### 4. Dynamic Role-Based Screen Protection (SuperAdmin Exemption)
 - **Native Android Module (`ScreenSecurityModule.kt`)**:
   - Built Kotlin React Native bridge module `ScreenSecurityModule` with `@ReactMethod fun allowScreenshots(allow: Boolean)`.
 - **Role Control Logic (`src/utils/security-helper.ts`)**:
   - **SuperAdmins (`user.role === "superadmin"`)**: Calls `ScreenSecurityModule.allowScreenshots(true)` which clears `FLAG_SECURE`. SuperAdmins can take screenshots and record screen content.
   - **All Other Roles (Students, Teachers, Admins, Guests)**: Enforces `FLAG_SECURE` (`ScreenSecurityModule.allowScreenshots(false)`), blocking all screenshots and screen recordings across the app.
 
-### 6. Enterprise Anti-Tampering & Security Hardening
+### 5. Enterprise Anti-Tampering & Security Hardening
 - **ProGuard / R8 Bytecode Obfuscation**:
   - Configured `android.enableMinifyInReleaseBuilds=true` and `android.enableShrinkResourcesInReleaseBuilds=true` in `gradle.properties` and `build.gradle`.
-  - Scrambled Kotlin/Java symbol names and stripped debug log statements (`Log.d`, `Log.v`, `Log.i`).
 - **Hermes Bytecode Compilation**:
   - Compiled JavaScript source code into pre-compiled Hermes binary bytecode (`.hbc`).
 
-### 7. Native Release Build & Git Deployment
+### 6. Native Release Build & Git Deployment
 - **TypeScript Check**: `npx tsc --noEmit` -> **0 errors**.
-- **Gradle Release Compilation**: `gradlew assembleRelease` succeeded (**BUILD SUCCESSFUL in 1m 49s**).
+- **Gradle Release Compilation**: `gradlew assembleRelease` succeeded (**BUILD SUCCESSFUL in 1m 50s**).
 - **Physical Device Installation**: Installed on connected device (`Performing Streamed Install -> Success`).
-- **Git Version Control**: Pushed commit `e14fed9` to `origin/master`.
+- **Git Version Control**: Pushed commit `560781d` to `origin/master`.
 
 ---
 
 ## Key Project File Map
 - **Exam Engine Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/exam/%5Bid%5D.tsx)
-- **Exam Store**: [exam-store.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/stores/exam-store.ts)
 - **Student Reports Screen**: [reports.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(tabs)/reports.tsx)
 - **Exam Scorecard & Results Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/results/%5Bid%5D.tsx)
+- **Teacher Reports Screen**: [reports.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/reports.tsx)
 - **Firestore Service**: [firestore.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/services/firestore.ts)
 - **Release APK**: [Zee Prep.apk](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/Zee%20Prep.apk)
