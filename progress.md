@@ -25,81 +25,59 @@
 - **Native Launcher Icons**:
   - Generated native Android adaptive launcher icons (round, foreground, background, monochrome XML) featuring the official "Z" emblem.
 
-### 3. Authentication & Input Layout Refinements
-- **Login Screen (`src/app/(auth)/login.tsx`)**:
-  - Fixed Faculty ID / Email input field formatting to prevent line wrapping or text truncation across all screen sizes.
-  - Role-based navigation for Students, Teachers, Admins, and SuperAdmins.
+### 3. Mobile Exam Window Layout Repair & Viewport Architecture
+- **Root Cause Defect Fix (`src/app/exam/[id].tsx`)**:
+  - Eliminated the unconstrained horizontal numbered `ScrollView` strip from the main screen layout, which previously caused flex calculations to collapse the main question view and push question text off-screen.
+  - Replaced the permanent horizontal row with a compact `Question Navigator (▦)` trigger button in the top bar and bottom footer, launching a bottom-sheet modal grid.
+- **Mobile-First Layout Structure**:
+  - **Top Fixed Header**: Back Arrow (with exit alert), Exam Title, Defensive Timer (`⏱ 24:36`), and Palette trigger (`▦`).
+  - **Subheader Meta Row**: Question Badge (`Q X of N`), Marks Tag (`+X Marks`), Clear Answer (`Trash2`), and Mark for Review (`Bookmark`).
+  - **Main Content ScrollView (`flex: 1`)**: Question Text, Attached Media Images, Answer Option Cards (`[A]`, `[B]`, `[C]`, `[D]`).
+  - **Fixed Bottom Action Bar**: `[ < Prev ]`, `[ ▦ Palette ]`, `[ Next > ]` / `[ Submit Exam ]`.
+- **Defensive Timer Engine (`src/stores/exam-store.ts`, `src/app/exam/[id].tsx`)**:
+  - Built `formatTimerDefensive` and safe duration parser (`parseExamDurationSeconds`) that handles missing/invalid `durationMinutes` or draft states.
+  - Guaranteed **NEVER** to render `NaN:NaN`, `undefined`, or negative numbers under any circumstances.
+- **Submit Examination Confirmation Modal**:
+  - Intercepts `Submit Exam` tap with a confirmation modal displaying live counts for `Answered`, `Unanswered`, `Marked for Review`, and `Total Questions`.
+  - Prevents accidental exam submissions.
+- **Responsive & Orientation Support**:
+  - Uses `useResponsive` hook for safe area insets (`safeTop`, `safeBottom`).
+  - In Landscape mode, splits the content area into a 2-column layout (Left: Question Stem + Media, Right: Options Cards).
 
-### 4. Full Device Responsiveness & Auto-Rotation
-- **Responsive System (`src/hooks/useResponsive.ts`)**:
-  - Built custom hook tracking screen width, height, orientation (Portrait ↕ Landscape), aspect ratio, safe area insets (`safeTop`, `safeBottom`), and keyboard state.
-  - Guaranteed every portal, exam grid, modal, and resource viewer dynamically recalculates layout upon rotation without stretching.
+### 4. Persistent Student Reports Engine & Firestore Synchronization
+- **Student Reports List (`src/services/firestore.ts`, `src/app/(tabs)/reports.tsx`)**:
+  - Implemented `getStudentReportsList(studentId)` querying both `reports` and `examAttempts` collections in Firestore.
+  - Structured the Reports screen into distinct sections: **Global Diagnostic Report** (aggregate analytics with 70% unlock threshold) and **Examination Reports** (individual exam scorecards sorted newest first).
+- **Report Detail Persistence (`src/app/results/[id].tsx`)**:
+  - Retains and retrieves stored AI diagnostic report insights (`aiInsight`) directly from Firestore without re-running Gemini API requests unnecessarily.
+  - Shows full scorecards, time per question, question weights, awarded marks, and diagnostic breakdowns permanently accessible from `Student -> Reports` at any time after exam completion.
 
-### 5. Media Player & Automated HLS Transcoding Engine
-- **Single ZeePrep Purple Player**:
-  - Disabled native Android ExoPlayer white controls (`nativeControls={false}`) to resolve double-player overlay issues.
-  - Built unified ZeePrep purple media player controls with smooth seek bar, play/pause, timecodes, and full-bleed 9:16 vertical video support without letterboxing.
-- **Cloud Function HLS Transcoder (`functions/index.js`)**:
-  - Implemented `onVideoUploadedHLS` Firebase Cloud Function powered by FFmpeg.
-  - Automatically transcodes uploaded MP4/MOV videos into adaptive HLS (`.m3u8`) streams with multi-bitrate renditions (`144p` for weak 2G/3G connections up to `1080p` HD).
-
-### 6. YouTube Native Fullscreen WebView Repair
-- **Fullscreen Integration (`src/app/resource/[id].tsx`, `src/components/ResourceViewerModal.tsx`)**:
-  - Enabled native fullscreen video playback (`allowsFullscreenVideo={true}`).
-  - Added JavaScript DOM event listener bridge for `fullscreenchange` events from YouTube's iframe player.
-  - Tapping YouTube's internal bottom-right fullscreen button launches a full-bleed landscape modal overlay for an authentic YouTube mobile experience.
-  - Removed top-right duplicate exit fullscreen overlay.
-
-### 7. Per-Question Marks Import & Scoring Pipeline Architecture
-- **Question Sheet Parser (`src/utils/question-sheet-importer.ts`)**:
-  - Recognizes marks headers: `Marks`, `Mark`, `Question Marks`, `Maximum Marks`, `Max Marks`, `Score`, `Weight`.
-  - Normalizes marks value into numeric `marks` field per question.
-  - Performs strict validation: requires `marks > 0`. Flag invalid or missing values clearly (e.g. `Question 14 has an invalid marks value: "abc". Please correct the sheet before importing.`). Never silently convert invalid marks to 1 or default.
-- **Validation & Preview Modal (`src/components/QuestionSheetUploadModal.tsx`)**:
-  - Shows Validation Summary: Valid Questions count, Questions With Errors count, Total Marks sum (`sum(question.marks)`).
-  - Displays Preview Card for every row showing Question #, Question Text, Correct Answer, Marks (`+X Marks`), Subject, Topic, Level.
-- **Question Bank Integration (`src/app/(teacher)/question-bank.tsx`)**:
-  - Displays `Marks: X` for every question in the Question Bank.
-  - Manual Question Creation Modal includes required numeric `Marks` field with strict validation.
-- **Exam Builder Dynamic Total Marks (`src/app/(teacher)/exam-builder.tsx`)**:
-  - When teachers select questions for an exam, `totalMarks` is calculated dynamically as `sum(question.marks)`.
-  - Eliminates fixed `N × 1` assumptions.
-- **Scoring Engine & Report Summary (`src/services/firestore.ts`, `src/app/results/[id].tsx`)**:
-  - Scoring: Correct = `+ question.marks`, Incorrect = `0`, Unanswered = `0`. Minimum score = `0` (Zero negative marking).
-  - Total Possible Marks = `sum(question.marks)`.
-  - Percentage = `(obtainedMarks / totalMarks) * 100`.
-  - Scorecard & Question Breakdown displays Question Marks, Awarded Marks (+X, 0), Correct/Incorrect/Unanswered counts, Total Questions, and Total Possible Marks.
-- **Gemini AI Diagnostic Insights Integration (`src/services/ai.ts`)**:
-  - `generateTeacherAIReportAnalysis` receives complete question-level marks and weight loss telemetry, allowing Gemini AI to distinguish between losing 5 marks on a high-weight question vs 1 mark on a low-weight question.
-
-### 8. Dynamic Role-Based Screen Protection (SuperAdmin Exemption)
+### 5. Dynamic Role-Based Screen Protection (SuperAdmin Exemption)
 - **Native Android Module (`ScreenSecurityModule.kt`)**:
   - Built Kotlin React Native bridge module `ScreenSecurityModule` with `@ReactMethod fun allowScreenshots(allow: Boolean)`.
 - **Role Control Logic (`src/utils/security-helper.ts`)**:
   - **SuperAdmins (`user.role === "superadmin"`)**: Calls `ScreenSecurityModule.allowScreenshots(true)` which clears `FLAG_SECURE`. SuperAdmins can take screenshots and record screen content.
   - **All Other Roles (Students, Teachers, Admins, Guests)**: Enforces `FLAG_SECURE` (`ScreenSecurityModule.allowScreenshots(false)`), blocking all screenshots and screen recordings across the app.
 
-### 9. Enterprise Anti-Tampering & Security Hardening
+### 6. Enterprise Anti-Tampering & Security Hardening
 - **ProGuard / R8 Bytecode Obfuscation**:
   - Configured `android.enableMinifyInReleaseBuilds=true` and `android.enableShrinkResourcesInReleaseBuilds=true` in `gradle.properties` and `build.gradle`.
   - Scrambled Kotlin/Java symbol names and stripped debug log statements (`Log.d`, `Log.v`, `Log.i`).
 - **Hermes Bytecode Compilation**:
   - Compiled JavaScript source code into pre-compiled Hermes binary bytecode (`.hbc`).
 
-### 10. Native Release Build & Git Deployment
+### 7. Native Release Build & Git Deployment
 - **TypeScript Check**: `npx tsc --noEmit` -> **0 errors**.
-- **Gradle Release Compilation**: `gradlew assembleRelease` succeeded (`BUILD SUCCESSFUL in 1m 48s`).
+- **Gradle Release Compilation**: `gradlew assembleRelease` succeeded (**BUILD SUCCESSFUL in 1m 49s**).
 - **Physical Device Installation**: Installed on connected device (`Performing Streamed Install -> Success`).
-- **Git Version Control**: Pushed commit `e15cb43` to `origin/master`.
+- **Git Version Control**: Pushed commit `e14fed9` to `origin/master`.
 
 ---
 
 ## Key Project File Map
-- **Question Sheet Parser**: [question-sheet-importer.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/utils/question-sheet-importer.ts)
-- **Validation & Preview Modal**: [QuestionSheetUploadModal.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/components/QuestionSheetUploadModal.tsx)
-- **Question Bank Screen**: [question-bank.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/question-bank.tsx)
-- **Exam Builder Screen**: [exam-builder.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/exam-builder.tsx)
-- **Screen Security Native Module**: [ScreenSecurityModule.kt](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/android/app/src/main/java/com/skillizee/zeeprep/ScreenSecurityModule.kt)
 - **Exam Engine Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/exam/%5Bid%5D.tsx)
-- **Exam Results & Report Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/results/%5Bid%5D.tsx)
+- **Exam Store**: [exam-store.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/stores/exam-store.ts)
+- **Student Reports Screen**: [reports.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(tabs)/reports.tsx)
+- **Exam Scorecard & Results Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/results/%5Bid%5D.tsx)
+- **Firestore Service**: [firestore.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/services/firestore.ts)
 - **Release APK**: [Zee Prep.apk](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/Zee%20Prep.apk)
