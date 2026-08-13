@@ -6,7 +6,9 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
 import { getTeacherReports } from "../../services/firestore";
 import type { Report } from "../../types";
@@ -16,6 +18,7 @@ import { Users, FileCheck, Award, Clock } from "lucide-react-native";
 import { AppHeader } from "../../components/AppHeader";
 
 export default function TeacherSubmissionsScreen() {
+  const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,19 +69,36 @@ export default function TeacherSubmissionsScreen() {
           <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginTop: 40 }} />
         ) : reports.length > 0 ? (
           reports.map((r) => (
-            <View key={r.id} style={styles.card}>
+            <TouchableOpacity
+              key={r.id}
+              style={styles.card}
+              onPress={() => router.push(`/results/${r.id}` as any)}
+              activeOpacity={0.85}
+            >
               <View style={styles.cardHeader}>
                 <Text style={styles.studentName}>{r.studentName || "Student Attempt"}</Text>
-                <View style={styles.scorePill}>
-                  <Text style={styles.scoreText}>{r.percentage}%</Text>
+                <View
+                  style={[
+                    styles.scorePill,
+                    { backgroundColor: r.passed ? "#ECFDF5" : "#FEF2F2" },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.scoreText,
+                      { color: r.passed ? "#059669" : "#DC2626" },
+                    ]}
+                  >
+                    {r.percentage}%
+                  </Text>
                 </View>
               </View>
 
               <Text style={styles.examTitle}>{r.examTitle || "Assessment"}</Text>
               <Text style={styles.metaText}>
-                Score: {r.obtainedMarks} / {r.totalMarks} • Time: {Math.floor((r.timeSpentSeconds || 0) / 60)} mins
+                Grade {r.grade || "10"} • Score: {r.obtainedMarks} / {r.totalMarks} • Time: {Math.floor((r.timeSpentSeconds || 0) / 60)} mins
               </Text>
-            </View>
+            </TouchableOpacity>
           ))
         ) : (
           <View style={styles.emptyBox}>

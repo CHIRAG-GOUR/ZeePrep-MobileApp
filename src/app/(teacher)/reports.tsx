@@ -7,13 +7,14 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
 import { getTeacherReports } from "../../services/firestore";
 import type { Report } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
-import { FileBarChart, Users, CheckCircle2, XCircle, ArrowRight } from "lucide-react-native";
+import { FileBarChart, Search, ChevronRight } from "lucide-react-native";
 import { AppHeader } from "../../components/AppHeader";
 
 export default function TeacherReportsScreen() {
@@ -22,6 +23,7 @@ export default function TeacherReportsScreen() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchReports = async () => {
     if (!user) return;
@@ -46,12 +48,33 @@ export default function TeacherReportsScreen() {
     fetchReports();
   };
 
+  const filteredReports = reports.filter((r) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const name = (r.studentName || "").toLowerCase();
+    const email = (r.studentEmail || "").toLowerCase();
+    const title = (r.examTitle || "").toLowerCase();
+    const grade = (r.grade || "").toLowerCase();
+    return name.includes(q) || email.includes(q) || title.includes(q) || grade.includes(q);
+  });
+
   return (
     <View style={styles.container}>
       <AppHeader
         title="Student Diagnostic Reports"
         subtitle="Institutional assessment scorecards & performance analytics"
       />
+
+      <View style={styles.searchBarContainer}>
+        <Search size={18} color="#64748B" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by student name, exam title, grade..."
+          placeholderTextColor="#94A3B8"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -66,8 +89,8 @@ export default function TeacherReportsScreen() {
       >
         {loading ? (
           <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginTop: 40 }} />
-        ) : reports.length > 0 ? (
-          reports.map((r) => (
+        ) : filteredReports.length > 0 ? (
+          filteredReports.map((r) => (
             <TouchableOpacity
               key={r.id}
               style={styles.card}
@@ -78,7 +101,7 @@ export default function TeacherReportsScreen() {
                 <View style={styles.studentInfo}>
                   <Text style={styles.studentName}>{r.studentName || "Student Attempt"}</Text>
                   <Text style={styles.studentMeta}>
-                    Grade {r.grade || "12"} • {r.studentEmail}
+                    Grade {r.grade || "10"} • {r.studentEmail || "Student"}
                   </Text>
                 </View>
                 <View
@@ -99,17 +122,22 @@ export default function TeacherReportsScreen() {
               </View>
 
               <Text style={styles.examTitle}>{r.examTitle || "Assessment Paper"}</Text>
-              
+
               <View style={styles.metaRow}>
                 <Text style={styles.metaText}>
                   Marks: {r.obtainedMarks} / {r.totalMarks}
                 </Text>
                 <Text style={styles.metaText}>
-                  Time: {Math.floor((r.timeSpentSeconds || 0) / 60)} mins
+                  Time: {Math.floor((r.timeSpentSeconds || 0) / 60)}m {(r.timeSpentSeconds || 0) % 60}s
                 </Text>
                 <Text style={styles.metaText}>
                   Accuracy: {r.accuracy || 0}%
                 </Text>
+              </View>
+
+              <View style={styles.actionRow}>
+                <Text style={styles.actionText}>View Detailed Faculty Diagnostic</Text>
+                <ChevronRight size={16} color="#4F46E5" />
               </View>
             </TouchableOpacity>
           ))
@@ -117,7 +145,11 @@ export default function TeacherReportsScreen() {
           <View style={styles.emptyBox}>
             <FileBarChart size={40} color={ZEEPREP_THEME.colors.textMuted} />
             <Text style={styles.emptyTitle}>No Diagnostic Reports Available</Text>
-            <Text style={styles.emptySubtitle}>Student exam attempts and diagnostic scorecards will appear here.</Text>
+            <Text style={styles.emptySubtitle}>
+              {searchQuery
+                ? "No reports match your current search query."
+                : "Student exam attempts and diagnostic scorecards will appear here."}
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -129,6 +161,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: ZEEPREP_THEME.colors.background,
+  },
+  searchBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 20,
+    marginTop: 14,
+    marginBottom: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: "#0F172A",
   },
   scrollContent: {
     padding: 20,
@@ -150,64 +201,78 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 6,
+    alignItems: "center",
+    marginBottom: 10,
   },
   studentInfo: {
     flex: 1,
   },
   studentName: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "800",
     color: ZEEPREP_THEME.colors.textPrimary,
   },
   studentMeta: {
     fontSize: 12,
-    color: ZEEPREP_THEME.colors.textSecondary,
-    marginTop: 1,
+    color: ZEEPREP_THEME.colors.textMuted,
+    marginTop: 2,
   },
   scorePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
   },
   scoreText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
   },
   examTitle: {
     fontSize: 14,
-    fontWeight: "600",
-    color: ZEEPREP_THEME.colors.primary,
-    marginBottom: 6,
+    fontWeight: "700",
+    color: "#334155",
+    marginBottom: 10,
   },
   metaRow: {
     flexDirection: "row",
-    gap: 16,
+    justifyContent: "space-between",
+    backgroundColor: "#F8FAFC",
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 10,
   },
   metaText: {
     fontSize: 12,
-    color: ZEEPREP_THEME.colors.textMuted,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 4,
+    marginTop: 2,
+  },
+  actionText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#4F46E5",
   },
   emptyBox: {
-    backgroundColor: ZEEPREP_THEME.colors.surface,
-    borderRadius: 18,
-    padding: 32,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: ZEEPREP_THEME.colors.border,
-    marginTop: 20,
-    gap: 8,
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+    gap: 12,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "800",
     color: ZEEPREP_THEME.colors.textPrimary,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: ZEEPREP_THEME.colors.textSecondary,
+    color: ZEEPREP_THEME.colors.textMuted,
     textAlign: "center",
+    lineHeight: 18,
   },
 });

@@ -13,6 +13,7 @@ export interface User {
   avatarUrl?: string;
   phone?: string;
   schoolName?: string;
+  schoolId?: string;
   board?: string;
   academicSession?: string;
   grade?: string;

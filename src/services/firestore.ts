@@ -970,26 +970,27 @@ export async function getTeacherReports(teacher: User): Promise<Report[]> {
   try {
     const reportsMap = new Map<string, Report>();
 
+    // 0. Include locally cached reports first so newly submitted exams appear instantly
+    localReportCache.forEach((rep) => {
+      reportsMap.set(rep.id, rep);
+    });
+
+    // 1. Query reports collection
     try {
       const snapReports = await getDocs(collection(db, "reports"));
       snapReports.forEach((docSnap) => {
         const rep = mapDocumentToReport(docSnap);
-        if (teacher.role === "teacher" && teacher.grade && rep.grade && rep.grade !== teacher.grade) {
-          return;
-        }
         reportsMap.set(rep.id, rep);
       });
     } catch (e) {
       console.warn("Notice querying reports collection:", e);
     }
 
+    // 2. Query examAttempts collection as fallback/supplement
     try {
       const snapAttempts = await getDocs(collection(db, "examAttempts"));
       snapAttempts.forEach((docSnap) => {
         const rep = mapDocumentToReport(docSnap);
-        if (teacher.role === "teacher" && teacher.grade && rep.grade && rep.grade !== teacher.grade) {
-          return;
-        }
         if (!reportsMap.has(rep.id)) {
           reportsMap.set(rep.id, rep);
         }
@@ -998,7 +999,41 @@ export async function getTeacherReports(teacher: User): Promise<Report[]> {
       console.warn("Notice querying examAttempts collection:", e);
     }
 
-    const list = Array.from(reportsMap.values());
+    let list = Array.from(reportsMap.values());
+
+    // Filter by teacher authorization (School / Grade / Section / Subject)
+    if (teacher && teacher.role === "teacher") {
+      list = list.filter((rep) => {
+        // School ID check if present on both teacher & report
+        if (
+          teacher.schoolId &&
+          (rep as any).schoolId &&
+          (rep as any).schoolId !== teacher.schoolId
+        ) {
+          return false;
+        }
+        // Grade/Class check (clean integer comparison e.g. "10" vs "Grade 10")
+        if (teacher.grade && rep.grade) {
+          const cleanTeacherGrade = String(teacher.grade).replace(/[^0-9]/g, "");
+          const cleanReportGrade = String(rep.grade).replace(/[^0-9]/g, "");
+          if (cleanTeacherGrade && cleanReportGrade && cleanTeacherGrade !== cleanReportGrade) {
+            return false;
+          }
+        }
+        // Section check if specified on teacher
+        if (teacher.section && rep.section) {
+          if (
+            String(teacher.section).trim().toLowerCase() !==
+            String(rep.section).trim().toLowerCase()
+          ) {
+            return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    // Sort newest first
     list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     return list;
   } catch (error) {
@@ -1128,11 +1163,40 @@ export async function addStudyResource(resourceData: Partial<StudyResource>, upl
 
 export async function getAllStudentReports(): Promise<Report[]> {
   try {
-    const q = query(collection(db, "reports"), orderBy("createdAt", "desc"), limit(50));
-    const snapshot = await getDocs(q);
-    const reports: Report[] = [];
-    snapshot.forEach((d) => reports.push({ id: d.id, ...d.data() } as Report));
-    return reports;
+    const reportsMap = new Map<string, Report>();
+
+    // 0. Merge locally cached reports
+    localReportCache.forEach((rep) => {
+      reportsMap.set(rep.id, rep);
+    });
+
+    // 1. Query reports collection
+    try {
+      const snapReports = await getDocs(collection(db, "reports"));
+      snapReports.forEach((docSnap) => {
+        const rep = mapDocumentToReport(docSnap);
+        reportsMap.set(rep.id, rep);
+      });
+    } catch (e) {
+      console.warn("Notice querying reports collection:", e);
+    }
+
+    // 2. Query examAttempts collection
+    try {
+      const snapAttempts = await getDocs(collection(db, "examAttempts"));
+      snapAttempts.forEach((docSnap) => {
+        const rep = mapDocumentToReport(docSnap);
+        if (!reportsMap.has(rep.id)) {
+          reportsMap.set(rep.id, rep);
+        }
+      });
+    } catch (e) {
+      console.warn("Notice querying examAttempts collection:", e);
+    }
+
+    const list = Array.from(reportsMap.values());
+    list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    return list;
   } catch (error) {
     console.error("Error fetching all student reports:", error);
     return [];
