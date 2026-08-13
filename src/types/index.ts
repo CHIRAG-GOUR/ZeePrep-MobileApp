@@ -64,6 +64,8 @@ export interface ExamBlueprint {
   totalMarks: number;
 }
 
+export type MaxAttemptsOption = 1 | 2 | 3 | 5 | 10 | "unlimited";
+
 export interface Exam {
   id: string;
   title: string;
@@ -79,6 +81,7 @@ export interface Exam {
   passingMarks: number;
   passingPercentage?: number;
   negativeMarkingEnabled?: boolean;
+  maxAttempts?: MaxAttemptsOption;
   instructions?: string[];
   questionIds: string[];
   questions?: Question[];
@@ -98,6 +101,8 @@ export interface ExamAttempt {
   studentName: string;
   studentEmail: string;
   status: "not_started" | "in_progress" | "submitted" | "processed";
+  attemptNumber?: number;
+  maxAttempts?: MaxAttemptsOption;
   answers: Record<string, string | number>;
   markedForReview: string[];
   revisitedQuestions: string[];
@@ -133,6 +138,8 @@ export interface Report {
   studentId: string;
   studentName: string;
   studentEmail: string;
+  attemptNumber?: number;
+  maxAttempts?: MaxAttemptsOption;
   board?: string;
   grade?: string;
   section?: string;

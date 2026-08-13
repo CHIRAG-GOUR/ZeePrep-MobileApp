@@ -93,7 +93,7 @@ export default function TeacherExamsScreen() {
 
               <Text style={styles.examTitle}>{exam.title}</Text>
               <Text style={styles.metaText}>
-                Grade {exam.grade || "10"} • Sec {exam.section || "A"} • {exam.totalMarks || 100} Marks
+                Grade {exam.grade || "10"} • Sec {exam.section || "A"} • {exam.totalMarks || 100} Marks • Max Attempts: {exam.maxAttempts === "unlimited" ? "Unlimited" : (exam.maxAttempts || 1)}
               </Text>
             </TouchableOpacity>
           ))

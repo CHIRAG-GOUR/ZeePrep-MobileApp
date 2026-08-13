@@ -12,7 +12,7 @@ import {
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
 import { createExam, getQuestionBank } from "../../services/firestore";
-import type { Question } from "../../types";
+import type { Question, MaxAttemptsOption } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
 import { FileCheck, Sparkles, Plus, CheckCircle2, HelpCircle } from "lucide-react-native";
 import { normalizeQuestion } from "../../utils/question-normalizer";
@@ -25,9 +25,10 @@ export default function TeacherExamBuilderScreen() {
 
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState(user?.subject || "Physics");
-  const [grade, setGrade] = useState(user?.grade || "12");
+  const [grade, setGrade] = useState(user?.grade || "10");
   const [section, setSection] = useState("A");
   const [durationMinutes, setDurationMinutes] = useState("60");
+  const [maxAttempts, setMaxAttempts] = useState<MaxAttemptsOption>(1);
   const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [loadingBank, setLoadingBank] = useState(false);
@@ -82,6 +83,7 @@ export default function TeacherExamBuilderScreen() {
           section: section.trim(),
           durationMinutes: parseInt(durationMinutes, 10) || 60,
           totalMarks: computedTotalMarks, // Dynamically computed sum(question.marks)
+          maxAttempts: maxAttempts,
           questions: selectedQuestions,
           questionIds: selectedQuestionIds,
           createdBy: user?.uid || "",
@@ -164,6 +166,27 @@ export default function TeacherExamBuilderScreen() {
                 <Text style={styles.computedMarksText}>{computedTotalMarks} Marks</Text>
               </View>
             </View>
+          </View>
+
+          {/* Maximum Attempts Allowed Selector (Requirement 31) */}
+          <Text style={styles.inputLabel}>Maximum Attempts Allowed</Text>
+          <Text style={styles.inputSublabel}>How many times can each student attempt this exam?</Text>
+          <View style={styles.attemptsPillGrid}>
+            {([1, 2, 3, 5, 10, "unlimited"] as MaxAttemptsOption[]).map((opt) => {
+              const isSelected = maxAttempts === opt;
+              return (
+                <TouchableOpacity
+                  key={String(opt)}
+                  style={[styles.attemptPill, isSelected && styles.attemptPillSelected]}
+                  onPress={() => setMaxAttempts(opt)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.attemptPillText, isSelected && styles.attemptPillTextSelected]}>
+                    {opt === "unlimited" ? "Unlimited" : `${opt} ${opt === 1 ? "Attempt" : "Attempts"}`}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* Question Selector List */}
@@ -373,6 +396,37 @@ const styles = StyleSheet.create({
   publishBtnText: {
     fontSize: 15,
     fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  inputSublabel: {
+    fontSize: 12,
+    color: ZEEPREP_THEME.colors.textMuted,
+    marginBottom: 10,
+  },
+  attemptsPillGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  attemptPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+  },
+  attemptPillSelected: {
+    backgroundColor: ZEEPREP_THEME.colors.primary,
+    borderColor: ZEEPREP_THEME.colors.primary,
+  },
+  attemptPillText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: ZEEPREP_THEME.colors.textSecondary,
+  },
+  attemptPillTextSelected: {
     color: "#FFFFFF",
   },
 });

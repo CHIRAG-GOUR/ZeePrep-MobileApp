@@ -235,6 +235,26 @@ export default function ExamEngineScreen() {
     }
   };
 
+  const handleExitExam = () => {
+    const maxAtt = currentExam?.maxAttempts || 1;
+    const isUnlimited = maxAtt === "unlimited";
+
+    let alertMsg = "Your examination is currently in progress. If you leave this examination, your draft will be saved and timer will continue running.";
+
+    if (!isUnlimited && Number(maxAtt) > 1) {
+      alertMsg = `Maximum Attempts: ${maxAtt}. Leaving this examination will save your draft. Make sure to complete and submit within the duration.`;
+    }
+
+    Alert.alert("Leave Examination?", alertMsg, [
+      { text: "Continue Exam", style: "cancel" },
+      {
+        text: "Leave Exam",
+        style: "destructive",
+        onPress: () => router.back(),
+      },
+    ]);
+  };
+
   const executeFinalSubmission = async () => {
     if (!currentExam || !user || isSubmitting) return;
     setShowSubmitConfirmModal(false);
@@ -250,7 +270,7 @@ export default function ExamEngineScreen() {
         useExamStore.getState().timeSpentPerQuestion
       );
       useExamStore.setState({ isExamActive: false, isSubmitting: false });
-      router.replace(`/results/${currentExam.id}` as any);
+      router.replace(`/results/${report.id}` as any);
     } catch (err) {
       console.error("Exam submission error:", err);
       useExamStore.setState({ isSubmitting: false });
@@ -288,7 +308,7 @@ export default function ExamEngineScreen() {
     <View style={[styles.container, { paddingTop: Math.max(responsive.safeTop, 12) }]}>
       {/* 1. Top Fixed Header Bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.iconBtn} onPress={handleExitExam} activeOpacity={0.7}>
           <ChevronLeft color="#0F172A" size={24} />
         </TouchableOpacity>
 

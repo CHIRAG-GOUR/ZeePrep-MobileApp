@@ -190,7 +190,7 @@ export default function StudentReportsScreen() {
 
                 <View style={styles.timeBadge}>
                   <Clock size={12} color="#64748B" />
-                  <Text style={styles.timeBadgeText}>{mins} mins</Text>
+                  <Text style={styles.timeBadgeText}>Attempt {report.attemptNumber || 1} • {mins} mins</Text>
                 </View>
               </View>
 

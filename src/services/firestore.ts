@@ -418,6 +418,7 @@ export async function createExam(examData: Partial<Exam>, creator?: User | null)
       passingMarks: examData.passingMarks || 20,
       passingPercentage: examData.passingPercentage || 40,
       negativeMarkingEnabled: examData.negativeMarkingEnabled || false,
+      maxAttempts: examData.maxAttempts || 1,
       instructions: examData.instructions || ["Read all questions carefully.", "Attempt all mandatory sections."],
       questionIds: examData.questionIds || [],
       status: examData.status || "published",
@@ -522,6 +523,33 @@ export async function clearExamDraftLocally(examId: string, studentId: string): 
 }
 
 // Submit Exam Attempt & Generate Scorecard Report
+export async function getStudentExamAttempts(examId: string, studentUid: string): Promise<ExamAttempt[]> {
+  try {
+    if (!examId || !studentUid) return [];
+
+    const attemptsMap = new Map<string, ExamAttempt>();
+    const qAttempts = query(
+      collection(db, "examAttempts"),
+      where("examId", "==", examId),
+      where("studentId", "==", studentUid)
+    );
+    const snap = await getDocs(qAttempts);
+    snap.forEach((docSnap) => {
+      const data = { id: docSnap.id, ...docSnap.data() } as ExamAttempt;
+      if (data.status === "submitted" || data.status === "processed") {
+        attemptsMap.set(data.id, data);
+      }
+    });
+
+    const list = Array.from(attemptsMap.values());
+    list.sort((a, b) => (a.attemptNumber || 1) - (b.attemptNumber || 1));
+    return list;
+  } catch (err) {
+    console.error("Error fetching student exam attempts:", err);
+    return [];
+  }
+}
+
 export async function submitStudentExamAttempt(
   exam: Exam,
   questions: Question[],
@@ -566,8 +594,12 @@ export async function submitStudentExamAttempt(
   const totalTimeSpent = Object.values(timeSpentPerQuestion).reduce((acc, curr) => acc + (typeof curr === "number" ? curr : 0), 0);
   const accuracy = (correctCount + incorrectCount) > 0 ? Math.round((correctCount / (correctCount + incorrectCount)) * 100) : 0;
 
-  const attemptId = `attempt_${exam.id}_${user.uid}`;
-  const reportId = `report_${exam.id}_${user.uid}`;
+  // Requirement 31.4 & 31.13: Preserve attempt number and generate distinct attempt/report IDs
+  const prevAttempts = await getStudentExamAttempts(exam.id, user.uid);
+  const attemptNum = prevAttempts.length + 1;
+
+  const attemptId = attemptNum === 1 ? `attempt_${exam.id}_${user.uid}` : `attempt_${exam.id}_${user.uid}_att${attemptNum}`;
+  const reportId = attemptNum === 1 ? `report_${exam.id}_${user.uid}` : `report_${exam.id}_${user.uid}_att${attemptNum}`;
 
   const attempt: ExamAttempt = {
     id: attemptId,
@@ -576,6 +608,8 @@ export async function submitStudentExamAttempt(
     studentName: user.name,
     studentEmail: user.email,
     status: "submitted",
+    attemptNumber: attemptNum,
+    maxAttempts: exam.maxAttempts || 1,
     answers,
     markedForReview,
     revisitedQuestions,
@@ -601,7 +635,7 @@ export async function submitStudentExamAttempt(
 
     return {
       questionId: q.id,
-      questionText: String(q.text || ""),
+      questionText: String((q as any).text || (q as any).questionText || (q as any).question || ""),
       correctAnswer: q.correctAnswer,
       studentAnswer: isUnanswered ? "" : studentAns,
       isCorrect,
@@ -622,6 +656,8 @@ export async function submitStudentExamAttempt(
     studentId: user.uid,
     studentName: user.name,
     studentEmail: user.email,
+    attemptNumber: attemptNum,
+    maxAttempts: exam.maxAttempts || 1,
     board: user.board,
     grade: user.grade,
     section: user.section,
