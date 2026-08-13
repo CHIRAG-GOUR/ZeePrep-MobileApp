@@ -826,6 +826,46 @@ export async function updateTeacherRemarksOnReport(reportId: string, remarks: st
   }
 }
 
+export async function getStudentReportsList(studentId: string): Promise<Report[]> {
+  try {
+    if (!studentId) return [];
+    const reportsMap = new Map<string, Report>();
+
+    // 1. Query reports collection by studentId
+    try {
+      const qReports = query(collection(db, "reports"), where("studentId", "==", studentId));
+      const snapReports = await getDocs(qReports);
+      snapReports.forEach((docSnap) => {
+        const rep = mapDocumentToReport(docSnap);
+        reportsMap.set(rep.id, rep);
+      });
+    } catch (e) {
+      console.warn("Notice querying reports for student:", e);
+    }
+
+    // 2. Query examAttempts collection by studentId as fallback
+    try {
+      const qAttempts = query(collection(db, "examAttempts"), where("studentId", "==", studentId));
+      const snapAttempts = await getDocs(qAttempts);
+      snapAttempts.forEach((docSnap) => {
+        const rep = mapDocumentToReport(docSnap);
+        if (!reportsMap.has(rep.id)) {
+          reportsMap.set(rep.id, rep);
+        }
+      });
+    } catch (e) {
+      console.warn("Notice querying examAttempts for student:", e);
+    }
+
+    const list = Array.from(reportsMap.values());
+    list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    return list;
+  } catch (error) {
+    console.error("Error fetching student reports list:", error);
+    return [];
+  }
+}
+
 // ==========================================
 // 5. STUDY RESOURCES
 // ==========================================
@@ -1004,68 +1044,7 @@ export async function getAuditLogs(): Promise<AuditLog[]> {
   }
 }
 
-export async function getStudentReportsList(studentUid: string): Promise<Report[]> {
-  try {
-    const reportsMap = new Map<string, Report>();
 
-    // 1. Fetch from 'reports' collection
-    try {
-      const qReports = query(collection(db, "reports"), where("studentId", "==", studentUid));
-      const snapReports = await getDocs(qReports);
-      snapReports.forEach((d) => {
-        const rep = mapDocumentToReport(d);
-        reportsMap.set(rep.id, rep);
-      });
-    } catch (e) {
-      console.warn("Notice querying reports by studentId:", e);
-    }
-
-    // 2. Fetch from 'examAttempts' collection
-    try {
-      const qAttempts = query(collection(db, "examAttempts"), where("studentId", "==", studentUid));
-      const snapAttempts = await getDocs(qAttempts);
-      snapAttempts.forEach((d) => {
-        const rep = mapDocumentToReport(d);
-        if (!reportsMap.has(rep.id)) {
-          reportsMap.set(rep.id, rep);
-        }
-      });
-    } catch (e) {
-      console.warn("Notice querying examAttempts by studentId:", e);
-    }
-
-    // 3. Fallback: fetch all reports & attempts if map is still empty
-    if (reportsMap.size === 0) {
-      try {
-        const snapAllReports = await getDocs(collection(db, "reports"));
-        snapAllReports.forEach((d) => {
-          const rep = mapDocumentToReport(d);
-          if (rep.studentId === studentUid || !studentUid) {
-            reportsMap.set(rep.id, rep);
-          }
-        });
-        const snapAllAttempts = await getDocs(collection(db, "examAttempts"));
-        snapAllAttempts.forEach((d) => {
-          const rep = mapDocumentToReport(d);
-          if (rep.studentId === studentUid || !studentUid) {
-            if (!reportsMap.has(rep.id)) {
-              reportsMap.set(rep.id, rep);
-            }
-          }
-        });
-      } catch (e) {
-        console.warn("Fallback report scan notice:", e);
-      }
-    }
-
-    const list = Array.from(reportsMap.values());
-    list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-    return list;
-  } catch (error) {
-    console.error("Error fetching student reports list:", error);
-    return [];
-  }
-}
 
 /**
  * Computes Global Report Eligibility based on the 70% completed active exams threshold.

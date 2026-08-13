@@ -45,6 +45,7 @@ export interface Question {
   topic?: string;
   marks: number;
   negativeMarks?: number;
+  imageUrl?: string;
   createdBy: string; // Teacher UID
   isTeacherAuthority?: boolean; // Teacher uploaded questions cannot be silently modified by AI
   version?: number;

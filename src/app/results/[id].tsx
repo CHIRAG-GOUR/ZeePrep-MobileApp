@@ -50,14 +50,18 @@ export default function ResultsScreen() {
       setLoading(false);
 
       if (data) {
-        setAiLoading(true);
-        try {
-          const insight = await generateTeacherAIReportAnalysis(data);
-          setAiInsight(insight);
-        } catch (e) {
-          console.warn("AI Report insight error:", e);
-        } finally {
-          setAiLoading(false);
+        if ((data as any).aiInsight) {
+          setAiInsight((data as any).aiInsight);
+        } else {
+          setAiLoading(true);
+          try {
+            const insight = await generateTeacherAIReportAnalysis(data);
+            setAiInsight(insight);
+          } catch (e) {
+            console.warn("AI Report insight error:", e);
+          } finally {
+            setAiLoading(false);
+          }
         }
       }
     }

@@ -40,6 +40,18 @@ export const useExamStore = create<ExamEngineState>((set, get) => ({
   isSubmitting: false,
 
   startExam: (exam, questions, attempt) => {
+    const rawMins = exam?.durationMinutes;
+    const parsedMins = typeof rawMins === "number" ? rawMins : parseInt(String(rawMins || "60"), 10);
+    const durationSeconds = !isNaN(parsedMins) && parsedMins > 0 ? parsedMins * 60 : 3600;
+
+    let initSeconds = durationSeconds;
+    if (attempt && (attempt as any).remainingSeconds !== undefined && (attempt as any).remainingSeconds !== null) {
+      const draftSecs = Number((attempt as any).remainingSeconds);
+      if (!isNaN(draftSecs) && draftSecs > 0) {
+        initSeconds = draftSecs;
+      }
+    }
+
     set({
       currentExam: exam,
       questions,
@@ -48,7 +60,7 @@ export const useExamStore = create<ExamEngineState>((set, get) => ({
       markedForReview: attempt?.markedForReview || [],
       revisitedQuestions: attempt?.revisitedQuestions || [],
       timeSpentPerQuestion: attempt?.timeSpentPerQuestion || {},
-      remainingSeconds: exam.durationMinutes * 60,
+      remainingSeconds: initSeconds,
       isExamActive: true,
       isSubmitting: false,
     });
@@ -136,8 +148,8 @@ export const useExamStore = create<ExamEngineState>((set, get) => ({
       get().recordQuestionTime(currentQId, 1);
     }
 
-    if (remainingSeconds <= 1) {
-      get().submitExam();
+    if (isNaN(remainingSeconds) || remainingSeconds <= 1) {
+      set({ remainingSeconds: 0 });
     } else {
       set({ remainingSeconds: remainingSeconds - 1 });
     }

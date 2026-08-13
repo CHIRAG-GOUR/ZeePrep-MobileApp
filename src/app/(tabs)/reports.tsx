@@ -152,7 +152,7 @@ export default function StudentReportsScreen() {
       </View>
 
       {/* Reports List */}
-      <Text style={styles.sectionTitle}>Exam History Scorecards</Text>
+      <Text style={styles.sectionTitle}>Examination Reports</Text>
 
       {loading ? (
         <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginVertical: 30 }} />
@@ -163,7 +163,7 @@ export default function StudentReportsScreen() {
             <TouchableOpacity
               key={report.id}
               style={styles.reportCard}
-              onPress={() => router.push(`/results/${report.examId}` as any)}
+              onPress={() => router.push(`/results/${report.id || report.examId}` as any)}
               activeOpacity={0.85}
             >
               <View style={styles.cardHeader}>
