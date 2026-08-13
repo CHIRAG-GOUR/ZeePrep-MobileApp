@@ -426,25 +426,20 @@ Return ONLY JSON with keys:
 "actionableAdvice": string array,
 "recommendation": string`;
 
-  const geminiText = await callGeminiAPI(prompt);
+  const geminiText = await callGeminiAPI(prompt, "reportAnalysis");
   if (geminiText) {
     const parsed = parseGeminiJson<ReportInsightResult>(geminiText);
-    if (parsed && parsed.strongTopics && parsed.weakTopics) {
+    if (parsed && Array.isArray(parsed.strongTopics) && Array.isArray(parsed.weakTopics)) {
       return parsed;
     }
   }
 
-  const isHighAccuracy = report.accuracy >= 75;
+  // Requirement 18: Never return generic fake fallback insights.
   return {
-    strongTopics: isHighAccuracy ? ["Core Definitions", "High-Value Concepts"] : ["Basic Concepts"],
-    weakTopics: isHighAccuracy ? ["Time Management"] : ["Multi-step Calculations", "High-Weight Numericals"],
-    conceptualGaps: isHighAccuracy ? ["Edge-case application"] : ["Formula substitution error"],
-    actionableAdvice: [
-      "Review high-weight incorrect questions in your scorecard breakdown.",
-      "Attempt target drills on weak chapters.",
-    ],
-    recommendation: isHighAccuracy
-      ? "Student displays strong mastery. Recommend Level 3 advanced problem sets."
-      : "Student requires targeted revision in high-weight numerical methods.",
+    strongTopics: [],
+    weakTopics: [],
+    conceptualGaps: [],
+    actionableAdvice: ["Review your itemized question scorecard for detailed feedback."],
+    recommendation: "AI diagnostic analysis unavailable for this assessment paper.",
   };
 }

@@ -118,6 +118,7 @@ export interface ExamAttempt {
 
 export interface DetailedQuestionAnalysis {
   questionId: string;
+  questionNumber?: number;
   questionText: string;
   correctAnswer: string | number;
   studentAnswer: string | number;
@@ -155,6 +156,15 @@ export interface Report {
   timeSpentSeconds: number;
   accuracy: number;
   detailedAnalysis?: DetailedQuestionAnalysis[];
+  mostTimeSpentQuestion?: {
+    questionId: string;
+    questionNumber: number;
+    questionText: string;
+    topic: string;
+    timeSpentSeconds: number;
+  };
+  mostTimeSpentTopic?: string;
+  aiInsight?: any;
   strongTopics?: string[];
   weakTopics?: string[];
   aiAnalysisText?: string;

@@ -164,7 +164,60 @@ export default function ResultsScreen() {
           </View>
         </View>
 
-        {/* Question-by-Question Detailed Analysis — Teacher & Admin View Only */}
+        {/* Student View: Simple Question Analysis & Most Time Spent (Requirement 13 & 32) */}
+        {user?.role === "student" ? (
+          <>
+            <Text style={styles.sectionTitle}>Question Analysis</Text>
+            {report.detailedAnalysis && report.detailedAnalysis.length > 0 ? (
+              <View style={styles.simpleQuestionList}>
+                {report.detailedAnalysis.map((q, idx) => (
+                  <View key={q.questionId || idx} style={styles.simpleQuestionRow}>
+                    <View style={styles.simpleQuestionLeft}>
+                      <Text style={styles.simpleQuestionNum}>Question {idx + 1}</Text>
+                      {q.isCorrect ? (
+                        <View style={styles.simplePassPill}>
+                          <Text style={styles.simplePassText}>✓ Correct</Text>
+                        </View>
+                      ) : q.isUnanswered ? (
+                        <View style={styles.simpleMutedPill}>
+                          <Text style={styles.simpleMutedText}>― Unanswered</Text>
+                        </View>
+                      ) : (
+                        <View style={styles.simpleFailPill}>
+                          <Text style={styles.simpleFailText}>✕ Wrong</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.simpleTimeText}>{q.timeSpentSeconds || 0} sec</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {report.mostTimeSpentQuestion ? (
+              <View style={{ marginTop: 20 }}>
+                <Text style={styles.sectionTitle}>Most Time Spent</Text>
+                <View style={styles.mostTimeCard}>
+                  <Clock color="#4F46E5" size={22} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.mostTimeTitle}>
+                      Question {report.mostTimeSpentQuestion.questionNumber || 1}
+                    </Text>
+                    <Text style={styles.mostTimeSub}>
+                      Topic: {report.mostTimeSpentTopic || "General"}
+                    </Text>
+                    <Text style={styles.mostTimeVal}>
+                      Time: {Math.floor(report.mostTimeSpentQuestion.timeSpentSeconds / 60)}m{" "}
+                      {report.mostTimeSpentQuestion.timeSpentSeconds % 60}s
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+          </>
+        ) : null}
+
+        {/* Teacher View: Detailed Itemization & Factual Gemini Analysis (Requirement 14 & 33) */}
         {user?.role === "teacher" || user?.role === "admin" || user?.role === "superadmin" ? (
           <>
             <Text style={styles.sectionTitle}>Teacher Diagnostic Itemization</Text>
@@ -279,90 +332,83 @@ export default function ResultsScreen() {
                 Question-level analysis data not available for this legacy attempt.
               </Text>
             )}
+
+            {/* Real Gemini AI Diagnostic Analysis Card (Teacher Only) */}
+            <Text style={styles.sectionTitle}>Faculty AI Diagnostic Insights</Text>
+            <View style={styles.aiDiagnosticCard}>
+              <View style={styles.aiHeaderRow}>
+                <Sparkles size={18} color="#4F46E5" />
+                <Text style={styles.aiDiagnosticTitle}>AI Conceptual Performance Analysis</Text>
+              </View>
+
+              {aiLoading ? (
+                <View style={{ paddingVertical: 16, alignItems: "center" }}>
+                  <ActivityIndicator color="#4F46E5" size="small" />
+                  <Text style={{ fontSize: 12, color: "#64748B", marginTop: 6 }}>
+                    Analyzing answer telemetry with Gemini AI...
+                  </Text>
+                </View>
+              ) : aiInsight ? (
+                <View style={{ gap: 10 }}>
+                  {Array.isArray(aiInsight.strongTopics) && aiInsight.strongTopics.length > 0 && (
+                    <View style={styles.aiTagSection}>
+                      <Text style={styles.aiTagLabel}>STRONG TOPICS</Text>
+                      <View style={styles.aiTagRow}>
+                        {aiInsight.strongTopics.map((t: string, idx: number) => (
+                          <View key={idx} style={styles.strongTag}>
+                            <Text style={styles.strongTagText}>{typeof t === "string" ? t : String(t)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {Array.isArray(aiInsight.weakTopics) && aiInsight.weakTopics.length > 0 && (
+                    <View style={styles.aiTagSection}>
+                      <Text style={styles.aiTagLabel}>WEAK TOPICS & REVISION FOCUS</Text>
+                      <View style={styles.aiTagRow}>
+                        {aiInsight.weakTopics.map((t: string, idx: number) => (
+                          <View key={idx} style={styles.weakTag}>
+                            <Text style={styles.weakTagText}>{typeof t === "string" ? t : String(t)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {Array.isArray(aiInsight.conceptualGaps) && aiInsight.conceptualGaps.length > 0 && (
+                    <View style={styles.aiTagSection}>
+                      <Text style={styles.aiTagLabel}>CONCEPTUAL GAPS</Text>
+                      <View style={styles.aiTagRow}>
+                        {aiInsight.conceptualGaps.map((g: string, idx: number) => (
+                          <View key={idx} style={styles.weakTag}>
+                            <Text style={styles.weakTagText}>{typeof g === "string" ? g : String(g)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {Array.isArray(aiInsight.actionableAdvice) && aiInsight.actionableAdvice.length > 0 && (
+                    <View style={styles.aiTagSection}>
+                      <Text style={styles.aiTagLabel}>ACTIONABLE ADVICE</Text>
+                      {aiInsight.actionableAdvice.map((a: string, idx: number) => (
+                        <View key={idx} style={styles.aiRecommendationBox}>
+                          <Lightbulb size={14} color="#D97706" />
+                          <Text style={styles.aiRecommendationText}>{typeof a === "string" ? a : String(a)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <Text style={{ fontSize: 13, color: "#64748B" }}>
+                  AI diagnostic analysis unavailable for this assessment paper.
+                </Text>
+              )}
+            </View>
           </>
         ) : null}
-
-        {/* Real Gemini AI Diagnostic Analysis Card (Requirement 10) */}
-        <Text style={styles.sectionTitle}>Gemini AI Diagnostic Insights</Text>
-        <View style={styles.aiDiagnosticCard}>
-          <View style={styles.aiHeaderRow}>
-            <Sparkles size={18} color="#4F46E5" />
-            <Text style={styles.aiDiagnosticTitle}>AI Conceptual Performance Analysis</Text>
-          </View>
-
-          {aiLoading ? (
-            <View style={{ paddingVertical: 16, alignItems: "center" }}>
-              <ActivityIndicator color="#4F46E5" size="small" />
-              <Text style={{ fontSize: 12, color: "#64748B", marginTop: 6 }}>
-                Analyzing answer telemetry with Gemini AI...
-              </Text>
-            </View>
-          ) : aiInsight ? (
-            <View style={{ gap: 10 }}>
-              {Array.isArray(aiInsight.strongTopics) && aiInsight.strongTopics.length > 0 && (
-                <View style={styles.aiTagSection}>
-                  <Text style={styles.aiTagLabel}>STRONG TOPICS</Text>
-                  <View style={styles.aiTagRow}>
-                    {aiInsight.strongTopics.map((t, idx) => (
-                      <View key={idx} style={styles.strongTag}>
-                        <Text style={styles.strongTagText}>{typeof t === "string" ? t : String(t)}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {Array.isArray(aiInsight.weakTopics) && aiInsight.weakTopics.length > 0 && (
-                <View style={styles.aiTagSection}>
-                  <Text style={styles.aiTagLabel}>WEAK TOPICS & REVISION FOCUS</Text>
-                  <View style={styles.aiTagRow}>
-                    {aiInsight.weakTopics.map((t, idx) => (
-                      <View key={idx} style={styles.weakTag}>
-                        <Text style={styles.weakTagText}>{typeof t === "string" ? t : String(t)}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {Array.isArray(aiInsight.conceptualGaps) && aiInsight.conceptualGaps.length > 0 && (
-                <View style={styles.aiTagSection}>
-                  <Text style={styles.aiTagLabel}>CONCEPTUAL GAPS</Text>
-                  <View style={styles.aiTagRow}>
-                    {aiInsight.conceptualGaps.map((g, idx) => (
-                      <View key={idx} style={styles.weakTag}>
-                        <Text style={styles.weakTagText}>{typeof g === "string" ? g : String(g)}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {Array.isArray(aiInsight.actionableAdvice) && aiInsight.actionableAdvice.length > 0 && (
-                <View style={styles.aiTagSection}>
-                  <Text style={styles.aiTagLabel}>ACTIONABLE ADVICE</Text>
-                  {aiInsight.actionableAdvice.map((a, idx) => (
-                    <View key={idx} style={styles.aiRecommendationBox}>
-                      <Lightbulb size={14} color="#D97706" />
-                      <Text style={styles.aiRecommendationText}>{typeof a === "string" ? a : String(a)}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {aiInsight.recommendation && typeof aiInsight.recommendation === "string" && (
-                <View style={styles.aiRecommendationBox}>
-                  <Lightbulb size={16} color="#D97706" />
-                  <Text style={styles.aiRecommendationText}>{aiInsight.recommendation}</Text>
-                </View>
-              )}
-            </View>
-          ) : (
-            <Text style={{ fontSize: 12, color: "#64748B" }}>
-              AI analysis is temporarily unavailable. Complete more exams to generate dynamic insights.
-            </Text>
-          )}
-        </View>
 
         {/* Action Button */}
         <TouchableOpacity
@@ -768,5 +814,98 @@ const styles = StyleSheet.create({
   },
   valMuted: {
     color: "#94A3B8",
+  },
+  simpleQuestionList: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  simpleQuestionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  simpleQuestionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  simpleQuestionNum: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1E293B",
+    width: 90,
+  },
+  simplePassPill: {
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  simplePassText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#059669",
+  },
+  simpleFailPill: {
+    backgroundColor: "#FEF2F2",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  simpleFailText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#DC2626",
+  },
+  simpleMutedPill: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  simpleMutedText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#64748B",
+  },
+  simpleTimeText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  mostTimeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: "#EEF2FF",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  mostTimeTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#312E81",
+  },
+  mostTimeSub: {
+    fontSize: 13,
+    color: "#4338CA",
+    marginTop: 2,
+    fontWeight: "600",
+  },
+  mostTimeVal: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#4F46E5",
+    marginTop: 2,
   },
 });

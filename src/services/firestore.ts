@@ -22,6 +22,7 @@ import type {
   Question,
   ExamAttempt,
   Report,
+  DetailedQuestionAnalysis,
   StudyResource,
   AuditLog,
   AcademicSession,
@@ -550,6 +551,13 @@ export async function getStudentExamAttempts(examId: string, studentUid: string)
   }
 }
 
+import {
+  safeNumber,
+  safeInteger,
+  safePercentage,
+  safeDuration,
+} from "../utils/number-utils";
+
 export async function submitStudentExamAttempt(
   exam: Exam,
   questions: Question[],
@@ -566,33 +574,35 @@ export async function submitStudentExamAttempt(
 
   questions.forEach((q) => {
     const studentAns = answers[q.id];
-    if (studentAns === undefined || studentAns === "" || studentAns === null) {
+    const isUnanswered = studentAns === undefined || studentAns === "" || studentAns === null;
+    if (isUnanswered) {
       unattemptedCount++;
     } else if (String(studentAns).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase()) {
       correctCount++;
-      obtainedMarks += q.marks || 1;
+      obtainedMarks += safeNumber(q.marks, 1);
     } else {
       incorrectCount++;
-      // NO NEGATIVE MARKING RULE: Incorrect answers yield 0 marks (never negative)
+      // NO NEGATIVE MARKING RULE (Requirement 4): Incorrect answers yield 0 marks
     }
   });
 
-  // Guarantee non-negative score
+  // Guarantee non-negative score (Requirement 4)
   obtainedMarks = Math.max(0, obtainedMarks);
 
   const totalQuestions = questions.length;
-  // Requirement 10: Dynamically calculate total possible marks as sum(question.marks)
+  // Requirement 7: Dynamically calculate total possible marks as sum(question.marks)
   const maxMarks =
     questions && questions.length > 0
-      ? questions.reduce((sum, q) => sum + (q.marks !== undefined && q.marks !== null ? q.marks : 1), 0)
-      : exam.totalMarks && exam.totalMarks > 0
-      ? exam.totalMarks
-      : 1;
+      ? questions.reduce((sum, q) => sum + safeNumber(q.marks, 1), 0)
+      : safeNumber(exam.totalMarks, 50);
 
-  const percentage = maxMarks > 0 ? Math.round((obtainedMarks / maxMarks) * 100) : 0;
+  const percentage = safePercentage(obtainedMarks, maxMarks);
   const passed = obtainedMarks >= (exam.passingMarks || Math.ceil(maxMarks * 0.33));
-  const totalTimeSpent = Object.values(timeSpentPerQuestion).reduce((acc, curr) => acc + (typeof curr === "number" ? curr : 0), 0);
-  const accuracy = (correctCount + incorrectCount) > 0 ? Math.round((correctCount / (correctCount + incorrectCount)) * 100) : 0;
+  const totalTimeSpent = Object.values(timeSpentPerQuestion).reduce(
+    (acc, curr) => acc + safeInteger(curr, 0),
+    0
+  );
+  const accuracy = safePercentage(correctCount, correctCount + incorrectCount);
 
   // Requirement 31.4 & 31.13: Preserve attempt number and generate distinct attempt/report IDs
   const prevAttempts = await getStudentExamAttempts(exam.id, user.uid);
@@ -621,33 +631,54 @@ export async function submitStudentExamAttempt(
     submittedAt: new Date().toISOString(),
   };
 
-  // Build per-question detailed analysis (Requirement 12, 14)
-  const detailedAnalysis = questions.map((q) => {
+  // Build per-question detailed analysis (Requirement 8)
+  let maxTimeSecs = -1;
+  let maxTimeQuestionObj: any = undefined;
+
+  const detailedAnalysis: DetailedQuestionAnalysis[] = questions.map((q, idx) => {
     const studentAns = answers[q.id];
-    const isCorrect =
-      studentAns !== undefined &&
-      studentAns !== "" &&
-      studentAns !== null &&
-      String(studentAns).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase();
     const isUnanswered = studentAns === undefined || studentAns === "" || studentAns === null;
-    const qMarks = q.marks !== undefined && q.marks !== null ? q.marks : 1;
+    const isCorrect =
+      !isUnanswered &&
+      String(studentAns).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase();
+    const qMarks = safeNumber(q.marks, 1);
     const awardedMarks = isCorrect ? qMarks : 0;
+    const tSpent = safeInteger(timeSpentPerQuestion[q.id], 0);
+
+    const qText = String((q as any).text || (q as any).questionText || (q as any).question || `Question ${idx + 1}`).trim();
+    const topicStr = String(q.topic || exam.subject || "General").trim();
+
+    if (tSpent > maxTimeSecs) {
+      maxTimeSecs = tSpent;
+      maxTimeQuestionObj = {
+        questionId: q.id,
+        questionNumber: idx + 1,
+        questionText: qText,
+        topic: topicStr,
+        timeSpentSeconds: tSpent,
+      };
+    }
 
     return {
       questionId: q.id,
-      questionText: String((q as any).text || (q as any).questionText || (q as any).question || ""),
-      correctAnswer: q.correctAnswer,
+      questionNumber: idx + 1,
+      questionText: qText,
+      correctAnswer: q.correctAnswer ?? "",
       studentAnswer: isUnanswered ? "" : studentAns,
       isCorrect,
       isUnanswered,
-      timeSpentSeconds: timeSpentPerQuestion[q.id] || 0,
+      timeSpentSeconds: tSpent,
       marks: qMarks,
       awardedMarks,
       chapter: q.chapter || "",
-      topic: q.topic || "",
+      topic: topicStr,
       level: q.level || "level1",
     };
   });
+
+  // Requirement 10: Deterministically identify Most Time Spent Question & Topic
+  const mostTimeSpentQuestion = maxTimeQuestionObj && maxTimeSecs > 0 ? maxTimeQuestionObj : undefined;
+  const mostTimeSpentTopic = mostTimeSpentQuestion?.topic || (exam.subject || "General");
 
   const report: Report = {
     id: reportId,
@@ -673,6 +704,8 @@ export async function submitStudentExamAttempt(
     timeSpentSeconds: totalTimeSpent,
     accuracy,
     detailedAnalysis,
+    mostTimeSpentQuestion,
+    mostTimeSpentTopic,
     createdAt: new Date().toISOString(),
   };
 
@@ -700,18 +733,77 @@ export async function submitStudentExamAttempt(
 function mapDocumentToReport(docSnap: any): Report {
   const d = typeof docSnap.data === "function" ? docSnap.data() : docSnap;
   const id = docSnap.id || d.id || `rep_${Math.random()}`;
-  const totalMarks = Number(d.totalMarks || d.totalScore || 100);
-  const rawObtained = Number(d.obtainedMarks ?? d.score ?? 0);
-  const obtainedMarks = Math.max(0, rawObtained); // Strictly non-negative score
-  const percentage = Number(
-    d.percentage !== undefined
-      ? d.percentage
-      : totalMarks > 0
-      ? Math.round((obtainedMarks / totalMarks) * 100)
-      : 0
+
+  const detailedAnalysis: DetailedQuestionAnalysis[] | undefined = Array.isArray(d.detailedAnalysis)
+    ? d.detailedAnalysis.map((q: any, idx: number) => ({
+        questionId: String(q.questionId || idx),
+        questionNumber: safeInteger(q.questionNumber, idx + 1),
+        questionText: String(q.questionText || q.text || q.question || `Question ${idx + 1}`),
+        correctAnswer: String(q.correctAnswer ?? ""),
+        studentAnswer: String(q.studentAnswer ?? ""),
+        isCorrect: Boolean(q.isCorrect),
+        isUnanswered: Boolean(q.isUnanswered),
+        marks: safeNumber(q.marks, 1),
+        awardedMarks: safeNumber(q.awardedMarks, q.isCorrect ? safeNumber(q.marks, 1) : 0),
+        timeSpentSeconds: safeInteger(q.timeSpentSeconds, 0),
+        chapter: String(q.chapter || ""),
+        topic: String(q.topic || "General"),
+      }))
+    : undefined;
+
+  const totalQuestions = safeInteger(
+    d.totalQuestions ||
+      (detailedAnalysis ? detailedAnalysis.length : 0) ||
+      (Array.isArray(d.questions) ? d.questions.length : 0) ||
+      (d.answers && typeof d.answers === "object" ? Object.keys(d.answers).length : 0),
+    0
   );
-  const passed =
-    d.passed !== undefined ? Boolean(d.passed) : obtainedMarks >= totalMarks * 0.33;
+
+  const totalMarks = safeNumber(
+    d.totalMarks ||
+      (detailedAnalysis ? detailedAnalysis.reduce((acc, q) => acc + (q.marks || 1), 0) : 0),
+    100
+  );
+
+  const obtainedMarks = Math.max(0, safeNumber(d.obtainedMarks ?? d.score, 0));
+  const percentage = safePercentage(obtainedMarks, totalMarks);
+  const passed = d.passed !== undefined ? Boolean(d.passed) : obtainedMarks >= totalMarks * 0.33;
+
+  const correctAnswers = safeInteger(d.correctAnswers ?? d.correctCount, 0);
+  const incorrectAnswers = safeInteger(d.incorrectAnswers ?? d.incorrectCount, 0);
+  const unattempted = safeInteger(
+    d.unattempted,
+    Math.max(0, totalQuestions - (correctAnswers + incorrectAnswers))
+  );
+
+  const timeSpentSeconds = safeInteger(d.timeSpentSeconds ?? d.totalTimeSpent, 0);
+  const accuracy = safeInteger(
+    d.accuracy,
+    safePercentage(correctAnswers, correctAnswers + incorrectAnswers)
+  );
+
+  let mostTimeSpentQuestion = d.mostTimeSpentQuestion;
+  if (!mostTimeSpentQuestion && detailedAnalysis && detailedAnalysis.length > 0) {
+    let maxT = -1;
+    detailedAnalysis.forEach((qItem) => {
+      if (qItem.timeSpentSeconds > maxT) {
+        maxT = qItem.timeSpentSeconds;
+        mostTimeSpentQuestion = {
+          questionId: qItem.questionId,
+          questionNumber: qItem.questionNumber || 1,
+          questionText: qItem.questionText,
+          topic: qItem.topic || "General",
+          timeSpentSeconds: qItem.timeSpentSeconds,
+        };
+      }
+    });
+  }
+
+  const mostTimeSpentTopic =
+    d.mostTimeSpentTopic ||
+    mostTimeSpentQuestion?.topic ||
+    d.subject ||
+    "General";
 
   return {
     id,
@@ -720,20 +812,26 @@ function mapDocumentToReport(docSnap: any): Report {
     studentId: d.studentId || d.userId || d.uid || "",
     studentName: d.studentName || d.userName || "Student",
     studentEmail: d.studentEmail || d.email || "",
+    attemptNumber: safeInteger(d.attemptNumber, 1),
+    maxAttempts: d.maxAttempts || 1,
     board: d.board || "CBSE",
-    grade: d.grade || "12",
+    grade: d.grade || "10",
     section: d.section || "A",
     stream: d.stream || "Science",
     totalMarks,
     obtainedMarks,
     percentage,
     passed,
-    totalQuestions: Number(d.totalQuestions || (d.answers ? d.answers.length : 0)),
-    correctAnswers: Number(d.correctAnswers || d.correctCount || 0),
-    incorrectAnswers: Number(d.incorrectAnswers || d.incorrectCount || 0),
-    unattempted: Number(d.unattempted || 0),
-    timeSpentSeconds: Number(d.timeSpentSeconds || d.totalTimeSpent || 0),
-    accuracy: Number(d.accuracy || percentage),
+    totalQuestions,
+    correctAnswers,
+    incorrectAnswers,
+    unattempted,
+    timeSpentSeconds,
+    accuracy,
+    detailedAnalysis,
+    mostTimeSpentQuestion,
+    mostTimeSpentTopic,
+    aiInsight: d.aiInsight,
     teacherRemarks: d.teacherRemarks || d.overallRemarks || d.teacherNotes || "",
     createdAt: d.createdAt || d.submittedAt || d.startedAt || new Date().toISOString(),
   };
