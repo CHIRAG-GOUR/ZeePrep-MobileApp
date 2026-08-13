@@ -232,9 +232,6 @@ export default function LoginScreen() {
         <View style={{ width: "100%", maxWidth: 520 }}>
           {/* Top Header Branding */}
           <View style={[styles.header, isKeyboardVisible && { marginBottom: 12 }]}>
-            <View style={[styles.logoBadge, (isSmallScreen || isKeyboardVisible) && { width: 44, height: 44, marginBottom: 4 }]}>
-              <BookOpen color={ZEEPREP_THEME.colors.primary} size={isSmallScreen || isKeyboardVisible ? 22 : 36} />
-            </View>
             <Text style={[styles.brandTitle, (isSmallScreen || isKeyboardVisible) && { fontSize: 20 }]}>ZeePrep</Text>
             <Text style={[styles.brandSubtitle, (isSmallScreen || isKeyboardVisible) && { fontSize: 10 }]}>
               Intelligent Productivity & Diagnostic Portal
