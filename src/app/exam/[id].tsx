@@ -38,6 +38,15 @@ import {
   AlertTriangle,
 } from "lucide-react-native";
 
+export function getQuestionText(q?: Question | any): string {
+  if (!q) return "Untitled Question";
+  const text = q.text || q.questionText || q.question || q.statement || q.title;
+  if (text && String(text).trim().length > 0) {
+    return String(text).trim();
+  }
+  return "Untitled Question";
+}
+
 export default function ExamEngineScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -362,7 +371,7 @@ export default function ExamEngineScreen() {
         >
           {/* Question Text Column */}
           <View style={[styles.questionColumn, responsive.isLandscape && { flex: 1 }]}>
-            <Text style={styles.questionText}>{currentQ.text}</Text>
+            <Text style={styles.questionText}>{getQuestionText(currentQ)}</Text>
 
             {/* Optional Attached Question Media Image */}
             {currentQ.imageUrl ? (
@@ -557,6 +566,10 @@ export default function ExamEngineScreen() {
 
             {/* Legend Row */}
             <View style={styles.modalLegendRow}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendBox, { backgroundColor: "#4F46E5" }]} />
+                <Text style={styles.legendText}>Current</Text>
+              </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendBox, { backgroundColor: "#10B981" }]} />
                 <Text style={styles.legendText}>Answered ({answeredCount})</Text>
@@ -1105,12 +1118,19 @@ const styles = StyleSheet.create({
     borderColor: "#059669",
   },
   paletteNodeReview: {
+    backgroundColor: "#FEF3C7",
     borderColor: "#F59E0B",
     borderWidth: 2,
   },
   paletteNodeSelected: {
-    borderColor: "#4F46E5",
-    borderWidth: 2,
+    backgroundColor: "#4F46E5",
+    borderColor: "#3730A3",
+    borderWidth: 2.5,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
   },
   paletteNodeText: {
     color: "#475569",
@@ -1119,5 +1139,6 @@ const styles = StyleSheet.create({
   },
   paletteNodeTextSelected: {
     color: "#FFFFFF",
+    fontWeight: "900",
   },
 });
