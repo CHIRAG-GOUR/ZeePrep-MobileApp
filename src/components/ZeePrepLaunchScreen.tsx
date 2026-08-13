@@ -160,11 +160,11 @@ export function ZeePrepLaunchScreen({ onComplete }: ZeePrepLaunchScreenProps) {
           }
         }, 150);
 
-        // 0.8s: Start Intro Music at full rich volume (0.50) to harmonize with the voiceover
+        // 0.8s: Start Intro Music at soft background volume (0.25) to harmonize with the voiceover
         setTimeout(() => {
           if (!isMounted) return;
           try {
-            musicPlayer.volume = 0.50;
+            musicPlayer.volume = 0.25;
             musicPlayer.play();
             musicHasStarted = true;
           } catch (e) {
