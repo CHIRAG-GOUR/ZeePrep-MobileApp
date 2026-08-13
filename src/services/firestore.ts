@@ -16,6 +16,7 @@ import {
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { db } from "../lib/firebase";
+import { normalizeQuestionOption } from "../utils/question-normalizer";
 import type {
   User,
   Exam,
@@ -558,6 +559,87 @@ import {
   safeDuration,
 } from "../utils/number-utils";
 
+export function checkIsAnswerCorrect(studentAns: any, q: Question): boolean {
+  if (studentAns === undefined || studentAns === null || studentAns === "") return false;
+
+  const cleanStudent = String(studentAns).trim().toLowerCase();
+  const rawCorrect = q.correctAnswer;
+  if (rawCorrect === undefined || rawCorrect === null || rawCorrect === "") return false;
+  const cleanCorrect = String(rawCorrect).trim().toLowerCase();
+
+  // 1. Direct equality
+  if (cleanStudent === cleanCorrect) return true;
+
+  const rawOptions = Array.isArray(q.options) ? q.options : [];
+  const normalizedOpts = rawOptions.map((opt, idx) => normalizeQuestionOption(opt, idx));
+
+  // 2. If correct answer is numeric index (0, 1, 2, 3) or "0", "1", "2", "3"
+  const numCorrect = Number(rawCorrect);
+  if (!isNaN(numCorrect) && numCorrect >= 0 && numCorrect < normalizedOpts.length) {
+    const targetOpt = normalizedOpts[numCorrect];
+    if (cleanStudent === targetOpt.text.trim().toLowerCase()) return true;
+    if (cleanStudent === targetOpt.id.trim().toLowerCase()) return true;
+  }
+
+  // 3. If correct answer is letter ("A", "B", "C", "D" or "a", "b", "c", "d")
+  const letterMap: Record<string, number> = { a: 0, b: 1, c: 2, d: 3, e: 4 };
+  if (cleanCorrect in letterMap) {
+    const idx = letterMap[cleanCorrect];
+    if (idx < normalizedOpts.length) {
+      const targetOpt = normalizedOpts[idx];
+      if (cleanStudent === targetOpt.text.trim().toLowerCase()) return true;
+      if (cleanStudent === targetOpt.id.trim().toLowerCase()) return true;
+    }
+  }
+
+  // 4. If correct answer is "Option A", "Option B", "Option C", "Option D"
+  const optionMatch = cleanCorrect.match(/^option\s*([a-e1-5])$/i);
+  if (optionMatch) {
+    const char = optionMatch[1].toLowerCase();
+    const idx = !isNaN(Number(char)) ? Number(char) - 1 : letterMap[char] ?? -1;
+    if (idx >= 0 && idx < normalizedOpts.length) {
+      const targetOpt = normalizedOpts[idx];
+      if (cleanStudent === targetOpt.text.trim().toLowerCase()) return true;
+      if (cleanStudent === targetOpt.id.trim().toLowerCase()) return true;
+    }
+  }
+
+  // 5. Check if student selected an option whose letter/index matches correct answer
+  for (let i = 0; i < normalizedOpts.length; i++) {
+    const opt = normalizedOpts[i];
+    const optTextClean = opt.text.trim().toLowerCase();
+
+    if (cleanStudent === optTextClean) {
+      if (cleanCorrect === optTextClean) return true;
+      if (String(i) === cleanCorrect) return true;
+      if (String.fromCharCode(65 + i).toLowerCase() === cleanCorrect) return true;
+    }
+  }
+
+  // 6. Substring match fallback (e.g. "Newton (N)" vs "Newton")
+  if (cleanStudent.length > 2 && cleanCorrect.length > 2) {
+    if (cleanStudent.includes(cleanCorrect) || cleanCorrect.includes(cleanStudent)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+import { calculateExamReport } from "./report-engine";
+
+// In-memory report cache for instant, fail-safe lookup
+const localReportCache = new Map<string, Report>();
+
+export function cacheReportLocally(report: Report) {
+  if (report && report.id) {
+    localReportCache.set(report.id, report);
+    if (report.examId) {
+      localReportCache.set(`${report.studentId}_${report.examId}`, report);
+    }
+  }
+}
+
 export async function submitStudentExamAttempt(
   exam: Exam,
   questions: Question[],
@@ -567,189 +649,50 @@ export async function submitStudentExamAttempt(
   revisitedQuestions: string[],
   timeSpentPerQuestion: Record<string, number>
 ): Promise<{ attempt: ExamAttempt; report: Report }> {
-  let obtainedMarks = 0;
-  let correctCount = 0;
-  let incorrectCount = 0;
-  let unattemptedCount = 0;
-
-  questions.forEach((q) => {
-    const studentAns = answers[q.id];
-    const isUnanswered = studentAns === undefined || studentAns === "" || studentAns === null;
-    if (isUnanswered) {
-      unattemptedCount++;
-    } else if (String(studentAns).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase()) {
-      correctCount++;
-      obtainedMarks += safeNumber(q.marks, 1);
-    } else {
-      incorrectCount++;
-      // NO NEGATIVE MARKING RULE (Requirement 4): Incorrect answers yield 0 marks
-    }
-  });
-
-  // Guarantee non-negative score (Requirement 4)
-  obtainedMarks = Math.max(0, obtainedMarks);
-
-  const totalQuestions = questions.length;
-  // Requirement 7: Dynamically calculate total possible marks as sum(question.marks)
-  const maxMarks =
-    questions && questions.length > 0
-      ? questions.reduce((sum, q) => sum + safeNumber(q.marks, 1), 0)
-      : safeNumber(exam.totalMarks, 50);
-
-  const percentage = safePercentage(obtainedMarks, maxMarks);
-  const passed = obtainedMarks >= (exam.passingMarks || Math.ceil(maxMarks * 0.33));
-  const totalTimeSpent = Object.values(timeSpentPerQuestion).reduce(
-    (acc, curr) => acc + safeInteger(curr, 0),
-    0
-  );
-  const accuracy = safePercentage(correctCount, correctCount + incorrectCount);
-
-  // Requirement 31.4 & 31.13: Preserve attempt number and generate distinct attempt/report IDs
   const prevAttempts = await getStudentExamAttempts(exam.id, user.uid);
   const attemptNum = prevAttempts.length + 1;
 
-  const attemptId = attemptNum === 1 ? `attempt_${exam.id}_${user.uid}` : `attempt_${exam.id}_${user.uid}_att${attemptNum}`;
-  const reportId = attemptNum === 1 ? `report_${exam.id}_${user.uid}` : `report_${exam.id}_${user.uid}_att${attemptNum}`;
-
-  const attempt: ExamAttempt = {
-    id: attemptId,
-    examId: exam.id,
-    studentId: user.uid,
-    studentName: user.name,
-    studentEmail: user.email,
-    status: "submitted",
-    attemptNumber: attemptNum,
-    maxAttempts: exam.maxAttempts || 1,
+  // Single authoritative report engine calculation
+  const { attempt, report } = calculateExamReport(
+    exam,
+    questions,
+    user,
     answers,
-    markedForReview,
-    revisitedQuestions,
     timeSpentPerQuestion,
-    score: obtainedMarks,
-    percentage,
-    passed,
-    startedAt: new Date().toISOString(),
-    submittedAt: new Date().toISOString(),
-  };
+    attemptNum
+  );
 
-  // CRITICAL: Enrich attempt document with report-level fields so
-  // mapDocumentToReport produces correct data from EITHER collection
+  // Instantly cache locally for zero-latency retrieval
+  cacheReportLocally(report);
+
   const enrichedAttempt: any = {
     ...attempt,
     examTitle: exam.title,
-    totalMarks: maxMarks,
-    obtainedMarks,
-    totalQuestions,
-    correctAnswers: correctCount,
-    incorrectAnswers: incorrectCount,
-    unattempted: unattemptedCount,
-    timeSpentSeconds: totalTimeSpent,
-    accuracy,
+    totalMarks: report.totalMarks,
+    obtainedMarks: report.obtainedMarks,
+    totalQuestions: report.totalQuestions,
+    correctAnswers: report.correctAnswers,
+    incorrectAnswers: report.incorrectAnswers,
+    unattempted: report.unattempted,
+    timeSpentSeconds: report.timeSpentSeconds,
+    accuracy: report.accuracy,
     board: user.board,
     grade: user.grade,
     section: user.section,
     stream: user.stream,
     subject: exam.subject || "",
+    detailedAnalysis: report.detailedAnalysis,
+    mostTimeSpentQuestion: report.mostTimeSpentQuestion,
+    mostTimeSpentTopic: report.mostTimeSpentTopic,
   };
-
-  // Build per-question detailed analysis (Requirement 8)
-  let maxTimeSecs = -1;
-  let maxTimeQuestionObj: any = undefined;
-
-  const detailedAnalysis: DetailedQuestionAnalysis[] = questions.map((q, idx) => {
-    const studentAns = answers[q.id];
-    const isUnanswered = studentAns === undefined || studentAns === "" || studentAns === null;
-    const isCorrect =
-      !isUnanswered &&
-      String(studentAns).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase();
-    const qMarks = safeNumber(q.marks, 1);
-    const awardedMarks = isCorrect ? qMarks : 0;
-    const tSpent = safeInteger(timeSpentPerQuestion[q.id], 0);
-
-    const qText = String((q as any).text || (q as any).questionText || (q as any).question || `Question ${idx + 1}`).trim();
-    const topicStr = String(q.topic || exam.subject || "General").trim();
-
-    if (tSpent > maxTimeSecs) {
-      maxTimeSecs = tSpent;
-      maxTimeQuestionObj = {
-        questionId: q.id,
-        questionNumber: idx + 1,
-        questionText: qText,
-        topic: topicStr,
-        timeSpentSeconds: tSpent,
-      };
-    }
-
-    return {
-      questionId: q.id,
-      questionNumber: idx + 1,
-      questionText: qText,
-      correctAnswer: q.correctAnswer ?? "",
-      studentAnswer: isUnanswered ? "" : studentAns,
-      isCorrect,
-      isUnanswered,
-      timeSpentSeconds: tSpent,
-      marks: qMarks,
-      awardedMarks,
-      chapter: q.chapter || "",
-      topic: topicStr,
-      level: q.level || "level1",
-    };
-  });
-
-  // Requirement 10: Deterministically identify Most Time Spent Question & Topic
-  const mostTimeSpentQuestion = maxTimeQuestionObj && maxTimeSecs > 0 ? maxTimeQuestionObj : undefined;
-  const mostTimeSpentTopic = mostTimeSpentQuestion?.topic || (exam.subject || "General");
-
-  const report: Report = {
-    id: reportId,
-    examId: exam.id,
-    examTitle: exam.title,
-    studentId: user.uid,
-    studentName: user.name,
-    studentEmail: user.email,
-    attemptNumber: attemptNum,
-    maxAttempts: exam.maxAttempts || 1,
-    board: user.board,
-    grade: user.grade,
-    section: user.section,
-    stream: user.stream,
-    totalMarks: maxMarks,
-    obtainedMarks,
-    percentage,
-    passed,
-    totalQuestions,
-    correctAnswers: correctCount,
-    incorrectAnswers: incorrectCount,
-    unattempted: unattemptedCount,
-    timeSpentSeconds: totalTimeSpent,
-    accuracy,
-    detailedAnalysis,
-    mostTimeSpentQuestion,
-    mostTimeSpentTopic,
-    createdAt: new Date().toISOString(),
-  };
-
-  // Store exam subject on report for AI analysis context
-  (report as any).subject = exam.subject || "";
-
-  // Also enrich the attempt with detailed analysis for the examAttempts collection
-  enrichedAttempt.detailedAnalysis = detailedAnalysis;
-  enrichedAttempt.mostTimeSpentQuestion = mostTimeSpentQuestion;
-  enrichedAttempt.mostTimeSpentTopic = mostTimeSpentTopic;
 
   try {
-    // Prevent duplicate submission: check if report already exists
-    const existingReport = await getDoc(doc(db, "reports", reportId));
-    if (existingReport.exists()) {
-      console.warn(`[ZeePrep] Duplicate submission prevented for report ${reportId}`);
-      return { attempt, report: mapDocumentToReport(existingReport) };
-    }
-
-    await setDoc(doc(db, "examAttempts", attemptId), enrichedAttempt);
-    await setDoc(doc(db, "reports", reportId), report);
+    await setDoc(doc(db, "examAttempts", attempt.id), enrichedAttempt);
+    await setDoc(doc(db, "reports", report.id), report);
     await clearExamDraftLocally(exam.id, user.uid);
+    console.log("[ZeePrep] Report saved to Firestore successfully with ID:", report.id);
   } catch (err) {
-    console.error("Error saving attempt/report to Firestore:", err);
+    console.error("[ZeePrep] Firestore save notice (offline fallback active):", err);
   }
 
   return { attempt, report };
@@ -757,7 +700,7 @@ export async function submitStudentExamAttempt(
 
 function mapDocumentToReport(docSnap: any): Report {
   const d = typeof docSnap.data === "function" ? docSnap.data() : docSnap;
-  const id = docSnap.id || d.id || `rep_${Math.random()}`;
+  const id = docSnap.id || d.id || d.attemptId || `rep_${Math.random()}`;
 
   const detailedAnalysis: DetailedQuestionAnalysis[] | undefined = Array.isArray(d.detailedAnalysis)
     ? d.detailedAnalysis.map((q: any, idx: number) => ({
@@ -770,21 +713,20 @@ function mapDocumentToReport(docSnap: any): Report {
         isUnanswered: Boolean(q.isUnanswered),
         marks: safeNumber(q.marks, 1),
         awardedMarks: safeNumber(q.awardedMarks, q.isCorrect ? safeNumber(q.marks, 1) : 0),
-        timeSpentSeconds: safeInteger(q.timeSpentSeconds, 0),
+        timeSpentSeconds: safeInteger(q.timeSpentSeconds ?? (q.timeSpentMs ? Math.round(q.timeSpentMs / 1000) : 0), 0),
         chapter: String(q.chapter || ""),
         topic: String(q.topic || "General"),
       }))
     : undefined;
 
-  // Calculate totalQuestions with safe fallback chain
   const rawTotalQ =
     d.totalQuestions ||
     (detailedAnalysis && detailedAnalysis.length > 0 ? detailedAnalysis.length : 0) ||
     (Array.isArray(d.questions) ? d.questions.length : 0) ||
+    (Array.isArray(d.answers) ? d.answers.length : 0) ||
     (d.answers && typeof d.answers === "object" && !Array.isArray(d.answers) ? Object.keys(d.answers).length : 0);
   const totalQuestions = safeInteger(rawTotalQ, 0);
 
-  // Calculate totalMarks — use explicit positive check to avoid safeNumber(0, 100) returning 0
   let rawTotalMarks = d.totalMarks || d.totalScore;
   if (!rawTotalMarks || Number(rawTotalMarks) <= 0) {
     if (detailedAnalysis && detailedAnalysis.length > 0) {
@@ -797,19 +739,22 @@ function mapDocumentToReport(docSnap: any): Report {
 
   const obtainedMarks = Math.max(0, safeNumber(d.obtainedMarks ?? d.score, 0));
   const percentage = safePercentage(obtainedMarks, totalMarks);
-  const passed = d.passed !== undefined ? Boolean(d.passed) : obtainedMarks >= totalMarks * 0.33;
+  const passed = d.passed !== undefined ? Boolean(d.passed) : d.passStatus === "Pass" || obtainedMarks >= totalMarks * 0.33;
 
-  const correctAnswers = safeInteger(d.correctAnswers ?? d.correctCount, 0);
-  const incorrectAnswers = safeInteger(d.incorrectAnswers ?? d.incorrectCount, 0);
+  const correctAnswers = safeInteger(d.correctAnswers ?? d.correctCount ?? d.correct, 0);
+  const incorrectAnswers = safeInteger(d.incorrectAnswers ?? d.incorrectCount ?? d.incorrect, 0);
   const unattempted = safeInteger(
-    d.unattempted,
+    d.unattempted ?? d.skippedCount ?? d.skipped,
     Math.max(0, totalQuestions - (correctAnswers + incorrectAnswers))
   );
 
-  const timeSpentSeconds = safeInteger(d.timeSpentSeconds ?? d.totalTimeSpent, 0);
+  const timeSpentSeconds = safeInteger(
+    d.timeSpentSeconds ?? (d.totalTimeMs ? Math.round(d.totalTimeMs / 1000) : 0) ?? d.totalTimeSpent,
+    0
+  );
   const accuracy = safeInteger(
     d.accuracy,
-    safePercentage(correctAnswers, correctAnswers + incorrectAnswers)
+    safePercentage(correctAnswers, Math.max(1, correctAnswers + incorrectAnswers))
   );
 
   let mostTimeSpentQuestion = d.mostTimeSpentQuestion;
@@ -867,49 +812,81 @@ function mapDocumentToReport(docSnap: any): Report {
   };
 }
 
-// Fetch Reports
 export async function getStudentReport(idOrExamId: string, studentId?: string): Promise<Report | null> {
   try {
     if (!idOrExamId) return null;
 
+    // 0. Instant in-memory cache resolution
+    if (localReportCache.has(idOrExamId)) {
+      console.log("[ZeePrep] Retained report from in-memory cache for ID:", idOrExamId);
+      return localReportCache.get(idOrExamId)!;
+    }
+
+    if (studentId && localReportCache.has(`${studentId}_${idOrExamId}`)) {
+      console.log("[ZeePrep] Retained report from in-memory cache for student_exam:", idOrExamId);
+      return localReportCache.get(`${studentId}_${idOrExamId}`)!;
+    }
+
     // 1. Direct lookup by exact document ID in reports collection
     const directReportDoc = await getDoc(doc(db, "reports", idOrExamId));
     if (directReportDoc.exists()) {
-      return mapDocumentToReport(directReportDoc);
+      const rep = mapDocumentToReport(directReportDoc);
+      cacheReportLocally(rep);
+      return rep;
     }
 
-    // 2. If the ID starts with "attempt_", try the corresponding "report_" ID
+    // 2. Direct lookup by exact document ID in examAttempts collection
+    const directAttemptDoc = await getDoc(doc(db, "examAttempts", idOrExamId));
+    if (directAttemptDoc.exists()) {
+      const rep = mapDocumentToReport(directAttemptDoc);
+      cacheReportLocally(rep);
+      return rep;
+    }
+
+    // 3. Handle attempt_ / report_ prefix translation
     if (idOrExamId.startsWith("attempt_")) {
       const correspondingReportId = idOrExamId.replace(/^attempt_/, "report_");
       const corrReportDoc = await getDoc(doc(db, "reports", correspondingReportId));
       if (corrReportDoc.exists()) {
-        return mapDocumentToReport(corrReportDoc);
+        const rep = mapDocumentToReport(corrReportDoc);
+        cacheReportLocally(rep);
+        return rep;
       }
     }
 
-    // 3. Try direct lookup in examAttempts collection
-    const directAttemptDoc = await getDoc(doc(db, "examAttempts", idOrExamId));
-    if (directAttemptDoc.exists()) {
-      return mapDocumentToReport(directAttemptDoc);
-    }
-
-    // 4. Constructed IDs with studentId if present
+    // 4. Constructed candidate IDs with studentId if present
     if (studentId) {
-      // Try report_<examId>_<studentId> and attempt variants
-      const reportId = `report_${idOrExamId}_${studentId}`;
-      const attemptId = `attempt_${idOrExamId}_${studentId}`;
+      const cleanStudent = studentId.replace(/[^a-zA-Z0-9_-]/g, "");
+      const cleanExam = idOrExamId.replace(/[^a-zA-Z0-9_-]/g, "");
 
-      const reportDoc = await getDoc(doc(db, "reports", reportId));
-      if (reportDoc.exists()) {
-        return mapDocumentToReport(reportDoc);
+      const candidateIds = [
+        `${cleanStudent}_${cleanExam}`,
+        `${cleanExam}_${cleanStudent}`,
+        `report_${idOrExamId}_${studentId}`,
+        `attempt_${idOrExamId}_${studentId}`,
+        `report_${cleanExam}_${cleanStudent}`,
+        `attempt_${cleanExam}_${cleanStudent}`,
+      ];
+
+      for (const cId of candidateIds) {
+        if (localReportCache.has(cId)) return localReportCache.get(cId)!;
+
+        const rDoc = await getDoc(doc(db, "reports", cId));
+        if (rDoc.exists()) {
+          const rep = mapDocumentToReport(rDoc);
+          cacheReportLocally(rep);
+          return rep;
+        }
+
+        const aDoc = await getDoc(doc(db, "examAttempts", cId));
+        if (aDoc.exists()) {
+          const rep = mapDocumentToReport(aDoc);
+          cacheReportLocally(rep);
+          return rep;
+        }
       }
 
-      const attemptDoc = await getDoc(doc(db, "examAttempts", attemptId));
-      if (attemptDoc.exists()) {
-        return mapDocumentToReport(attemptDoc);
-      }
-
-      // Query by field values
+      // 5. Query by field values in reports collection matching EXACT examId
       const qReports = query(
         collection(db, "reports"),
         where("examId", "==", idOrExamId),
@@ -917,9 +894,12 @@ export async function getStudentReport(idOrExamId: string, studentId?: string): 
       );
       const snapReports = await getDocs(qReports);
       if (!snapReports.empty) {
-        return mapDocumentToReport(snapReports.docs[0]);
+        const rep = mapDocumentToReport(snapReports.docs[0]);
+        cacheReportLocally(rep);
+        return rep;
       }
 
+      // 6. Query by field values in examAttempts collection matching EXACT examId
       const qAttempts = query(
         collection(db, "examAttempts"),
         where("examId", "==", idOrExamId),
@@ -927,7 +907,9 @@ export async function getStudentReport(idOrExamId: string, studentId?: string): 
       );
       const snapAttempts = await getDocs(qAttempts);
       if (!snapAttempts.empty) {
-        return mapDocumentToReport(snapAttempts.docs[0]);
+        const rep = mapDocumentToReport(snapAttempts.docs[0]);
+        cacheReportLocally(rep);
+        return rep;
       }
     } else {
       // Direct query by examId without studentId
@@ -937,7 +919,43 @@ export async function getStudentReport(idOrExamId: string, studentId?: string): 
       );
       const snapReports = await getDocs(qReports);
       if (!snapReports.empty) {
-        return mapDocumentToReport(snapReports.docs[0]);
+        const rep = mapDocumentToReport(snapReports.docs[0]);
+        cacheReportLocally(rep);
+        return rep;
+      }
+
+      const qAttempts = query(
+        collection(db, "examAttempts"),
+        where("examId", "==", idOrExamId)
+      );
+      const snapAttempts = await getDocs(qAttempts);
+      if (!snapAttempts.empty) {
+        const rep = mapDocumentToReport(snapAttempts.docs[0]);
+        cacheReportLocally(rep);
+        return rep;
+      }
+    }
+
+    // 7. Ultimate Fallback: query student's reports or attempts if studentId is present
+    if (studentId) {
+      try {
+        const qReports = query(collection(db, "reports"), where("studentId", "==", studentId));
+        const snapReports = await getDocs(qReports);
+        if (!snapReports.empty) {
+          const docs = snapReports.docs.map((d) => mapDocumentToReport(d));
+          docs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+          return docs[0];
+        }
+
+        const qAttempts = query(collection(db, "examAttempts"), where("studentId", "==", studentId));
+        const snapAttempts = await getDocs(qAttempts);
+        if (!snapAttempts.empty) {
+          const docs = snapAttempts.docs.map((d) => mapDocumentToReport(d));
+          docs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+          return docs[0];
+        }
+      } catch (e) {
+        console.warn("Fallback student report query warning:", e);
       }
     }
 
@@ -1006,6 +1024,13 @@ export async function getStudentReportsList(studentId: string): Promise<Report[]
   try {
     if (!studentId) return [];
     const reportsMap = new Map<string, Report>();
+
+    // 0. Include locally cached reports for studentId
+    localReportCache.forEach((rep) => {
+      if (rep.studentId === studentId) {
+        reportsMap.set(rep.id, rep);
+      }
+    });
 
     // 1. Query reports collection by studentId
     try {

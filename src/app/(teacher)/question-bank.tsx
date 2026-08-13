@@ -62,7 +62,7 @@ export default function TeacherQuestionBankScreen() {
   const fetchQuestions = async () => {
     setLoading(true);
     try {
-      const data = await getQuestionBank(selectedLevel === "all" ? undefined : selectedLevel);
+      const data = await getQuestionBank(undefined, undefined, selectedLevel === "all" ? undefined : selectedLevel);
       setQuestions(data);
     } catch (err) {
       console.error("Error loading questions:", err);
@@ -128,6 +128,9 @@ export default function TeacherQuestionBankScreen() {
   };
 
   // AI Preview & Selection Review Modal State
+  const [aiSubject, setAiSubject] = useState(user?.subject || "Physics");
+  const [aiCount, setAiCount] = useState<string>("10");
+  const [aiLevel, setAiLevel] = useState<"level1" | "level2" | "level3">("level2");
   const [aiPreviewItems, setAiPreviewItems] = useState<(AIGeneratedQuestionSuggestion & { selected: boolean })[]>([]);
   const [aiReviewModalVisible, setAiReviewModalVisible] = useState(false);
   const [savingSelected, setSavingSelected] = useState(false);
@@ -138,9 +141,17 @@ export default function TeacherQuestionBankScreen() {
       return;
     }
 
+    const requestedCount = Math.min(100, Math.max(1, parseInt(aiCount, 10) || 10));
+
     setGenerating(true);
     try {
-      const items = await suggestQuestionItems(user?.subject || "Science", user?.grade || "10", aiTopic.trim(), 3, "level1");
+      const items = await suggestQuestionItems(
+        aiSubject.trim() || user?.subject || "Science",
+        user?.grade || "10",
+        aiTopic.trim(),
+        requestedCount,
+        aiLevel
+      );
       if (items && items.length > 0) {
         setAiPreviewItems(items.map((item) => ({ ...item, selected: true })));
         setAiModalVisible(false);
@@ -391,32 +402,117 @@ export default function TeacherQuestionBankScreen() {
         </View>
       </Modal>
 
-      {/* AI Copilot Assist Modal */}
+      {/* AI Copilot Assist Modal (Requirement: Configurable 1-100 AI Questions Generator for Teacher Subject) */}
       <Modal visible={aiModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Bookmark color="#D97706" size={20} />
-                <Text style={styles.modalTitle}>AI Teacher Copilot</Text>
+                <Sparkles color="#4F46E5" size={20} />
+                <Text style={styles.modalTitle}>AI Teacher Copilot Generator</Text>
               </View>
               <TouchableOpacity onPress={() => setAiModalVisible(false)}>
                 <X color="#64748B" size={24} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputLabel}>Topic / Concept Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Thermodynamics / Electric Circuits"
-              placeholderTextColor="#94A3B8"
-              value={aiTopic}
-              onChangeText={setAiTopic}
-            />
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>Subject</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Physics / Chemistry / Mathematics"
+                placeholderTextColor="#94A3B8"
+                value={aiSubject}
+                onChangeText={setAiSubject}
+              />
 
-            <TouchableOpacity style={styles.submitModalBtn} onPress={handleAiSuggest} disabled={generating}>
-              {generating ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitModalText}>Generate 3 Diagnostic Items</Text>}
-            </TouchableOpacity>
+              <Text style={styles.inputLabel}>Topic / Concept Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Thermodynamics / Electric Circuits"
+                placeholderTextColor="#94A3B8"
+                value={aiTopic}
+                onChangeText={setAiTopic}
+              />
+
+              <Text style={styles.inputLabel}>Number of Questions (1 - 100)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter count (1 to 100)"
+                placeholderTextColor="#94A3B8"
+                keyboardType="numeric"
+                value={aiCount}
+                onChangeText={(val) => {
+                  const cleaned = val.replace(/[^0-9]/g, "");
+                  if (!cleaned) {
+                    setAiCount("");
+                  } else {
+                    const num = parseInt(cleaned, 10);
+                    setAiCount(String(Math.min(100, Math.max(1, num))));
+                  }
+                }}
+              />
+
+              {/* Quick Count Selector Pills */}
+              <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+                {["5", "10", "25", "50", "100"].map((preset) => (
+                  <TouchableOpacity
+                    key={preset}
+                    style={[
+                      styles.filterChip,
+                      aiCount === preset && styles.filterChipActive,
+                      { paddingVertical: 6, paddingHorizontal: 12 },
+                    ]}
+                    onPress={() => setAiCount(preset)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterText,
+                        aiCount === preset && styles.filterTextActive,
+                        { fontSize: 12 },
+                      ]}
+                    >
+                      {preset} Qs
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputLabel}>Target Difficulty Level</Text>
+              <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+                {(["level1", "level2", "level3"] as const).map((lvl) => (
+                  <TouchableOpacity
+                    key={lvl}
+                    style={[
+                      styles.filterChip,
+                      aiLevel === lvl && styles.filterChipActive,
+                      { flex: 1, alignItems: "center" },
+                    ]}
+                    onPress={() => setAiLevel(lvl)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterText,
+                        aiLevel === lvl && styles.filterTextActive,
+                        { fontSize: 11, fontWeight: "600" },
+                      ]}
+                    >
+                      {lvl === "level1" ? "Level 1 (Easy)" : lvl === "level2" ? "Level 2 (Med)" : "Level 3 (Hard)"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity style={styles.submitModalBtn} onPress={handleAiSuggest} disabled={generating}>
+                {generating ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitModalText}>
+                    Generate {aiCount || "10"} AI Questions ({aiSubject || "Subject"})
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -509,6 +605,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: ZEEPREP_THEME.colors.background,
+  },
+  filterChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    backgroundColor: "#F8FAFC",
+  },
+  filterChipActive: {
+    borderColor: ZEEPREP_THEME.colors.primary,
+    backgroundColor: "#EEF2FF",
+  },
+  filterText: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  filterTextActive: {
+    color: ZEEPREP_THEME.colors.primary,
+    fontWeight: "700",
   },
   filterBar: {
     paddingHorizontal: 20,

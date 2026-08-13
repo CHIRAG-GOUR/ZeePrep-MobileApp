@@ -114,6 +114,7 @@ export interface ExamAttempt {
   startedAt?: any;
   submittedAt?: any;
   syncedAt?: any;
+  questions?: Question[];
 }
 
 export interface DetailedQuestionAnalysis {

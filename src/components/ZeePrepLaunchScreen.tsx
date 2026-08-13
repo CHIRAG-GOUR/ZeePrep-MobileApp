@@ -164,7 +164,7 @@ export function ZeePrepLaunchScreen({ onComplete }: ZeePrepLaunchScreenProps) {
         setTimeout(() => {
           if (!isMounted) return;
           try {
-            musicPlayer.volume = 0.25;
+            musicPlayer.volume = 0.125;
             musicPlayer.play();
             musicHasStarted = true;
           } catch (e) {

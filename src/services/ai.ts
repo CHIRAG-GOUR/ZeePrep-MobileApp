@@ -33,24 +33,25 @@ export interface ReportInsightResult {
 const RESOLVED_API_KEY =
   process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
   process.env.GEMINI_API_KEY ||
+  process.env.EXPO_PUBLIC_FIREBASE_API_KEY ||
   "";
 
 const FIREBASE_CLOUD_FUNCTION_URL =
   process.env.EXPO_PUBLIC_FIREBASE_CLOUD_FUNCTION_URL ||
   "https://us-central1-zeeprep01.cloudfunctions.net/apiGenerateGemini";
 
-// Supported Gemini Models (tries 2.5-flash first, then 2.5-pro)
-const MODEL_ENDPOINTS = RESOLVED_API_KEY
-  ? [
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${RESOLVED_API_KEY}`,
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${RESOLVED_API_KEY}`,
-    ]
-  : [];
+// Supported active Gemini Model (gemini-2.5-flash exclusively)
+function getModelEndpoints(key: string): string[] {
+  if (!key) return [];
+  return [
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+  ];
+}
 
 /**
  * Universal Secure Call Wrapper for Gemini AI
  * 1. Tries secure Firebase Cloud Function endpoint (zeeprep01)
- * 2. Falls back to direct Gemini REST model endpoints
+ * 2. Falls back to direct Gemini REST model endpoints if key is configured
  */
 export async function callGeminiAPI(prompt: string, taskType: string = "general"): Promise<string | null> {
   // Option 1: Try Deployed Firebase Cloud Function
@@ -58,7 +59,7 @@ export async function callGeminiAPI(prompt: string, taskType: string = "general"
     const cloudRes = await fetch(FIREBASE_CLOUD_FUNCTION_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, taskType }),
+      body: JSON.stringify({ prompt, taskType, model: "gemini-2.5-flash" }),
     });
 
     if (cloudRes.ok) {
@@ -66,18 +67,27 @@ export async function callGeminiAPI(prompt: string, taskType: string = "general"
       if (cloudData.success && cloudData.resultText) {
         return cloudData.resultText.trim();
       }
+    } else {
+      console.warn(`[ZeePrep AI] Cloud Function returned ${cloudRes.status}: falling back to direct endpoints.`);
     }
   } catch (err) {
-    // Cloud function not yet deployed or unreachable, fall back to direct key execution
+    console.warn("[ZeePrep AI] Cloud Function request failed:", err);
   }
 
-  // Option 2: Fallback to Direct Gemini REST Endpoint if API key is loaded locally
-  if (!RESOLVED_API_KEY) {
-    console.warn("[ZeePrep AI Service] No Gemini API key or Cloud Function configured.");
+  // Option 2: Fallback to Direct Gemini REST Endpoints
+  const keyToUse =
+    process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    "";
+
+  if (!keyToUse) {
+    console.warn("[ZeePrep AI Service] No EXPO_PUBLIC_GEMINI_API_KEY provided in .env.");
     return null;
   }
 
-  for (const endpoint of MODEL_ENDPOINTS) {
+  const endpoints = getModelEndpoints(keyToUse);
+
+  for (const endpoint of endpoints) {
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -98,9 +108,8 @@ export async function callGeminiAPI(prompt: string, taskType: string = "general"
           return candidateText.trim();
         }
       } else {
-        console.warn(
-          `[ZeePrep AI Service] Endpoint returned status ${response.status}: ${response.statusText}`
-        );
+        const errText = await response.text();
+        console.warn(`[ZeePrep AI Service] Endpoint returned status ${response.status}: ${errText}`);
       }
     } catch (err) {
       console.warn(`[ZeePrep AI Service] Model request failed:`, err);
@@ -254,9 +263,10 @@ export async function suggestQuestionItems(
   subject: string,
   grade: string,
   topic: string,
-  count: number = 3,
+  count: number = 5,
   level: "level1" | "level2" | "level3" = "level1"
 ): Promise<AIGeneratedQuestionSuggestion[]> {
+  const safeCount = Math.min(100, Math.max(1, count));
   const levelDescription =
     level === "level1"
       ? "Level 1: Recall & direct formula application (1 mark)"
@@ -264,13 +274,13 @@ export async function suggestQuestionItems(
       ? "Level 2: Moderate multi-step problem solving (2 marks)"
       : "Level 3: Hard analytical & multi-concept problem (4 marks)";
 
-  const prompt = `You are ZeePrep AI Exam Generator. Generate ${count} high-quality curriculum-aligned exam questions.
+  const prompt = `You are ZeePrep AI Exam Generator. Generate ${safeCount} high-quality curriculum-aligned exam questions for Grade ${grade} (${subject}).
 Subject: ${subject}
 Grade: ${grade}
 Topic: ${topic || "Core Curriculum"}
 Difficulty Target: ${levelDescription}
 
-Return ONLY a valid JSON array of objects. Each object MUST contain keys:
+Return ONLY a valid JSON array of ${safeCount} objects. Each object MUST contain keys:
 "text": string (question text),
 "type": "mcq",
 "options": array of exactly 4 strings,
@@ -294,10 +304,10 @@ Example Output:
   if (geminiText) {
     const parsed = parseGeminiJson<AIGeneratedQuestionSuggestion[]>(geminiText);
     if (parsed && Array.isArray(parsed) && parsed.length > 0) {
-      return parsed.map((q) => ({
+      return parsed.slice(0, safeCount).map((q) => ({
         ...q,
-        subject,
-        grade,
+        subject: subject || "Science",
+        grade: grade || "10",
         topic: topic || "Core Syllabus",
         level,
         options: Array.isArray(q.options) && q.options.length === 4 ? q.options : ["Option A", "Option B", "Option C", "Option D"],
@@ -305,43 +315,61 @@ Example Output:
     }
   }
 
-  // Fallback structured questions if offline
-  return [
-    {
-      text: `Explain the core principles governing ${topic || "Newtonian Mechanics"} in ${subject} (Grade ${grade}).`,
+  // Diverse Curriculum Fallback Generator (Produces safeCount unique items)
+  const fallbacks: AIGeneratedQuestionSuggestion[] = [];
+  const cleanTopic = topic.trim() || "Core Concepts";
+
+  for (let i = 0; i < safeCount; i++) {
+    const qNum = i + 1;
+    const typeIdx = i % 4;
+
+    let text = "";
+    let options: string[] = [];
+    let correctAnswer = "";
+    let explanation = "";
+
+    if (typeIdx === 0) {
+      text = `Q${qNum}. Which fundamental principle defines ${cleanTopic} in ${subject} (Grade ${grade})?`;
+      options = [
+        `Primary Law of ${cleanTopic}`,
+        `Secondary Conservation Property`,
+        `Empirical Approximation Principle`,
+        `Independent Scalar Theorem`,
+      ];
+      correctAnswer = `Primary Law of ${cleanTopic}`;
+      explanation = `The primary law governs the behavior of ${cleanTopic} under standard conditions.`;
+    } else if (typeIdx === 1) {
+      text = `Q${qNum}. What is the expected dimensional unit or quantitative measure associated with ${cleanTopic}?`;
+      options = ["SI Derived Unit", "Dimensionless Ratio", "Logarithmic Scale", "Normalized Coefficient"];
+      correctAnswer = "SI Derived Unit";
+      explanation = `Standard physical quantities in ${subject} are expressed using SI units.`;
+    } else if (typeIdx === 2) {
+      text = `Q${qNum}. In a practical ${subject} application involving ${cleanTopic}, which parameter must remain constant?`;
+      options = ["System Total Energy", "Variable Resistance", "Ambient Temperature", "Internal Mass Ratio"];
+      correctAnswer = "System Total Energy";
+      explanation = `By the law of conservation, total energy remains constant in an isolated system.`;
+    } else {
+      text = `Q${qNum}. Evaluate the effect of doubling the input magnitude on ${cleanTopic}.`;
+      options = ["Resultant doubles (Direct proportion)", "Resultant quadruples (Square law)", "Resultant halves", "No change"];
+      correctAnswer = "Resultant doubles (Direct proportion)";
+      explanation = `Direct proportionality implies that doubling the input doubles the output.`;
+    }
+
+    fallbacks.push({
+      text,
       type: "mcq",
-      options: [
-        "First Law of Motion (Inertia)",
-        "Law of Universal Gravitation",
-        "Principle of Conservation of Energy",
-        "Electromagnetic Wave Theory",
-      ],
-      correctAnswer: "First Law of Motion (Inertia)",
-      explanation: "Standard curriculum concept for Grade " + grade + " " + subject + ".",
+      options,
+      correctAnswer,
+      explanation,
       difficulty: level === "level1" ? "easy" : level === "level2" ? "medium" : "hard",
-      subject,
-      grade,
-      topic: topic || "Core Physics",
+      subject: subject || "Science",
+      grade: grade || "10",
+      topic: cleanTopic,
       level,
-    },
-    {
-      text: `Which mathematical property defines orthogonal vectors in 3D space?`,
-      type: "mcq",
-      options: [
-        "Dot Product equals zero",
-        "Cross Product equals zero",
-        "Magnitude equals one",
-        "Parallel direction cosines",
-      ],
-      correctAnswer: "Dot Product equals zero",
-      explanation: "Two non-zero vectors A and B are orthogonal if A · B = |A||B| cos(90°) = 0.",
-      difficulty: "medium",
-      subject,
-      grade,
-      topic: topic || "Vectors",
-      level,
-    },
-  ];
+    });
+  }
+
+  return fallbacks;
 }
 
 /**

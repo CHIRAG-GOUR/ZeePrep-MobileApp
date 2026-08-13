@@ -78,6 +78,9 @@ export default function ExamEngineScreen() {
   const [draftRestored, setDraftRestored] = useState(false);
   const [showPaletteModal, setShowPaletteModal] = useState(false);
   const [showSubmitConfirmModal, setShowSubmitConfirmModal] = useState(false);
+  const [submittingModalVisible, setSubmittingModalVisible] = useState(false);
+  const [submittingProgress, setSubmittingProgress] = useState(0);
+  const [submittingStepText, setSubmittingStepText] = useState("Evaluating student telemetry...");
 
   // Initialize Exam Data & Restore Draft if exists
   useEffect(() => {
@@ -111,9 +114,8 @@ export default function ExamEngineScreen() {
           startExam(exam, fetchedQuestions);
         }
       } else {
-        Alert.alert("Exam Unavailable", "Could not load exam details or questions.", [
-          { text: "OK", onPress: () => router.back() },
-        ]);
+        Alert.alert("Error", "Could not load examination questions.");
+        router.back();
       }
       setLoading(false);
     }
@@ -132,8 +134,29 @@ export default function ExamEngineScreen() {
     if (autoSubmitRef.current || !currentExam || !user) return;
     autoSubmitRef.current = true;
     useExamStore.setState({ isSubmitting: true });
+
+    setSubmittingModalVisible(true);
+    setSubmittingProgress(15);
+    setSubmittingStepText("Time's Up! Evaluating student responses & accuracy...");
+
+    const progressInterval = setInterval(() => {
+      setSubmittingProgress((prev) => {
+        if (prev < 45) {
+          setSubmittingStepText("Computing score & question-level correctness...");
+          return prev + 10;
+        } else if (prev < 75) {
+          setSubmittingStepText("Synthesizing conceptual analysis...");
+          return prev + 8;
+        } else if (prev < 95) {
+          setSubmittingStepText("Saving performance scorecard to cloud...");
+          return prev + 5;
+        }
+        return prev;
+      });
+    }, 450);
+
     try {
-      await submitStudentExamAttempt(
+      const { report } = await submitStudentExamAttempt(
         currentExam,
         questions,
         user,
@@ -142,13 +165,21 @@ export default function ExamEngineScreen() {
         [],
         useExamStore.getState().timeSpentPerQuestion || questionTimeMap
       );
-      useExamStore.setState({ isExamActive: false, isSubmitting: false });
-      Alert.alert("Time's Up!", "Your exam has been automatically submitted.", [
-        { text: "View Scorecard", onPress: () => router.replace(`/results/${currentExam.id}` as any) },
-      ]);
+
+      clearInterval(progressInterval);
+      setSubmittingProgress(100);
+      setSubmittingStepText("Report Generated! Loading Scorecard...");
+
+      setTimeout(() => {
+        useExamStore.setState({ isExamActive: false, isSubmitting: false });
+        setSubmittingModalVisible(false);
+        router.replace(`/results/${report.id}` as any);
+      }, 1000);
     } catch (err) {
+      clearInterval(progressInterval);
       console.error("Auto-submit error:", err);
       useExamStore.setState({ isSubmitting: false });
+      setSubmittingModalVisible(false);
       autoSubmitRef.current = false;
       Alert.alert("Submission Error", "Auto-submission failed. Please try submitting manually.");
     }
@@ -180,27 +211,6 @@ export default function ExamEngineScreen() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isExamActive, currentQuestionIndex, remainingSeconds]);
-
-  // Handle hardware back button during exam
-  useEffect(() => {
-    const onBackPress = () => {
-      if (isExamActive) {
-        Alert.alert(
-          "Exit Examination?",
-          "Your progress is automatically saved. Timer will continue running.",
-          [
-            { text: "Resume Exam", style: "cancel" },
-            { text: "Exit to Dashboard", style: "destructive", onPress: () => router.back() },
-          ]
-        );
-        return true;
-      }
-      return false;
-    };
-
-    const handler = BackHandler.addEventListener("hardwareBackPress", onBackPress);
-    return () => handler.remove();
   }, [isExamActive]);
 
   const handleSelectAnswer = (qId: string, answer: string | number) => {
@@ -224,24 +234,14 @@ export default function ExamEngineScreen() {
 
   const handleClearAnswer = (qId: string) => {
     clearAnswer(qId);
-    if (currentExam && user) {
-      saveExamDraftLocally(currentExam.id, user.uid, {
-        answers: useExamStore.getState().answers,
-        markedForReview: useExamStore.getState().markedForReview,
-        revisitedQuestions: [],
-        timeSpentPerQuestion: useExamStore.getState().timeSpentPerQuestion,
-        remainingSeconds: useExamStore.getState().remainingSeconds,
-      });
-    }
   };
 
-  const handleExitExam = () => {
+  const handleLeaveExam = () => {
     const maxAtt = currentExam?.maxAttempts || 1;
-    const isUnlimited = maxAtt === "unlimited";
-
-    let alertMsg = "Your examination is currently in progress. If you leave this examination, your draft will be saved and timer will continue running.";
-
-    if (!isUnlimited && Number(maxAtt) > 1) {
+    let alertMsg = `Leaving this examination will save your draft. Make sure to complete and submit within the duration.`;
+    if (maxAtt === 1) {
+      alertMsg = `This is a 1-Attempt Examination. Leaving will save your current progress as a draft.`;
+    } else {
       alertMsg = `Maximum Attempts: ${maxAtt}. Leaving this examination will save your draft. Make sure to complete and submit within the duration.`;
     }
 
@@ -258,8 +258,30 @@ export default function ExamEngineScreen() {
   const executeFinalSubmission = async () => {
     if (!currentExam || !user || isSubmitting) return;
     setShowSubmitConfirmModal(false);
+
+    setSubmittingModalVisible(true);
+    setSubmittingProgress(10);
+    setSubmittingStepText("Evaluating student telemetry & answer accuracy...");
+
+    useExamStore.setState({ isSubmitting: true });
+
+    const progressInterval = setInterval(() => {
+      setSubmittingProgress((prev) => {
+        if (prev < 40) {
+          setSubmittingStepText("Evaluating student telemetry & answer accuracy...");
+          return prev + 10;
+        } else if (prev < 70) {
+          setSubmittingStepText("Computing score & question-level correctness...");
+          return prev + 8;
+        } else if (prev < 92) {
+          setSubmittingStepText("Saving performance scorecard to cloud...");
+          return prev + 5;
+        }
+        return prev;
+      });
+    }, 400);
+
     try {
-      useExamStore.setState({ isSubmitting: true });
       const { report } = await submitStudentExamAttempt(
         currentExam,
         questions,
@@ -269,11 +291,21 @@ export default function ExamEngineScreen() {
         [],
         useExamStore.getState().timeSpentPerQuestion
       );
-      useExamStore.setState({ isExamActive: false, isSubmitting: false });
-      router.replace(`/results/${report.id}` as any);
+
+      clearInterval(progressInterval);
+      setSubmittingProgress(100);
+      setSubmittingStepText("Report Generated! Loading Scorecard...");
+
+      setTimeout(() => {
+        useExamStore.setState({ isExamActive: false, isSubmitting: false });
+        setSubmittingModalVisible(false);
+        router.replace(`/results/${report.id}` as any);
+      }, 1000);
     } catch (err) {
+      clearInterval(progressInterval);
       console.error("Exam submission error:", err);
       useExamStore.setState({ isSubmitting: false });
+      setSubmittingModalVisible(false);
       Alert.alert("Submission Error", "Submission failed. Please check network connection.");
     }
   };
@@ -308,7 +340,7 @@ export default function ExamEngineScreen() {
     <View style={[styles.container, { paddingTop: Math.max(responsive.safeTop, 12) }]}>
       {/* 1. Top Fixed Header Bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.iconBtn} onPress={handleExitExam} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.iconBtn} onPress={handleLeaveExam} activeOpacity={0.7}>
           <ChevronLeft color="#0F172A" size={24} />
         </TouchableOpacity>
 
@@ -561,6 +593,34 @@ export default function ExamEngineScreen() {
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 5.5. Live Report Processing & AI Generation Modal */}
+      <Modal
+        visible={submittingModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalOverlayCenter}>
+          <View style={[styles.confirmModalContent, { alignItems: "center", paddingVertical: 28 }]}>
+            <ActivityIndicator color="#4F46E5" size="large" style={{ marginBottom: 16 }} />
+            <Text style={{ fontSize: 18, fontWeight: "800", color: "#0F172A", marginBottom: 6 }}>
+              Generating Performance Report
+            </Text>
+            <Text style={{ fontSize: 13, color: "#64748B", marginBottom: 20, textAlign: "center", paddingHorizontal: 10 }}>
+              {submittingStepText}
+            </Text>
+
+            {/* Animated Progress Bar */}
+            <View style={{ width: "100%", height: 10, backgroundColor: "#E2E8F0", borderRadius: 5, overflow: "hidden", marginBottom: 10 }}>
+              <View style={{ width: `${submittingProgress}%`, height: "100%", backgroundColor: "#4F46E5", borderRadius: 5 }} />
+            </View>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: "#4F46E5" }}>
+              {submittingProgress}% Completed
+            </Text>
           </View>
         </View>
       </Modal>

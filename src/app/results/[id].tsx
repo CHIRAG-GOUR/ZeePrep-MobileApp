@@ -43,9 +43,19 @@ export default function ResultsScreen() {
 
   useEffect(() => {
     async function loadReport() {
-      if (!id || !user) return;
+      if (!id) return;
       setLoading(true);
-      const data = await getStudentReport(id as string, user.uid);
+      console.log("[ZeePrep Results] Loading report with ID:", id, "studentId:", user?.uid);
+
+      // Retry up to 3 times with increasing delays to handle Firestore write propagation
+      let data: Report | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        data = await getStudentReport(id as string, user?.uid);
+        if (data) break;
+        console.log(`[ZeePrep Results] Attempt ${attempt + 1} returned null, retrying in ${(attempt + 1) * 1500}ms...`);
+        await new Promise((r) => setTimeout(r, (attempt + 1) * 1500));
+      }
+
       setReport(data);
       setLoading(false);
 
@@ -63,6 +73,8 @@ export default function ResultsScreen() {
             setAiLoading(false);
           }
         }
+      } else {
+        console.warn("[ZeePrep Results] Report not found after 3 retries for ID:", id);
       }
     }
 

@@ -37,10 +37,10 @@ export function normalizeQuestionOption(opt: any, index: number): NormalizedOpti
       opt.optionText ??
       opt.option ??
       "";
-    const idVal = opt.id ?? opt.key ?? fallbackId;
 
+    // Always use A, B, C, D — never use opt.id (which may be "opt_a_ai", etc.)
     return {
-      id: String(idVal),
+      id: fallbackId,
       text: typeof textVal === "object" ? JSON.stringify(textVal) : String(textVal),
     };
   }
