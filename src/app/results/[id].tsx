@@ -160,6 +160,95 @@ export default function ResultsScreen() {
           </View>
         </View>
 
+        {/* Question-by-Question Detailed Analysis (Task 9) */}
+        <Text style={styles.sectionTitle}>Question-by-Question Analysis</Text>
+        {report.detailedAnalysis && report.detailedAnalysis.length > 0 ? (
+          <View style={styles.questionAnalysisContainer}>
+            {report.detailedAnalysis.map((qItem, qIdx) => {
+              const isAnsEmpty = !qItem.studentAnswer || String(qItem.studentAnswer).trim() === "";
+              const isCorrect = Boolean(qItem.isCorrect);
+
+              return (
+                <View
+                  key={qItem.questionId || qIdx}
+                  style={[
+                    styles.qAnalysisCard,
+                    isCorrect
+                      ? styles.qCardCorrect
+                      : isAnsEmpty
+                      ? styles.qCardUnattempted
+                      : styles.qCardIncorrect,
+                  ]}
+                >
+                  {/* Card Top Row: Question # and Result Pill */}
+                  <View style={styles.qCardHeader}>
+                    <Text style={styles.qNumberText}>Question {qIdx + 1}</Text>
+                    <View
+                      style={[
+                        styles.qResultPill,
+                        isCorrect
+                          ? styles.pillCorrect
+                          : isAnsEmpty
+                          ? styles.pillUnattempted
+                          : styles.pillIncorrect,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.qResultText,
+                          isCorrect
+                            ? styles.pillTextCorrect
+                            : isAnsEmpty
+                            ? styles.pillTextUnattempted
+                            : styles.pillTextIncorrect,
+                        ]}
+                      >
+                        {isCorrect ? "✓ Correct (+1 mark)" : isAnsEmpty ? "Unanswered (0 marks)" : "✕ Incorrect (0 marks)"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Question Text */}
+                  <Text style={styles.qQuestionText}>{qItem.questionText}</Text>
+
+                  {/* Answers & Time Metrics Row */}
+                  <View style={styles.qMetricsRow}>
+                    <View style={styles.qMetricBox}>
+                      <Text style={styles.qMetricLabel}>Your Answer:</Text>
+                      <Text
+                        style={[
+                          styles.qMetricValue,
+                          isCorrect ? styles.valCorrect : isAnsEmpty ? styles.valMuted : styles.valIncorrect,
+                        ]}
+                      >
+                        {isAnsEmpty ? "—" : String(qItem.studentAnswer)}
+                      </Text>
+                    </View>
+
+                    <View style={styles.qMetricBox}>
+                      <Text style={styles.qMetricLabel}>Correct Answer:</Text>
+                      <Text style={[styles.qMetricValue, styles.valCorrect]}>
+                        {String(qItem.correctAnswer)}
+                      </Text>
+                    </View>
+
+                    <View style={styles.qMetricBox}>
+                      <Text style={styles.qMetricLabel}>Time Taken:</Text>
+                      <Text style={styles.qMetricValue}>
+                        {qItem.timeSpentSeconds || 0}s
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <Text style={{ fontSize: 13, color: "#64748B", marginBottom: 16 }}>
+            Question-level analysis data not available for this legacy attempt.
+          </Text>
+        )}
+
         {/* Real Gemini AI Diagnostic Analysis Card (Requirement 10) */}
         <Text style={styles.sectionTitle}>Gemini AI Diagnostic Insights</Text>
         <View style={styles.aiDiagnosticCard}>
@@ -544,5 +633,107 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#92400E",
     lineHeight: 17,
+  },
+  questionAnalysisContainer: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  qAnalysisCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  qCardCorrect: {
+    borderColor: "rgba(16, 185, 129, 0.3)",
+  },
+  qCardIncorrect: {
+    borderColor: "rgba(239, 68, 68, 0.3)",
+  },
+  qCardUnattempted: {
+    borderColor: "rgba(245, 158, 11, 0.3)",
+  },
+  qCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  qNumberText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  qResultPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  pillCorrect: {
+    backgroundColor: "#ECFDF5",
+  },
+  pillIncorrect: {
+    backgroundColor: "#FEF2F2",
+  },
+  pillUnattempted: {
+    backgroundColor: "#FFFBEB",
+  },
+  qResultText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  pillTextCorrect: {
+    color: "#059669",
+  },
+  pillTextIncorrect: {
+    color: "#E11D48",
+  },
+  pillTextUnattempted: {
+    color: "#D97706",
+  },
+  qQuestionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1E293B",
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  qMetricsRow: {
+    flexDirection: "row",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 10,
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  qMetricBox: {
+    alignItems: "flex-start",
+  },
+  qMetricLabel: {
+    fontSize: 10,
+    color: "#64748B",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+  qMetricValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  valCorrect: {
+    color: "#059669",
+  },
+  valIncorrect: {
+    color: "#E11D48",
+  },
+  valMuted: {
+    color: "#94A3B8",
   },
 });

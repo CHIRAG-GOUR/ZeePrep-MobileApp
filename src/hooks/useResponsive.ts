@@ -1,4 +1,5 @@
 import { useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export interface ResponsiveInfo {
   width: number;
@@ -12,10 +13,24 @@ export interface ResponsiveInfo {
   horizontalPadding: number;
   columnCount: number;
   headerHeight: number;
+  safeTop: number;
+  safeBottom: number;
 }
 
 export function useResponsive(): ResponsiveInfo {
   const { width, height } = useWindowDimensions();
+  let safeTop = 44;
+  let safeBottom = 20;
+
+  try {
+    const insets = useSafeAreaInsets();
+    if (insets) {
+      safeTop = insets.top || 44;
+      safeBottom = insets.bottom || 20;
+    }
+  } catch (e) {
+    // Fallback if safe area provider is unmounted
+  }
 
   const isPortrait = height >= width;
   const isLandscape = !isPortrait;
@@ -49,5 +64,7 @@ export function useResponsive(): ResponsiveInfo {
     horizontalPadding,
     columnCount,
     headerHeight,
+    safeTop,
+    safeBottom,
   };
 }

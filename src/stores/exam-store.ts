@@ -16,11 +16,13 @@ interface ExamEngineState {
   // Actions
   startExam: (exam: Exam, questions: Question[], attempt?: ExamAttempt) => void;
   selectAnswer: (questionId: string, answer: string | number) => void;
+  clearAnswer: (questionId: string) => void;
   toggleMarkForReview: (questionId: string) => void;
   nextQuestion: () => void;
   prevQuestion: () => void;
   goToQuestion: (index: number) => void;
   tickTimer: () => void;
+  recordQuestionTime: (questionId: string, seconds: number) => void;
   submitExam: () => Promise<ExamAttempt | null>;
   resetExamEngine: () => void;
 }
@@ -56,6 +58,14 @@ export const useExamStore = create<ExamEngineState>((set, get) => ({
     set((state) => ({
       answers: { ...state.answers, [questionId]: answer },
     }));
+  },
+
+  clearAnswer: (questionId) => {
+    set((state) => {
+      const updated = { ...state.answers };
+      delete updated[questionId];
+      return { answers: updated };
+    });
   },
 
   toggleMarkForReview: (questionId) => {
@@ -107,9 +117,25 @@ export const useExamStore = create<ExamEngineState>((set, get) => ({
     }
   },
 
+  recordQuestionTime: (questionId, seconds) => {
+    set((state) => ({
+      timeSpentPerQuestion: {
+        ...state.timeSpentPerQuestion,
+        [questionId]: (state.timeSpentPerQuestion[questionId] || 0) + seconds,
+      },
+    }));
+  },
+
   tickTimer: () => {
-    const { remainingSeconds, isExamActive } = get();
+    const { remainingSeconds, isExamActive, questions, currentQuestionIndex } = get();
     if (!isExamActive) return;
+
+    // Track 1 second for active question
+    const currentQId = questions[currentQuestionIndex]?.id;
+    if (currentQId) {
+      get().recordQuestionTime(currentQId, 1);
+    }
+
     if (remainingSeconds <= 1) {
       get().submitExam();
     } else {

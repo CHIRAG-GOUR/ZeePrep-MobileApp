@@ -116,6 +116,8 @@ export interface DetailedQuestionAnalysis {
   correctAnswer: string | number;
   studentAnswer: string | number;
   isCorrect: boolean;
+  isUnanswered?: boolean;
+  marks?: number;
   timeSpentSeconds: number;
   chapter?: string;
   topic?: string;

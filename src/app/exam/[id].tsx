@@ -8,10 +8,11 @@ import {
   ActivityIndicator,
   Alert,
   BackHandler,
+  Modal,
+  SafeAreaView,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
-import { AnimatedExamIllustration } from "../../components/AnimatedExamIllustration";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useExamStore } from "../../stores/exam-store";
 import { normalizeQuestionOption } from "../../utils/question-normalizer";
@@ -28,10 +29,10 @@ import {
   ChevronRight,
   Bookmark,
   Send,
-  WifiOff,
-  RotateCcw,
   CheckCircle2,
   Trash2,
+  Grid,
+  X,
 } from "lucide-react-native";
 
 export default function ExamEngineScreen() {
@@ -51,6 +52,7 @@ export default function ExamEngineScreen() {
     isSubmitting,
     startExam,
     selectAnswer,
+    clearAnswer,
     toggleMarkForReview,
     nextQuestion,
     prevQuestion,
@@ -62,9 +64,7 @@ export default function ExamEngineScreen() {
   const [loading, setLoading] = useState(true);
   const [questionTimeMap, setQuestionTimeMap] = useState<Record<string, number>>({});
   const [draftRestored, setDraftRestored] = useState(false);
-
-  // Time tracking ref per question
-  const currentQStartTime = useRef<number>(Date.now());
+  const [showPaletteModal, setShowPaletteModal] = useState(false);
 
   // Initialize Exam Data & Restore Draft if exists
   useEffect(() => {
@@ -126,7 +126,7 @@ export default function ExamEngineScreen() {
         answers,
         markedForReview,
         [],
-        questionTimeMap
+        useExamStore.getState().timeSpentPerQuestion || questionTimeMap
       );
       useExamStore.setState({ isExamActive: false, isSubmitting: false });
       Alert.alert("Time's Up!", "Your exam has been automatically submitted.", [
@@ -153,29 +153,20 @@ export default function ExamEngineScreen() {
       }
       tickTimer();
 
-      // Track time spent on active question
-      const currentQId = questions[currentQuestionIndex]?.id;
-      if (currentQId) {
-        setQuestionTimeMap((prev) => ({
-          ...prev,
-          [currentQId]: (prev[currentQId] || 0) + 1,
-        }));
-      }
-
       // Periodically persist draft to local storage
       if (currentExam && user) {
         saveExamDraftLocally(currentExam.id, user.uid, {
-          answers,
-          markedForReview,
+          answers: useExamStore.getState().answers,
+          markedForReview: useExamStore.getState().markedForReview,
           revisitedQuestions: [],
-          timeSpentPerQuestion: questionTimeMap,
+          timeSpentPerQuestion: useExamStore.getState().timeSpentPerQuestion,
           remainingSeconds,
         });
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isExamActive, currentQuestionIndex, answers, markedForReview, remainingSeconds]);
+  }, [isExamActive, currentQuestionIndex, remainingSeconds]);
 
   // Handle hardware back button during exam
   useEffect(() => {
@@ -199,11 +190,8 @@ export default function ExamEngineScreen() {
   }, [isExamActive]);
 
   const handleSelectAnswer = (qId: string, answer: string | number) => {
-    // Toggle answer: if same option clicked again, clear answer
     if (answers[qId] === answer) {
-      const updatedAnswers = { ...answers };
-      delete updatedAnswers[qId];
-      useExamStore.setState({ answers: updatedAnswers });
+      clearAnswer(qId);
     } else {
       selectAnswer(qId, answer);
     }
@@ -212,18 +200,25 @@ export default function ExamEngineScreen() {
     if (currentExam && user) {
       saveExamDraftLocally(currentExam.id, user.uid, {
         answers: useExamStore.getState().answers,
-        markedForReview,
+        markedForReview: useExamStore.getState().markedForReview,
         revisitedQuestions: [],
-        timeSpentPerQuestion: questionTimeMap,
+        timeSpentPerQuestion: useExamStore.getState().timeSpentPerQuestion,
         remainingSeconds,
       });
     }
   };
 
   const handleClearAnswer = (qId: string) => {
-    const updatedAnswers = { ...answers };
-    delete updatedAnswers[qId];
-    useExamStore.setState({ answers: updatedAnswers });
+    clearAnswer(qId);
+    if (currentExam && user) {
+      saveExamDraftLocally(currentExam.id, user.uid, {
+        answers: useExamStore.getState().answers,
+        markedForReview: useExamStore.getState().markedForReview,
+        revisitedQuestions: [],
+        timeSpentPerQuestion: useExamStore.getState().timeSpentPerQuestion,
+        remainingSeconds,
+      });
+    }
   };
 
   const handleSubmit = async () => {
@@ -243,6 +238,7 @@ export default function ExamEngineScreen() {
           onPress: async () => {
             if (!currentExam || !user) return;
             try {
+              useExamStore.setState({ isSubmitting: true });
               const { report } = await submitStudentExamAttempt(
                 currentExam,
                 questions,
@@ -250,12 +246,14 @@ export default function ExamEngineScreen() {
                 answers,
                 markedForReview,
                 [],
-                questionTimeMap
+                useExamStore.getState().timeSpentPerQuestion
               );
+              useExamStore.setState({ isExamActive: false, isSubmitting: false });
               router.replace(`/results/${currentExam.id}` as any);
             } catch (err) {
               console.error("Exam submission error:", err);
-              Alert.alert("Network Issue", "Submission saved locally. Will sync when back online.");
+              useExamStore.setState({ isSubmitting: false });
+              Alert.alert("Submission Error", "Submission failed. Please check network connection.");
             }
           },
         },
@@ -281,9 +279,11 @@ export default function ExamEngineScreen() {
   const currentQ: Question | undefined = questions[currentQuestionIndex];
   const isMarked = currentQ ? markedForReview.includes(currentQ.id) : false;
   const currentAnswer = currentQ ? answers[currentQ.id] : undefined;
+  const answeredCount = Object.keys(answers).length;
+  const reviewCount = markedForReview.length;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: Math.max(responsive.safeTop, 16) }]}>
       {/* Top Fixed Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
@@ -295,28 +295,38 @@ export default function ExamEngineScreen() {
             {currentExam.title}
           </Text>
           <Text style={styles.questionProgressText}>
-            Question {currentQuestionIndex + 1} of {questions.length}
+            Q {currentQuestionIndex + 1} / {questions.length} • {answeredCount} Answered
           </Text>
         </View>
 
-        {/* Live Timer Pill */}
-        <View style={styles.timerChip}>
-          <Clock size={16} color={remainingSeconds < 300 ? "#EF4444" : "#D97706"} />
-          <Text style={[styles.timerText, remainingSeconds < 300 && styles.timerWarningText]}>
-            {formatTimer(remainingSeconds)}
-          </Text>
+        {/* Live Timer Pill & Palette Trigger */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <TouchableOpacity
+            style={styles.paletteTriggerBtn}
+            onPress={() => setShowPaletteModal(true)}
+            activeOpacity={0.8}
+          >
+            <Grid size={18} color="#4F46E5" />
+          </TouchableOpacity>
+
+          <View style={styles.timerChip}>
+            <Clock size={15} color={remainingSeconds < 300 ? "#EF4444" : "#D97706"} />
+            <Text style={[styles.timerText, remainingSeconds < 300 && styles.timerWarningText]}>
+              {formatTimer(remainingSeconds)}
+            </Text>
+          </View>
         </View>
       </View>
 
       {/* Draft Restored Banner */}
       {draftRestored ? (
         <View style={styles.draftBanner}>
-          <CheckCircle2 size={14} color="#34D399" />
+          <CheckCircle2 size={14} color="#10B981" />
           <Text style={styles.draftBannerText}>Restored your previous saved attempt progress.</Text>
         </View>
       ) : null}
 
-      {/* Horizontal Question Palette Bar */}
+      {/* Horizontal Question Strip */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -356,7 +366,7 @@ export default function ExamEngineScreen() {
             </View>
 
             <View style={styles.metaActionsRow}>
-              {currentAnswer !== undefined ? (
+              {currentAnswer !== undefined && currentAnswer !== "" ? (
                 <TouchableOpacity
                   style={styles.clearBtn}
                   onPress={() => handleClearAnswer(currentQ.id)}
@@ -370,7 +380,7 @@ export default function ExamEngineScreen() {
                 style={[styles.reviewBtn, isMarked && styles.reviewBtnActive]}
                 onPress={() => toggleMarkForReview(currentQ.id)}
               >
-                <Bookmark size={15} color={isMarked ? "#FBBF24" : "#94A3B8"} />
+                <Bookmark size={15} color={isMarked ? "#F59E0B" : "#94A3B8"} />
                 <Text style={[styles.reviewBtnText, isMarked && styles.reviewBtnTextActive]}>
                   {isMarked ? "Marked" : "Review"}
                 </Text>
@@ -424,29 +434,35 @@ export default function ExamEngineScreen() {
               })}
             </View>
           ) : (
-            <Text style={styles.noOptionsText}>Numerical / Subjective entry required.</Text>
+            <Text style={styles.noOptionsText}>Numerical / Subjective response required.</Text>
           )}
         </ScrollView>
       ) : null}
 
-      {/* Footer Controls */}
-      <View style={styles.footer}>
+      {/* Footer Navigation & Controls */}
+      <View style={[styles.footer, { paddingBottom: Math.max(responsive.safeBottom, 14) }]}>
         <TouchableOpacity
           style={[styles.navBtn, currentQuestionIndex === 0 && styles.navBtnDisabled]}
           onPress={prevQuestion}
           disabled={currentQuestionIndex === 0}
         >
-          <ChevronLeft color={currentQuestionIndex === 0 ? "#475569" : "#F8FAFC"} size={20} />
-          <Text
-            style={[styles.navBtnText, currentQuestionIndex === 0 && styles.navBtnTextDisabled]}
-          >
+          <ChevronLeft color={currentQuestionIndex === 0 ? "#94A3B8" : "#0F172A"} size={20} />
+          <Text style={[styles.navBtnText, currentQuestionIndex === 0 && styles.navBtnTextDisabled]}>
             Prev
           </Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.paletteTriggerFooterBtn}
+          onPress={() => setShowPaletteModal(true)}
+        >
+          <Grid size={16} color="#4F46E5" />
+          <Text style={styles.paletteTriggerFooterText}>Palette</Text>
+        </TouchableOpacity>
+
         {currentQuestionIndex < questions.length - 1 ? (
           <TouchableOpacity style={styles.navBtnPrimary} onPress={nextQuestion}>
-            <Text style={styles.navBtnPrimaryText}>Next Question</Text>
+            <Text style={styles.navBtnPrimaryText}>Next</Text>
             <ChevronRight color="#FFFFFF" size={20} />
           </TouchableOpacity>
         ) : (
@@ -459,13 +475,85 @@ export default function ExamEngineScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <>
-                <Send color="#FFFFFF" size={18} />
-                <Text style={styles.submitBtnText}>Submit Exam</Text>
+                <Send color="#FFFFFF" size={16} />
+                <Text style={styles.submitBtnText}>Submit</Text>
               </>
             )}
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Full Question Palette Grid Modal (Task 4) */}
+      <Modal
+        visible={showPaletteModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPaletteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <SafeAreaView style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Grid size={20} color="#4F46E5" />
+                <Text style={styles.modalTitle}>Question Navigator</Text>
+              </View>
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowPaletteModal(false)}>
+                <X size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Legend Stats */}
+            <View style={styles.modalLegendRow}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendBox, { backgroundColor: "#10B981" }]} />
+                <Text style={styles.legendText}>Answered ({answeredCount})</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendBox, { backgroundColor: "#F59E0B" }]} />
+                <Text style={styles.legendText}>Review ({reviewCount})</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendBox, { backgroundColor: "#E2E8F0" }]} />
+                <Text style={styles.legendText}>Unanswered ({questions.length - answeredCount})</Text>
+              </View>
+            </View>
+
+            {/* Question Grid */}
+            <ScrollView contentContainerStyle={styles.modalGrid}>
+              {questions.map((q, idx) => {
+                const isSelected = idx === currentQuestionIndex;
+                const isAns = answers[q.id] !== undefined && answers[q.id] !== "";
+                const isRev = markedForReview.includes(q.id);
+
+                return (
+                  <TouchableOpacity
+                    key={q.id}
+                    style={[
+                      styles.modalGridNode,
+                      isAns && styles.paletteNodeAnswered,
+                      isRev && styles.paletteNodeReview,
+                      isSelected && styles.paletteNodeSelected,
+                    ]}
+                    onPress={() => {
+                      goToQuestion(idx);
+                      setShowPaletteModal(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.paletteNodeText,
+                        isSelected && styles.paletteNodeTextSelected,
+                      ]}
+                    >
+                      {idx + 1}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -767,5 +855,103 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
+  },
+  paletteTriggerBtn: {
+    padding: 6,
+    backgroundColor: "#EEF2FF",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  paletteTriggerFooterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EEF2FF",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 48,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  paletteTriggerFooterText: {
+    color: "#4F46E5",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "80%",
+    paddingBottom: 24,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  modalCloseBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
+  },
+  modalLegendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#F8FAFC",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendBox: {
+    width: 12,
+    height: 12,
+    borderRadius: 3,
+  },
+  legendText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  modalGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    padding: 20,
+    gap: 12,
+    justifyContent: "flex-start",
+  },
+  modalGridNode: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
   },
 });

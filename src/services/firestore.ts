@@ -545,16 +545,18 @@ export async function submitStudentExamAttempt(
       obtainedMarks += q.marks || 1;
     } else {
       incorrectCount++;
-      if (q.negativeMarks) {
-        obtainedMarks -= q.negativeMarks;
-      }
+      // NO NEGATIVE MARKING RULE: Incorrect answers yield 0 marks (never negative)
     }
   });
 
+  // Guarantee non-negative score
+  obtainedMarks = Math.max(0, obtainedMarks);
+
   const totalQuestions = questions.length;
-  const percentage = totalQuestions > 0 ? Math.round((obtainedMarks / exam.totalMarks) * 100) : 0;
-  const passed = obtainedMarks >= exam.passingMarks;
-  const totalTimeSpent = Object.values(timeSpentPerQuestion).reduce((acc, curr) => acc + curr, 0);
+  const maxMarks = exam.totalMarks && exam.totalMarks > 0 ? exam.totalMarks : (totalQuestions || 1);
+  const percentage = maxMarks > 0 ? Math.round((obtainedMarks / maxMarks) * 100) : 0;
+  const passed = obtainedMarks >= (exam.passingMarks || Math.ceil(maxMarks * 0.33));
+  const totalTimeSpent = Object.values(timeSpentPerQuestion).reduce((acc, curr) => acc + (typeof curr === "number" ? curr : 0), 0);
   const accuracy = (correctCount + incorrectCount) > 0 ? Math.round((correctCount / (correctCount + incorrectCount)) * 100) : 0;
 
   const attemptId = `attempt_${exam.id}_${user.uid}`;
@@ -583,13 +585,17 @@ export async function submitStudentExamAttempt(
     const studentAns = answers[q.id];
     const isCorrect = studentAns !== undefined && studentAns !== "" && studentAns !== null &&
       String(studentAns).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase();
+    const isUnanswered = studentAns === undefined || studentAns === "" || studentAns === null;
+
     return {
       questionId: q.id,
       questionText: String(q.text || ""),
       correctAnswer: q.correctAnswer,
-      studentAnswer: studentAns !== undefined && studentAns !== null ? studentAns : "",
+      studentAnswer: isUnanswered ? "" : studentAns,
       isCorrect,
+      isUnanswered,
       timeSpentSeconds: timeSpentPerQuestion[q.id] || 0,
+      marks: isCorrect ? (q.marks || 1) : 0,
       chapter: q.chapter || "",
       topic: q.topic || "",
       level: q.level || "level1",
@@ -607,7 +613,7 @@ export async function submitStudentExamAttempt(
     grade: user.grade,
     section: user.section,
     stream: user.stream,
-    totalMarks: exam.totalMarks,
+    totalMarks: maxMarks,
     obtainedMarks,
     percentage,
     passed,
@@ -646,7 +652,8 @@ function mapDocumentToReport(docSnap: any): Report {
   const d = typeof docSnap.data === "function" ? docSnap.data() : docSnap;
   const id = docSnap.id || d.id || `rep_${Math.random()}`;
   const totalMarks = Number(d.totalMarks || d.totalScore || 100);
-  const obtainedMarks = Number(d.obtainedMarks ?? d.score ?? 0);
+  const rawObtained = Number(d.obtainedMarks ?? d.score ?? 0);
+  const obtainedMarks = Math.max(0, rawObtained); // Strictly non-negative score
   const percentage = Number(
     d.percentage !== undefined
       ? d.percentage

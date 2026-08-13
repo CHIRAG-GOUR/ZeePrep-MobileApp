@@ -13,10 +13,12 @@ import { signOut } from "firebase/auth";
 import { auth } from "../../lib/firebase";
 import { ZEEPREP_THEME } from "../../constants/theme";
 import { GraduationCap, LogOut, ChevronRight, BookOpen, ShieldCheck } from "lucide-react-native";
+import { useResponsive } from "../../hooks/useResponsive";
 
 export default function StudentProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const responsive = useResponsive();
 
   const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out of ZeePrep Mobile?", [
@@ -38,47 +40,57 @@ export default function StudentProfileScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <View style={styles.profileHeader}>
-        <View style={styles.avatarLarge}>
-          <Text style={styles.avatarText}>{user?.name?.charAt(0) || "S"}</Text>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.scrollContent, { paddingTop: Math.max(responsive.safeTop, 24) }]}>
+      {/* Digital Student ID Badge Card (Task 15) */}
+      <View style={styles.idCardContainer}>
+        <View style={styles.idCardHeader}>
+          <View style={styles.idCardHeaderLeft}>
+            <ShieldCheck size={20} color="#4F46E5" />
+            <Text style={styles.idCardInstitution}>{user?.schoolName || "ZeePrep Institutional Academy"}</Text>
+          </View>
+          <View style={styles.idBadgePill}>
+            <Text style={styles.idBadgeText}>OFFICIAL STUDENT ID</Text>
+          </View>
         </View>
-        <Text style={styles.userName}>{user?.name || "Student User"}</Text>
-        <Text style={styles.userEmail}>{user?.email}</Text>
 
-        <View style={styles.roleChip}>
-          <GraduationCap size={14} color={ZEEPREP_THEME.colors.primary} />
-          <Text style={styles.roleChipText}>STUDENT PORTAL</Text>
+        <View style={styles.idBodyRow}>
+          <View style={styles.avatarLarge}>
+            <Text style={styles.avatarText}>{user?.name?.charAt(0) || "S"}</Text>
+          </View>
+
+          <View style={styles.idMainInfo}>
+            <Text style={styles.userName} numberOfLines={1}>{user?.name || "Student User"}</Text>
+            <Text style={styles.idNumberText}>ID: {user?.loginId || "ZP-STU-10293"}</Text>
+            <Text style={styles.userEmail} numberOfLines={1}>{user?.email}</Text>
+          </View>
+        </View>
+
+        {/* Academic Details Grid */}
+        <View style={styles.idDetailsGrid}>
+          <View style={styles.idDetailItem}>
+            <Text style={styles.idDetailLabel}>Grade</Text>
+            <Text style={styles.idDetailVal}>Grade {user?.grade || "10"}</Text>
+          </View>
+
+          <View style={styles.idDetailItem}>
+            <Text style={styles.idDetailLabel}>Section</Text>
+            <Text style={styles.idDetailVal}>Section {user?.section || "A"}</Text>
+          </View>
+
+          <View style={styles.idDetailItem}>
+            <Text style={styles.idDetailLabel}>Board</Text>
+            <Text style={styles.idDetailVal}>{user?.board || "CBSE"}</Text>
+          </View>
+
+          <View style={styles.idDetailItem}>
+            <Text style={styles.idDetailLabel}>Stream</Text>
+            <Text style={styles.idDetailVal}>{user?.stream || "Science"}</Text>
+          </View>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Academic Meta & Credentials</Text>
-        <View style={styles.metaCard}>
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Login ID:</Text>
-            <Text style={styles.metaValue}>{user?.loginId || "N/A"}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Enrolled Grade:</Text>
-            <Text style={styles.metaValue}>Grade {user?.grade || "12"}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Section:</Text>
-            <Text style={styles.metaValue}>Section {user?.section || "A"}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Board / Stream:</Text>
-            <Text style={styles.metaValue}>{user?.board || "CBSE"} • {user?.stream || "Science"}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account Operations</Text>
+        <Text style={styles.sectionTitle}>Account & Portal Operations</Text>
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
           <LogOut size={20} color={ZEEPREP_THEME.colors.error} />
           <Text style={styles.logoutBtnText}>Sign Out of Student Account</Text>
@@ -99,59 +111,116 @@ const styles = StyleSheet.create({
     paddingTop: 54,
     paddingBottom: 40,
   },
-  profileHeader: {
-    alignItems: "center",
-    backgroundColor: ZEEPREP_THEME.colors.surface,
+  idCardContainer: {
+    backgroundColor: "#FFFFFF",
     borderRadius: 24,
-    padding: 24,
+    padding: 20,
     borderWidth: 1,
-    borderColor: ZEEPREP_THEME.colors.border,
+    borderColor: "#C7D2FE",
     marginBottom: 24,
-    shadowColor: "#000",
+    shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  idCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  idCardHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  idCardInstitution: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#0F172A",
+    flex: 1,
+  },
+  idBadgePill: {
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  idBadgeText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: "#4F46E5",
+    letterSpacing: 0.5,
+  },
+  idBodyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 18,
   },
   avatarLarge: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: ZEEPREP_THEME.colors.primary,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#4F46E5",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
   },
   avatarText: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "800",
     color: "#FFFFFF",
   },
+  idMainInfo: {
+    flex: 1,
+  },
   userName: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
-    color: ZEEPREP_THEME.colors.textPrimary,
+    color: "#0F172A",
+  },
+  idNumberText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#4F46E5",
+    marginTop: 2,
   },
   userEmail: {
-    fontSize: 13,
-    color: ZEEPREP_THEME.colors.textSecondary,
+    fontSize: 12,
+    color: "#64748B",
     marginTop: 2,
-    marginBottom: 12,
   },
-  roleChip: {
+  idDetailsGrid: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: ZEEPREP_THEME.colors.primaryLight,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 8,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 16,
+    padding: 12,
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
-  roleChipText: {
-    fontSize: 11,
+  idDetailItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  idDetailLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#94A3B8",
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+  idDetailVal: {
+    fontSize: 12,
     fontWeight: "800",
-    color: ZEEPREP_THEME.colors.primary,
-    letterSpacing: 0.5,
+    color: "#0F172A",
   },
   section: {
     marginBottom: 24,
@@ -161,34 +230,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: ZEEPREP_THEME.colors.textPrimary,
     marginBottom: 12,
-  },
-  metaCard: {
-    backgroundColor: ZEEPREP_THEME.colors.surface,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: ZEEPREP_THEME.colors.border,
-  },
-  metaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 6,
-  },
-  metaLabel: {
-    fontSize: 13,
-    color: ZEEPREP_THEME.colors.textSecondary,
-    fontWeight: "500",
-  },
-  metaValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: ZEEPREP_THEME.colors.textPrimary,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#F1F5F9",
-    marginVertical: 4,
   },
   logoutBtn: {
     flexDirection: "row",
