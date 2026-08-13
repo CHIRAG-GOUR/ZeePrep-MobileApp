@@ -15,70 +15,63 @@
 - Initialized dedicated mobile codebase inside `E:\1. Skillizee\Zee Prep - Mobile App`.
 - Enforced strict isolation: The original web application (`E:\1. Skillizee\Zee Prep`) remains 100% untouched and read-only.
 
-### 2. COMPLETE EXAM REPORT ENGINE REPAIR & VERIFIED ANALYTICS
-- **Safe Number Normalization Layer (`src/utils/number-utils.ts`)**:
-  - Implemented `safeNumber`, `safeInteger`, `safePercentage`, and `safeDuration` utility functions.
-  - Eliminated `NaN`, `undefined`, `null`, and `Infinity` across exam calculations, reporting pipelines, and UI views.
-- **Root Cause Defect Fix in `mapDocumentToReport` (`src/services/firestore.ts`)**:
-  - Fixed `totalQuestions` property mapping defect where `(d.answers ? d.answers.length : 0)` executed on an object (`d.answers` is a key-value map), causing `d.answers.length` to evaluate to `undefined` and producing `NaN Total Questions`.
-  - Added safe fallbacks: `d.totalQuestions || d.detailedAnalysis?.length || d.questions?.length || Object.keys(d.answers || {}).length`.
-  - Restored mapping of `detailedAnalysis` array in `mapDocumentToReport`, eliminating the *"Question-level analysis data not available for this legacy attempt"* bug.
-- **Zero Negative Marking & Dynamic Question Weighting (`src/services/firestore.ts`)**:
-  - Enforced zero negative marking: `Correct = +q.marks`, `Incorrect = 0`, `Unanswered = 0`. Score is strictly non-negative (`Math.max(0, obtainedMarks)`).
-  - Dynamically calculates total possible marks as `sum(q.marks || 1)` for the specific attempt questions.
-- **Question Time Tracking & Most Time Spent Analytics (`src/services/firestore.ts`, `src/app/exam/[id].tsx`)**:
-  - Accumulates per-question time spent across revisits.
-  - Deterministically identifies `mostTimeSpentQuestion` and `mostTimeSpentTopic` on the backend without AI hallucination.
-- **Clean & Simple Student Report View (`src/app/results/[id].tsx`)**:
-  - **Removed Gemini AI cards & hardcoded fallback educational advice** ("Basic Concepts", "Multi-step Calculations") from the Student view.
-  - Renders **Clean Student Scorecard**: Hero Score Badge (`Obtained / Total Marks`, `Percentage`), Performance Analytics Grid (`Correct`, `Wrong`, `Unanswered`, `Time Spent`), Itemized Question Analysis list (`Question 1 ✓ Correct 12s`), and Most Time Spent Card (`Question #`, `Topic`, `Time`).
-- **Detailed Teacher & Admin Report View (`src/app/results/[id].tsx`, `src/services/ai.ts`)**:
-  - Renders complete teacher diagnostic itemization (Question Text, Options, Student Answer, Correct Answer, Weight, Awarded Marks).
-  - Renders real Gemini AI Diagnostic Insights **ONLY** when generated from valid factual data. Stripped hardcoded fake advice from `src/services/ai.ts`.
+### 2. Gemini 2.5 Flash Model Integration & AI Teacher Copilot (1-100 Question Generator)
+- **Direct Model Endpoint**: Standardized `getModelEndpoints` in `src/services/ai.ts` to exclusively target `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`.
+- **1 to 100 Question Generator**: Added custom question count selector (1–100), topic, subject, and level parameters in `src/app/(teacher)/question-bank.tsx` using `gemini-2.5-flash`.
+- **Question Bank Level Isolation**: Aligned parameter signatures in `getQuestionBank` so Level 1, Level 2, and Level 3 tabs filter items correctly.
+- **Normalized Option Display (A/B/C/D)**: Fixed option normalizer in `src/utils/question-normalizer.ts` to always output clean A, B, C, D labels.
 
-### 3. TASK 31: Configurable Exam Attempt Limit Engine
-- **Teacher Configuration (`src/app/(teacher)/exam-builder.tsx`)**:
-  - Added Maximum Attempts Allowed pill selector with options: `1 Attempt (Default)`, `2 Attempts`, `3 Attempts`, `5 Attempts`, `10 Attempts`, `Unlimited`.
-  - Default = `1 Attempt` (`maxAttempts = 1`). Persisted with the exam document in Firestore (`maxAttempts`).
-- **Data/Backend Level Attempt Enforcement (`src/services/firestore.ts`)**:
-  - Built `getStudentExamAttempts(examId, studentUid)` querying all submitted attempts for a student from Firestore.
-  - Implemented deterministic attempt IDs (`attempt_${exam.id}_${user.uid}_att${attemptNum}`) and report IDs (`report_${exam.id}_${user.uid}_att${attemptNum}`) to guarantee previous attempt scorecards are **NEVER** overwritten.
-- **Student Exam Attempt Tracking (`src/app/(tabs)/exams.tsx`)**:
-  - Displays transparent attempt metadata on each exam card: `Max Attempts`, `Attempts Used`, `Attempts Remaining`.
-  - Disables "Start Exam" and displays **`Attempt Limit Reached`** notice when attempts are exhausted.
+### 3. Single-Source Authoritative Report Engine & Invariant Validation (`src/services/report-engine.ts`)
+- **Snapshot Source of Truth**: `calculateExamReport` uses the exact 25-question array loaded for that attempt (`questionsSnapshot`) as the single source of truth. Snapshots `questionsSnapshot` into `attempt.questions` and `report.detailedAnalysis`.
+- **Strict Report Invariant**: Enforces `correctCount + wrongCount + unansweredCount === totalQuestions`. Throws `ReportIntegrityError` if any count or score invariant fails.
+- **Non-Negative Score & Dynamic Weighting**: `obtainedMarks = sum(awardedMarks)`, `totalPossibleMarks = sum(q.marks || 1)`, `percentage = (obtainedMarks / totalPossibleMarks) * 100`.
+- **Eliminated Stale Report Fallback**: Removed dangerous fallback from `getStudentReport` in `src/services/firestore.ts` that previously returned old 31-question report documents from other exams.
+- **Local In-Memory Cache (`localReportCache`)**: Immediately retains generated reports in memory upon submission for zero-latency retrieval.
 
-### 4. Universal Question Text Normalization & ZeePrep Purple Palette Accent
-- **Question Text Fallback Engine (`src/app/exam/[id].tsx`)**:
-  - Implemented `getQuestionText(q)` helper function resolving question text across all schema variants: `q.text || q.questionText || q.question || q.statement || q.title`.
-- **ZeePrep Purple Palette Styling**:
-  - Styled current/selected question nodes with a vibrant **ZeePrep Purple filled background (`#4F46E5`)**, indigo border (`#3730A3`), white bold text, and elevation shadow.
+### 4. Canonical Answer Evaluator & Internal Option ID Elimination (`src/utils/answer-evaluator.ts`)
+- **Universal Answer Resolver (`resolveOptionText`)**: Resolves internal database option IDs (`opt_q_a`, `opt_q_b`, `opt_q_ai_...`), letters (`"A"`, `"B"`), indices (`0..3`), labels (`"Option A"`), and objects (`{id, text}`) into clean, human-readable option text (e.g., `B. Irreversible change`).
+- **Eliminated Internal IDs**: Completely removes `opt_q_a`, `opt_q_b`, and `opt_q_ai_...` strings from report UI screens. If an answer cannot be resolved, displays `"Answer unavailable"`.
 
-### 5. Dynamic Role-Based Screen Protection (SuperAdmin Exemption)
-- **Native Android Module (`ScreenSecurityModule.kt`)**:
-  - Built Kotlin React Native bridge module `ScreenSecurityModule` with `@ReactMethod fun allowScreenshots(allow: Boolean)`.
-- **Role Control Logic (`src/utils/security-helper.ts`)**:
-  - **SuperAdmins (`user.role === "superadmin"`)**: Calls `ScreenSecurityModule.allowScreenshots(true)` which clears `FLAG_SECURE`. SuperAdmins can take screenshots and record screen content.
-  - **All Other Roles (Students, Teachers, Admins, Guests)**: Enforces `FLAG_SECURE`, blocking all screenshots and screen recordings.
+### 5. 100% Responsive Question Analysis Layout (`src/app/results/[id].tsx`)
+- **Vertical Stack Card Architecture**: Replaced squeezed horizontal metrics rows with a responsive vertical block layout.
+- **Zero Text Clipping**: Full vertical wrapping for multi-line questions, long option texts, and small/large Android screens in portrait and landscape modes.
 
-### 6. Enterprise Anti-Tampering & Security Hardening
-- **ProGuard / R8 Bytecode Obfuscation**:
-  - Configured `android.enableMinifyInReleaseBuilds=true` and `android.enableShrinkResourcesInReleaseBuilds=true` in `gradle.properties` and `build.gradle`.
-- **Hermes Bytecode Compilation**:
-  - Compiled JavaScript source code into pre-compiled Hermes binary bytecode (`.hbc`).
+### 6. Role-Isolated AI Analysis & Faculty/Teacher Workflow Overhaul
+- **Student View Isolation**: Completely removed AI/Gemini diagnostic cards, strong/weak topic cards, and AI suggestions from student report screens. Zero AI API calls are triggered when students view their reports.
+- **Faculty/Teacher Diagnostic View**: Teacher view retains full Faculty Itemization and Faculty Performance Analysis generated from factual attempt telemetry.
+- **Dual Collection Querying & Teacher Filtering**: `getTeacherReports` and `getAllStudentReports` query both `reports` and `examAttempts` collections in Firestore, merge `localReportCache` items, and apply safe authorization filtering by school, grade, and section.
+- **Interactive Submissions & Search**: Added instant search bar to `src/app/(teacher)/reports.tsx` and made submission cards in `src/app/(teacher)/submissions.tsx` clickable to navigate directly to `/results/${r.id}` inside the Faculty portal.
 
-### 7. Native Release Build & Git Deployment
+### 7. Configurable Exam Attempt Limit Engine
+- **Teacher Configuration (`src/app/(teacher)/exam-builder.tsx`)**: Added Maximum Attempts Allowed pill selector (1, 2, 3, 5, 10, Unlimited). Default = `1 Attempt`.
+- **Attempt Tracking & Scorecard Preservation**: Generates deterministic IDs (`attempt_${examId}_${uid}_att${attemptNum}`) to prevent overwriting past scorecards.
+- **Student Exam Tracking (`src/app/(tabs)/exams.tsx`)**: Displays `Attempts Used / Max Attempts` and disables starting exams when limits are reached.
+
+### 8. Dynamic Role-Based Screen Protection (SuperAdmin Exemption)
+- **Kotlin Security Module (`ScreenSecurityModule.kt`)**: Bridge module dynamically toggling `FLAG_SECURE`.
+- **Role Control**: `user.role === "superadmin"` clears `FLAG_SECURE` to allow screenshots and screen recording; all other roles enforce `FLAG_SECURE`.
+
+### 9. Enterprise Anti-Tampering & Security Hardening
+- **ProGuard / R8 Bytecode Obfuscation**: Enabled minification and resource shrinking in Gradle release builds.
+- **Hermes Bytecode Compilation**: Pre-compiles JavaScript source into Hermes binary bytecode (`.hbc`).
+
+### 10. Native Build & Git Deployment Verification
 - **TypeScript Check**: `npx tsc --noEmit` -> **0 errors**.
-- **Gradle Release Compilation**: `gradlew assembleRelease` succeeded (**BUILD SUCCESSFUL in 1m 50s**).
-- **Git Version Control**: Pushed commit `e0e098c` to `origin/master`.
+- **Git Repository**: Pushed commits to `https://github.com/CHIRAG-GOUR/ZeePrep-MobileApp.git` (`master` branch).
+- **Release APK**: Built and installed cleanly via `npx expo run:android --variant release`.
 
 ---
 
 ## Key Project File Map
+- **Authoritative Report Engine**: [report-engine.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/services/report-engine.ts)
+- **Canonical Answer Evaluator**: [answer-evaluator.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/utils/answer-evaluator.ts)
+- **Question Normalizer**: [question-normalizer.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/utils/question-normalizer.ts)
 - **Safe Number Utils**: [number-utils.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/utils/number-utils.ts)
 - **Exam Engine Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/exam/%5Bid%5D.tsx)
-- **Student Exams Screen**: [exams.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(tabs)/exams.tsx)
-- **Student Reports Screen**: [reports.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(tabs)/reports.tsx)
 - **Exam Scorecard & Results Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/results/%5Bid%5D.tsx)
+- **Teacher Question Bank (1-100 Generator)**: [question-bank.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/question-bank.tsx)
+- **Teacher Reports Screen**: [reports.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/reports.tsx)
+- **Teacher Submissions Screen**: [submissions.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/submissions.tsx)
 - **Teacher Exam Builder**: [exam-builder.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/exam-builder.tsx)
 - **Firestore Service**: [firestore.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/services/firestore.ts)
 - **AI Service**: [ai.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/services/ai.ts)
