@@ -164,119 +164,123 @@ export default function ResultsScreen() {
           </View>
         </View>
 
-        {/* Question-by-Question Detailed Analysis (Requirement 12, 13, 14) */}
-        <Text style={styles.sectionTitle}>Question-by-Question Analysis</Text>
-        {report.detailedAnalysis && report.detailedAnalysis.length > 0 ? (
-          <View style={styles.questionAnalysisContainer}>
-            {report.detailedAnalysis.map((qItem, qIdx) => {
-              const isAnsEmpty = !qItem.studentAnswer || String(qItem.studentAnswer).trim() === "";
-              const isCorrect = Boolean(qItem.isCorrect);
-              const qWeight = qItem.marks !== undefined && qItem.marks !== null ? qItem.marks : 1;
-              const awarded = isCorrect ? qWeight : 0;
+        {/* Question-by-Question Detailed Analysis — Teacher & Admin View Only */}
+        {user?.role === "teacher" || user?.role === "admin" || user?.role === "superadmin" ? (
+          <>
+            <Text style={styles.sectionTitle}>Teacher Diagnostic Itemization</Text>
+            {report.detailedAnalysis && report.detailedAnalysis.length > 0 ? (
+              <View style={styles.questionAnalysisContainer}>
+                {report.detailedAnalysis.map((qItem, qIdx) => {
+                  const isAnsEmpty = !qItem.studentAnswer || String(qItem.studentAnswer).trim() === "";
+                  const isCorrect = Boolean(qItem.isCorrect);
+                  const qWeight = qItem.marks !== undefined && qItem.marks !== null ? qItem.marks : 1;
+                  const awarded = isCorrect ? qWeight : 0;
 
-              return (
-                <View
-                  key={qItem.questionId || qIdx}
-                  style={[
-                    styles.qAnalysisCard,
-                    isCorrect
-                      ? styles.qCardCorrect
-                      : isAnsEmpty
-                      ? styles.qCardUnattempted
-                      : styles.qCardIncorrect,
-                  ]}
-                >
-                  {/* Card Top Row: Question # and Result Pill */}
-                  <View style={styles.qCardHeader}>
-                    <Text style={styles.qNumberText}>Question {qIdx + 1}</Text>
+                  return (
                     <View
+                      key={qItem.questionId || qIdx}
                       style={[
-                        styles.qResultPill,
+                        styles.qAnalysisCard,
                         isCorrect
-                          ? styles.pillCorrect
+                          ? styles.qCardCorrect
                           : isAnsEmpty
-                          ? styles.pillUnattempted
-                          : styles.pillIncorrect,
+                          ? styles.qCardUnattempted
+                          : styles.qCardIncorrect,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.qResultText,
-                          isCorrect
-                            ? styles.pillTextCorrect
-                            : isAnsEmpty
-                            ? styles.pillTextUnattempted
-                            : styles.pillTextIncorrect,
-                        ]}
-                      >
-                        {isCorrect
-                          ? `✓ Correct (+${awarded} / ${qWeight} ${qWeight === 1 ? "mark" : "marks"})`
-                          : isAnsEmpty
-                          ? `Unanswered (0 / ${qWeight} ${qWeight === 1 ? "mark" : "marks"})`
-                          : `✕ Incorrect (0 / ${qWeight} ${qWeight === 1 ? "mark" : "marks"})`}
-                      </Text>
-                    </View>
-                  </View>
+                      {/* Card Top Row: Question # and Result Pill */}
+                      <View style={styles.qCardHeader}>
+                        <Text style={styles.qNumberText}>Question {qIdx + 1}</Text>
+                        <View
+                          style={[
+                            styles.qResultPill,
+                            isCorrect
+                              ? styles.pillCorrect
+                              : isAnsEmpty
+                              ? styles.pillUnattempted
+                              : styles.pillIncorrect,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.qResultText,
+                              isCorrect
+                                ? styles.pillTextCorrect
+                                : isAnsEmpty
+                                ? styles.pillTextUnattempted
+                                : styles.pillTextIncorrect,
+                            ]}
+                          >
+                            {isCorrect
+                              ? `✓ Correct (+${awarded} / ${qWeight} ${qWeight === 1 ? "mark" : "marks"})`
+                              : isAnsEmpty
+                              ? `Unanswered (0 / ${qWeight} ${qWeight === 1 ? "mark" : "marks"})`
+                              : `✕ Incorrect (0 / ${qWeight} ${qWeight === 1 ? "mark" : "marks"})`}
+                          </Text>
+                        </View>
+                      </View>
 
-                  {/* Question Text */}
-                  <Text style={styles.qQuestionText}>{qItem.questionText}</Text>
+                      {/* Question Text */}
+                      <Text style={styles.qQuestionText}>{qItem.questionText}</Text>
 
-                  {/* Answers & Time Metrics Row */}
-                  <View style={styles.qMetricsRow}>
-                    <View style={styles.qMetricBox}>
-                      <Text style={styles.qMetricLabel}>Weight:</Text>
-                      <Text style={[styles.qMetricValue, { color: "#4F46E5" }]}>
-                        {qWeight} {qWeight === 1 ? "Mark" : "Marks"}
-                      </Text>
-                    </View>
+                      {/* Answers & Time Metrics Row */}
+                      <View style={styles.qMetricsRow}>
+                        <View style={styles.qMetricBox}>
+                          <Text style={styles.qMetricLabel}>Weight:</Text>
+                          <Text style={[styles.qMetricValue, { color: "#4F46E5" }]}>
+                            {qWeight} {qWeight === 1 ? "Mark" : "Marks"}
+                          </Text>
+                        </View>
 
-                    <View style={styles.qMetricBox}>
-                      <Text style={styles.qMetricLabel}>Awarded:</Text>
-                      <Text
-                        style={[
-                          styles.qMetricValue,
-                          isCorrect ? styles.valCorrect : styles.valIncorrect,
-                        ]}
-                      >
-                        {isCorrect ? `+${awarded}` : "0"}
-                      </Text>
-                    </View>
+                        <View style={styles.qMetricBox}>
+                          <Text style={styles.qMetricLabel}>Awarded:</Text>
+                          <Text
+                            style={[
+                              styles.qMetricValue,
+                              isCorrect ? styles.valCorrect : styles.valIncorrect,
+                            ]}
+                          >
+                            {isCorrect ? `+${awarded}` : "0"}
+                          </Text>
+                        </View>
 
-                    <View style={styles.qMetricBox}>
-                      <Text style={styles.qMetricLabel}>Your Ans:</Text>
-                      <Text
-                        style={[
-                          styles.qMetricValue,
-                          isCorrect ? styles.valCorrect : isAnsEmpty ? styles.valMuted : styles.valIncorrect,
-                        ]}
-                      >
-                        {isAnsEmpty ? "—" : String(qItem.studentAnswer)}
-                      </Text>
-                    </View>
+                        <View style={styles.qMetricBox}>
+                          <Text style={styles.qMetricLabel}>Student Ans:</Text>
+                          <Text
+                            style={[
+                              styles.qMetricValue,
+                              isCorrect ? styles.valCorrect : isAnsEmpty ? styles.valMuted : styles.valIncorrect,
+                            ]}
+                          >
+                            {isAnsEmpty ? "—" : String(qItem.studentAnswer)}
+                          </Text>
+                        </View>
 
-                    <View style={styles.qMetricBox}>
-                      <Text style={styles.qMetricLabel}>Correct:</Text>
-                      <Text style={[styles.qMetricValue, styles.valCorrect]}>
-                        {String(qItem.correctAnswer)}
-                      </Text>
-                    </View>
+                        <View style={styles.qMetricBox}>
+                          <Text style={styles.qMetricLabel}>Correct:</Text>
+                          <Text style={[styles.qMetricValue, styles.valCorrect]}>
+                            {String(qItem.correctAnswer)}
+                          </Text>
+                        </View>
 
-                    <View style={styles.qMetricBox}>
-                      <Text style={styles.qMetricLabel}>Time:</Text>
-                      <Text style={styles.qMetricValue}>
-                        {qItem.timeSpentSeconds || 0}s
-                      </Text>
+                        <View style={styles.qMetricBox}>
+                          <Text style={styles.qMetricLabel}>Time:</Text>
+                          <Text style={styles.qMetricValue}>
+                            {qItem.timeSpentSeconds || 0}s
+                          </Text>
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        ) : (
-          <Text style={{ fontSize: 13, color: "#64748B", marginBottom: 16 }}>
-            Question-level analysis data not available for this legacy attempt.
-          </Text>
-        )}
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={{ fontSize: 13, color: "#64748B", marginBottom: 16 }}>
+                Question-level analysis data not available for this legacy attempt.
+              </Text>
+            )}
+          </>
+        ) : null}
 
         {/* Real Gemini AI Diagnostic Analysis Card (Requirement 10) */}
         <Text style={styles.sectionTitle}>Gemini AI Diagnostic Insights</Text>
