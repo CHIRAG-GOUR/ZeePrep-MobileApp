@@ -390,12 +390,34 @@ Return ONLY JSON with keys:
  * 6. AI REPORT INSIGHTS & DIAGNOSTIC ANALYTICS
  */
 export async function generateTeacherAIReportAnalysis(report: Report): Promise<ReportInsightResult> {
+  const questionBreakdown = report.detailedAnalysis
+    ? report.detailedAnalysis
+        .map(
+          (q, i) =>
+            `Q${i + 1} [${q.marks || 1} Marks]: ${
+              q.isCorrect
+                ? `Correct (+${q.marks || 1})`
+                : q.isUnanswered
+                ? `Unanswered (0/${q.marks || 1})`
+                : `Incorrect (Lost ${q.marks || 1} marks)`
+            } (Time: ${q.timeSpentSeconds || 0}s, Chapter: ${q.chapter || "N/A"})`
+        )
+        .join("\n")
+    : "No telemetry available";
+
   const prompt = `You are ZeePrep Diagnostic Report Engine. Analyze the following exam scorecard:
 Exam Title: "${report.examTitle}"
 Subject: ${(report as any).subject || "General"}
 Grade: ${report.grade || "12"}
-Score: ${report.obtainedMarks}/${report.totalMarks} (${report.accuracy}% accuracy)
-Time Spent: ${Math.round(report.timeSpentSeconds / 60)} minutes
+Score: ${report.obtainedMarks}/${report.totalMarks} Marks (${report.percentage}%, Accuracy: ${report.accuracy}%)
+Correct: ${report.correctAnswers}, Incorrect: ${report.incorrectAnswers}, Unanswered: ${report.unattempted}
+Total Questions: ${report.totalQuestions}, Total Possible Marks: ${report.totalMarks}
+Time Spent: ${Math.round(report.timeSpentSeconds / 60)} minutes (${report.timeSpentSeconds} seconds)
+
+Question Telemetry & Weight Breakdown:
+${questionBreakdown}
+
+Evaluate high-weight question losses vs low-weight losses to provide exact revision recommendations.
 
 Return ONLY JSON with keys:
 "strongTopics": string array,
@@ -414,15 +436,15 @@ Return ONLY JSON with keys:
 
   const isHighAccuracy = report.accuracy >= 75;
   return {
-    strongTopics: isHighAccuracy ? ["Core Definitions", "Formula Recall"] : ["Basic Concepts"],
-    weakTopics: isHighAccuracy ? ["Time Management"] : ["Multi-step Calculations", "Level 3 Numericals"],
+    strongTopics: isHighAccuracy ? ["Core Definitions", "High-Value Concepts"] : ["Basic Concepts"],
+    weakTopics: isHighAccuracy ? ["Time Management"] : ["Multi-step Calculations", "High-Weight Numericals"],
     conceptualGaps: isHighAccuracy ? ["Edge-case application"] : ["Formula substitution error"],
     actionableAdvice: [
-      "Review incorrect questions in your scorecard breakdown.",
+      "Review high-weight incorrect questions in your scorecard breakdown.",
       "Attempt target drills on weak chapters.",
     ],
     recommendation: isHighAccuracy
       ? "Student displays strong mastery. Recommend Level 3 advanced problem sets."
-      : "Student requires targeted revision in core numerical methods.",
+      : "Student requires targeted revision in high-weight numerical methods.",
   };
 }

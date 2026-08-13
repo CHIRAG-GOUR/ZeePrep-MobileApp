@@ -553,7 +553,14 @@ export async function submitStudentExamAttempt(
   obtainedMarks = Math.max(0, obtainedMarks);
 
   const totalQuestions = questions.length;
-  const maxMarks = exam.totalMarks && exam.totalMarks > 0 ? exam.totalMarks : (totalQuestions || 1);
+  // Requirement 10: Dynamically calculate total possible marks as sum(question.marks)
+  const maxMarks =
+    questions && questions.length > 0
+      ? questions.reduce((sum, q) => sum + (q.marks !== undefined && q.marks !== null ? q.marks : 1), 0)
+      : exam.totalMarks && exam.totalMarks > 0
+      ? exam.totalMarks
+      : 1;
+
   const percentage = maxMarks > 0 ? Math.round((obtainedMarks / maxMarks) * 100) : 0;
   const passed = obtainedMarks >= (exam.passingMarks || Math.ceil(maxMarks * 0.33));
   const totalTimeSpent = Object.values(timeSpentPerQuestion).reduce((acc, curr) => acc + (typeof curr === "number" ? curr : 0), 0);
@@ -580,12 +587,17 @@ export async function submitStudentExamAttempt(
     submittedAt: new Date().toISOString(),
   };
 
-  // Build per-question detailed analysis
+  // Build per-question detailed analysis (Requirement 12, 14)
   const detailedAnalysis = questions.map((q) => {
     const studentAns = answers[q.id];
-    const isCorrect = studentAns !== undefined && studentAns !== "" && studentAns !== null &&
+    const isCorrect =
+      studentAns !== undefined &&
+      studentAns !== "" &&
+      studentAns !== null &&
       String(studentAns).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase();
     const isUnanswered = studentAns === undefined || studentAns === "" || studentAns === null;
+    const qMarks = q.marks !== undefined && q.marks !== null ? q.marks : 1;
+    const awardedMarks = isCorrect ? qMarks : 0;
 
     return {
       questionId: q.id,
@@ -595,7 +607,8 @@ export async function submitStudentExamAttempt(
       isCorrect,
       isUnanswered,
       timeSpentSeconds: timeSpentPerQuestion[q.id] || 0,
-      marks: isCorrect ? (q.marks || 1) : 0,
+      marks: qMarks,
+      awardedMarks,
       chapter: q.chapter || "",
       topic: q.topic || "",
       level: q.level || "level1",

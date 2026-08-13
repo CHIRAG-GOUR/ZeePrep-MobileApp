@@ -32,6 +32,7 @@ import {
 
 import { AppHeader } from "../../components/AppHeader";
 import { normalizeQuestion } from "../../utils/question-normalizer";
+import { QuestionSheetUploadModal } from "../../components/QuestionSheetUploadModal";
 
 export default function TeacherQuestionBankScreen() {
   const user = useAuthStore((state) => state.user);
@@ -43,8 +44,10 @@ export default function TeacherQuestionBankScreen() {
 
   // Manual Add Modal State
   const [modalVisible, setModalVisible] = useState(false);
+  const [sheetUploadVisible, setSheetUploadVisible] = useState(false);
   const [qText, setQText] = useState("");
   const [qLevel, setQLevel] = useState<QuestionLevel>("level1");
+  const [qMarks, setQMarks] = useState("1");
   const [optA, setOptA] = useState("");
   const [optB, setOptB] = useState("");
   const [optC, setOptC] = useState("");
@@ -84,6 +87,13 @@ export default function TeacherQuestionBankScreen() {
       return;
     }
 
+    // Requirement 7: Explicit Marks Validation
+    const parsedMarks = parseFloat(qMarks.trim());
+    if (isNaN(parsedMarks) || parsedMarks <= 0) {
+      Alert.alert("Invalid Marks", "Question marks must be a positive number greater than 0.");
+      return;
+    }
+
     setSaving(true);
     try {
       const newQ = await addQuestionToBank(
@@ -93,7 +103,7 @@ export default function TeacherQuestionBankScreen() {
           correctAnswer: optA.trim(),
           level: qLevel,
           subject: user?.subject || "Science",
-          marks: qLevel === "level1" ? 1 : qLevel === "level2" ? 2 : 4,
+          marks: parsedMarks,
           isTeacherAuthority: true,
         },
         user
@@ -103,11 +113,12 @@ export default function TeacherQuestionBankScreen() {
         setQuestions((prev) => [newQ, ...prev]);
         setModalVisible(false);
         setQText("");
+        setQMarks("1");
         setOptA("");
         setOptB("");
         setOptC("");
         setOptD("");
-        Alert.alert("Saved", "New question added to institutional question bank.");
+        Alert.alert("Saved", `New question (+${parsedMarks} Marks) added to institutional bank.`);
       }
     } catch (err) {
       console.error("Error saving question:", err);
@@ -207,7 +218,7 @@ export default function TeacherQuestionBankScreen() {
             style={[styles.gridTabBtn, activeNavTab === "upload" && styles.gridTabActive]}
             onPress={() => {
               setActiveNavTab("upload");
-              setModalVisible(true);
+              setSheetUploadVisible(true);
             }}
             activeOpacity={0.85}
           >
@@ -350,8 +361,24 @@ export default function TeacherQuestionBankScreen() {
                 onChangeText={setQText}
               />
 
-              <Text style={styles.inputLabel}>Option A</Text>
-              <TextInput style={styles.input} value={optA} onChangeText={setOptA} placeholder="Option A" placeholderTextColor="#94A3B8" />
+              <View style={{ flexDirection: "row", gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Marks</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={qMarks}
+                    onChangeText={setQMarks}
+                    keyboardType="numeric"
+                    placeholder="e.g. 2"
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Option A (Correct)</Text>
+                  <TextInput style={styles.input} value={optA} onChangeText={setOptA} placeholder="Option A" placeholderTextColor="#94A3B8" />
+                </View>
+              </View>
 
               <Text style={styles.inputLabel}>Option B</Text>
               <TextInput style={styles.input} value={optB} onChangeText={setOptB} placeholder="Option B" placeholderTextColor="#94A3B8" />
@@ -467,6 +494,13 @@ export default function TeacherQuestionBankScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Question Sheet Bulk Importer & Preview Modal (Requirement 1, 3, 4) */}
+      <QuestionSheetUploadModal
+        visible={sheetUploadVisible}
+        onClose={() => setSheetUploadVisible(false)}
+        onSuccess={() => fetchQuestions()}
+      />
     </View>
   );
 }

@@ -126,26 +126,26 @@ export default function ResultsScreen() {
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <Target color="#818CF8" size={22} />
-            <Text style={styles.statVal}>{report.accuracy}%</Text>
-            <Text style={styles.statLbl}>Accuracy</Text>
+            <Text style={styles.statVal}>{report.totalQuestions}</Text>
+            <Text style={styles.statLbl}>Total Questions</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Award color="#4F46E5" size={22} />
+            <Text style={styles.statVal}>{report.totalMarks}</Text>
+            <Text style={styles.statLbl}>Total Possible Marks</Text>
           </View>
 
           <View style={styles.statCard}>
             <CheckCircle2 color="#10B981" size={22} />
             <Text style={styles.statVal}>{report.correctAnswers}</Text>
-            <Text style={styles.statLbl}>Correct</Text>
+            <Text style={styles.statLbl}>Correct ({report.obtainedMarks} Marks)</Text>
           </View>
 
           <View style={styles.statCard}>
             <XCircle color="#EF4444" size={22} />
             <Text style={styles.statVal}>{report.incorrectAnswers}</Text>
-            <Text style={styles.statLbl}>Incorrect</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <HelpCircle color="#F59E0B" size={22} />
-            <Text style={styles.statVal}>{report.unattempted}</Text>
-            <Text style={styles.statLbl}>Unattempted</Text>
+            <Text style={styles.statLbl}>Incorrect (0 Marks)</Text>
           </View>
         </View>
 
@@ -153,20 +153,22 @@ export default function ResultsScreen() {
         <View style={styles.timeCard}>
           <Clock color="#818CF8" size={20} />
           <View style={styles.timeContent}>
-            <Text style={styles.timeLbl}>Total Time Spent</Text>
+            <Text style={styles.timeLbl}>Total Time Spent & Accuracy</Text>
             <Text style={styles.timeVal}>
-              {mins} mins {secs} secs
+              {mins} mins {secs} secs • {report.accuracy}% Accuracy
             </Text>
           </View>
         </View>
 
-        {/* Question-by-Question Detailed Analysis (Task 9) */}
+        {/* Question-by-Question Detailed Analysis (Requirement 12, 13, 14) */}
         <Text style={styles.sectionTitle}>Question-by-Question Analysis</Text>
         {report.detailedAnalysis && report.detailedAnalysis.length > 0 ? (
           <View style={styles.questionAnalysisContainer}>
             {report.detailedAnalysis.map((qItem, qIdx) => {
               const isAnsEmpty = !qItem.studentAnswer || String(qItem.studentAnswer).trim() === "";
               const isCorrect = Boolean(qItem.isCorrect);
+              const qWeight = qItem.marks !== undefined && qItem.marks !== null ? qItem.marks : 1;
+              const awarded = isCorrect ? qWeight : 0;
 
               return (
                 <View
@@ -203,7 +205,11 @@ export default function ResultsScreen() {
                             : styles.pillTextIncorrect,
                         ]}
                       >
-                        {isCorrect ? "✓ Correct (+1 mark)" : isAnsEmpty ? "Unanswered (0 marks)" : "✕ Incorrect (0 marks)"}
+                        {isCorrect
+                          ? `✓ Correct (+${awarded} / ${qWeight} ${qWeight === 1 ? "mark" : "marks"})`
+                          : isAnsEmpty
+                          ? `Unanswered (0 / ${qWeight} ${qWeight === 1 ? "mark" : "marks"})`
+                          : `✕ Incorrect (0 / ${qWeight} ${qWeight === 1 ? "mark" : "marks"})`}
                       </Text>
                     </View>
                   </View>
@@ -214,7 +220,26 @@ export default function ResultsScreen() {
                   {/* Answers & Time Metrics Row */}
                   <View style={styles.qMetricsRow}>
                     <View style={styles.qMetricBox}>
-                      <Text style={styles.qMetricLabel}>Your Answer:</Text>
+                      <Text style={styles.qMetricLabel}>Weight:</Text>
+                      <Text style={[styles.qMetricValue, { color: "#4F46E5" }]}>
+                        {qWeight} {qWeight === 1 ? "Mark" : "Marks"}
+                      </Text>
+                    </View>
+
+                    <View style={styles.qMetricBox}>
+                      <Text style={styles.qMetricLabel}>Awarded:</Text>
+                      <Text
+                        style={[
+                          styles.qMetricValue,
+                          isCorrect ? styles.valCorrect : styles.valIncorrect,
+                        ]}
+                      >
+                        {isCorrect ? `+${awarded}` : "0"}
+                      </Text>
+                    </View>
+
+                    <View style={styles.qMetricBox}>
+                      <Text style={styles.qMetricLabel}>Your Ans:</Text>
                       <Text
                         style={[
                           styles.qMetricValue,
@@ -226,14 +251,14 @@ export default function ResultsScreen() {
                     </View>
 
                     <View style={styles.qMetricBox}>
-                      <Text style={styles.qMetricLabel}>Correct Answer:</Text>
+                      <Text style={styles.qMetricLabel}>Correct:</Text>
                       <Text style={[styles.qMetricValue, styles.valCorrect]}>
                         {String(qItem.correctAnswer)}
                       </Text>
                     </View>
 
                     <View style={styles.qMetricBox}>
-                      <Text style={styles.qMetricLabel}>Time Taken:</Text>
+                      <Text style={styles.qMetricLabel}>Time:</Text>
                       <Text style={styles.qMetricValue}>
                         {qItem.timeSpentSeconds || 0}s
                       </Text>
