@@ -631,6 +631,26 @@ export async function submitStudentExamAttempt(
     submittedAt: new Date().toISOString(),
   };
 
+  // CRITICAL: Enrich attempt document with report-level fields so
+  // mapDocumentToReport produces correct data from EITHER collection
+  const enrichedAttempt: any = {
+    ...attempt,
+    examTitle: exam.title,
+    totalMarks: maxMarks,
+    obtainedMarks,
+    totalQuestions,
+    correctAnswers: correctCount,
+    incorrectAnswers: incorrectCount,
+    unattempted: unattemptedCount,
+    timeSpentSeconds: totalTimeSpent,
+    accuracy,
+    board: user.board,
+    grade: user.grade,
+    section: user.section,
+    stream: user.stream,
+    subject: exam.subject || "",
+  };
+
   // Build per-question detailed analysis (Requirement 8)
   let maxTimeSecs = -1;
   let maxTimeQuestionObj: any = undefined;
@@ -712,6 +732,11 @@ export async function submitStudentExamAttempt(
   // Store exam subject on report for AI analysis context
   (report as any).subject = exam.subject || "";
 
+  // Also enrich the attempt with detailed analysis for the examAttempts collection
+  enrichedAttempt.detailedAnalysis = detailedAnalysis;
+  enrichedAttempt.mostTimeSpentQuestion = mostTimeSpentQuestion;
+  enrichedAttempt.mostTimeSpentTopic = mostTimeSpentTopic;
+
   try {
     // Prevent duplicate submission: check if report already exists
     const existingReport = await getDoc(doc(db, "reports", reportId));
@@ -720,7 +745,7 @@ export async function submitStudentExamAttempt(
       return { attempt, report: mapDocumentToReport(existingReport) };
     }
 
-    await setDoc(doc(db, "examAttempts", attemptId), attempt);
+    await setDoc(doc(db, "examAttempts", attemptId), enrichedAttempt);
     await setDoc(doc(db, "reports", reportId), report);
     await clearExamDraftLocally(exam.id, user.uid);
   } catch (err) {
@@ -751,19 +776,24 @@ function mapDocumentToReport(docSnap: any): Report {
       }))
     : undefined;
 
-  const totalQuestions = safeInteger(
+  // Calculate totalQuestions with safe fallback chain
+  const rawTotalQ =
     d.totalQuestions ||
-      (detailedAnalysis ? detailedAnalysis.length : 0) ||
-      (Array.isArray(d.questions) ? d.questions.length : 0) ||
-      (d.answers && typeof d.answers === "object" ? Object.keys(d.answers).length : 0),
-    0
-  );
+    (detailedAnalysis && detailedAnalysis.length > 0 ? detailedAnalysis.length : 0) ||
+    (Array.isArray(d.questions) ? d.questions.length : 0) ||
+    (d.answers && typeof d.answers === "object" && !Array.isArray(d.answers) ? Object.keys(d.answers).length : 0);
+  const totalQuestions = safeInteger(rawTotalQ, 0);
 
-  const totalMarks = safeNumber(
-    d.totalMarks ||
-      (detailedAnalysis ? detailedAnalysis.reduce((acc, q) => acc + (q.marks || 1), 0) : 0),
-    100
-  );
+  // Calculate totalMarks — use explicit positive check to avoid safeNumber(0, 100) returning 0
+  let rawTotalMarks = d.totalMarks || d.totalScore;
+  if (!rawTotalMarks || Number(rawTotalMarks) <= 0) {
+    if (detailedAnalysis && detailedAnalysis.length > 0) {
+      rawTotalMarks = detailedAnalysis.reduce((acc, q) => acc + (q.marks || 1), 0);
+    } else {
+      rawTotalMarks = totalQuestions > 0 ? totalQuestions : 100;
+    }
+  }
+  const totalMarks = Math.max(1, safeNumber(rawTotalMarks, 100));
 
   const obtainedMarks = Math.max(0, safeNumber(d.obtainedMarks ?? d.score, 0));
   const percentage = safePercentage(obtainedMarks, totalMarks);
@@ -842,19 +872,30 @@ export async function getStudentReport(idOrExamId: string, studentId?: string): 
   try {
     if (!idOrExamId) return null;
 
-    // 1. Try direct lookup by ID (in case idOrExamId is a full report doc ID)
+    // 1. Direct lookup by exact document ID in reports collection
     const directReportDoc = await getDoc(doc(db, "reports", idOrExamId));
     if (directReportDoc.exists()) {
       return mapDocumentToReport(directReportDoc);
     }
 
+    // 2. If the ID starts with "attempt_", try the corresponding "report_" ID
+    if (idOrExamId.startsWith("attempt_")) {
+      const correspondingReportId = idOrExamId.replace(/^attempt_/, "report_");
+      const corrReportDoc = await getDoc(doc(db, "reports", correspondingReportId));
+      if (corrReportDoc.exists()) {
+        return mapDocumentToReport(corrReportDoc);
+      }
+    }
+
+    // 3. Try direct lookup in examAttempts collection
     const directAttemptDoc = await getDoc(doc(db, "examAttempts", idOrExamId));
     if (directAttemptDoc.exists()) {
       return mapDocumentToReport(directAttemptDoc);
     }
 
-    // 2. Constructed IDs with studentId if present
+    // 4. Constructed IDs with studentId if present
     if (studentId) {
+      // Try report_<examId>_<studentId> and attempt variants
       const reportId = `report_${idOrExamId}_${studentId}`;
       const attemptId = `attempt_${idOrExamId}_${studentId}`;
 
@@ -868,6 +909,7 @@ export async function getStudentReport(idOrExamId: string, studentId?: string): 
         return mapDocumentToReport(attemptDoc);
       }
 
+      // Query by field values
       const qReports = query(
         collection(db, "reports"),
         where("examId", "==", idOrExamId),
