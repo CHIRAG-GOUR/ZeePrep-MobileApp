@@ -11,6 +11,8 @@ import * as SplashScreen from "expo-splash-screen";
 import { MobileWebShell } from "../components/MobileWebShell";
 import { ZeePrepLaunchScreen } from "../components/ZeePrepLaunchScreen";
 
+import { configureScreenSecurity } from "../utils/security-helper";
+
 // Suppress non-critical warnings in production
 LogBox.ignoreLogs(["Setting a timer", "AsyncStorage"]);
 
@@ -24,6 +26,11 @@ export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
   const [showLaunchAnim, setShowLaunchAnim] = useState(true);
+
+  // Dynamically configure Screen Security based on User Role (SuperAdmin vs Others)
+  useEffect(() => {
+    configureScreenSecurity(user?.role);
+  }, [user?.role]);
 
   // Initialize Firebase auth listener + safety timeout
   useEffect(() => {
