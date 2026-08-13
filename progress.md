@@ -15,7 +15,25 @@
 - Initialized dedicated mobile codebase inside `E:\1. Skillizee\Zee Prep - Mobile App`.
 - Enforced strict isolation: The original web application (`E:\1. Skillizee\Zee Prep`) remains 100% untouched and read-only.
 
-### 2. Universal Question Text Normalization & ZeePrep Purple Palette Accent
+### 2. TASK 31: Configurable Exam Attempt Limit Engine
+- **Teacher Configuration (`src/app/(teacher)/exam-builder.tsx`)**:
+  - Added Maximum Attempts Allowed pill selector with options: `1 Attempt (Default)`, `2 Attempts`, `3 Attempts`, `5 Attempts`, `10 Attempts`, `Unlimited`.
+  - Default = `1 Attempt` (`maxAttempts = 1`). Persisted with the exam document in Firestore (`maxAttempts`).
+- **Data/Backend Level Attempt Enforcement (`src/services/firestore.ts`)**:
+  - Built `getStudentExamAttempts(examId, studentUid)` querying all submitted attempts for a student from Firestore.
+  - Implemented deterministic attempt IDs (`attempt_${exam.id}_${user.uid}_att${attemptNum}`) and report IDs (`report_${exam.id}_${user.uid}_att${attemptNum}`) to guarantee previous attempt scorecards are **NEVER** overwritten.
+- **Student Exam Attempt Tracking (`src/app/(tabs)/exams.tsx`)**:
+  - Displays transparent attempt metadata on each exam card:
+    - `Max Attempts`: `1`, `2`, `3`, `5`, `10`, or `Unlimited`
+    - `Attempts Used`: `X / Max`
+    - `Attempts Remaining`: `Y` (or `Unlimited`)
+  - Enforces attempt limit: If `usedCount >= maxAttempts` (and not `unlimited`), displays **`Attempt Limit Reached`** notice and disables the Start Exam button.
+- **Abandonment Protection with Multiple Attempts (`src/app/exam/[id].tsx`)**:
+  - Intercepts exit action and displays tailored attempt warning (`"This is Attempt X of Y. Leaving this examination will save your draft..."`).
+- **Multiple Attempt Reports (`src/app/(tabs)/reports.tsx`)**:
+  - Displays `Attempt X` badge on student report cards so students can open and review every historical attempt report individually.
+
+### 3. Universal Question Text Normalization & ZeePrep Purple Palette Accent
 - **Question Text Fallback Engine (`src/app/exam/[id].tsx`)**:
   - Implemented `getQuestionText(q)` helper function resolving question text across all schema variants: `q.text || q.questionText || q.question || q.statement || q.title`.
   - Solved the defect where imported or legacy questions storing statements under `questionText` or `question` rendered blank/missing question stems above options.
@@ -23,14 +41,14 @@
   - Styled current/selected question nodes with a vibrant **ZeePrep Purple filled background (`#4F46E5`)**, indigo border (`#3730A3`), white bold text, and elevation shadow.
   - Added explicit **ZeePrep Purple Current Question** node indicator (`● Current`) to the Question Navigator legend row.
 
-### 3. Role-Based Report Viewing Architecture (ZeePrep Web Spec Alignment)
+### 4. Role-Based Report Viewing Architecture (ZeePrep Web Spec Alignment)
 - **Student Report View (`src/app/results/[id].tsx`)**:
   - Displays the **Generic Performance Report**:
     - Pass/Needs Revision Status Badge
     - Score Obtained / Total Marks (`18 / 25`)
     - Percentage Score (`72%`)
     - Accuracy (`75%`) & Total Time Spent (`14 mins 32 secs`)
-    - Performance Analytics Cards (Total Questions, Total Possible Marks, Correct Answers, Incorrect Answers, Unattempted)
+    - Performance Analytics Summary Cards (Total Questions, Total Possible Marks, Correct Answers, Incorrect Answers, Unattempted)
     - Gemini AI Diagnostic Performance Insights (Strong Topics, Weak Topics, Conceptual Gaps, Actionable Advice, Recommendation)
   - **Excludes** itemized question-by-question text & correct answer keys from students.
 - **Teacher & Admin Report View (`src/app/results/[id].tsx`, `src/app/(teacher)/reports.tsx`)**:
@@ -38,7 +56,7 @@
     - Complete summary stats + AI Diagnostic Analysis
     - **PLUS** Itemized Question-by-Question breakdown (Question #, Question Text, Student Answer, Correct Answer, Question Weight, Awarded Marks, Time Spent per question).
 
-### 4. Mobile Exam Window Layout Repair & Viewport Architecture
+### 5. Mobile Exam Window Layout Repair & Viewport Architecture
 - **Root Cause Defect Fix (`src/app/exam/[id].tsx`)**:
   - Eliminated the unconstrained horizontal numbered `ScrollView` strip from the main screen layout, which previously caused flex calculations to collapse the main question view and push question text off-screen.
   - Replaced the permanent horizontal row with a compact `Question Navigator (▦)` trigger button launching a bottom-sheet modal grid.
@@ -56,31 +74,32 @@
   - Uses `useResponsive` hook for safe area insets (`safeTop`, `safeBottom`).
   - In Landscape mode, splits the content area into a 2-column layout (Left: Question Stem + Media, Right: Options Cards).
 
-### 5. Dynamic Role-Based Screen Protection (SuperAdmin Exemption)
+### 6. Dynamic Role-Based Screen Protection (SuperAdmin Exemption)
 - **Native Android Module (`ScreenSecurityModule.kt`)**:
   - Built Kotlin React Native bridge module `ScreenSecurityModule` with `@ReactMethod fun allowScreenshots(allow: Boolean)`.
 - **Role Control Logic (`src/utils/security-helper.ts`)**:
   - **SuperAdmins (`user.role === "superadmin"`)**: Calls `ScreenSecurityModule.allowScreenshots(true)` which clears `FLAG_SECURE`. SuperAdmins can take screenshots and record screen content.
   - **All Other Roles (Students, Teachers, Admins, Guests)**: Enforces `FLAG_SECURE` (`ScreenSecurityModule.allowScreenshots(false)`), blocking all screenshots and screen recordings across the app.
 
-### 6. Enterprise Anti-Tampering & Security Hardening
+### 7. Enterprise Anti-Tampering & Security Hardening
 - **ProGuard / R8 Bytecode Obfuscation**:
   - Configured `android.enableMinifyInReleaseBuilds=true` and `android.enableShrinkResourcesInReleaseBuilds=true` in `gradle.properties` and `build.gradle`.
 - **Hermes Bytecode Compilation**:
   - Compiled JavaScript source code into pre-compiled Hermes binary bytecode (`.hbc`).
 
-### 7. Native Release Build & Git Deployment
+### 8. Native Release Build & Git Deployment
 - **TypeScript Check**: `npx tsc --noEmit` -> **0 errors**.
-- **Gradle Release Compilation**: `gradlew assembleRelease` succeeded (**BUILD SUCCESSFUL in 1m 58s**).
-- **Physical Device Installation**: Installed on connected device (`Performing Streamed Install -> Success`).
-- **Git Version Control**: Pushed commit `90012a4` to `origin/master`.
+- **Gradle Release Compilation**: `gradlew assembleRelease` succeeded (**BUILD SUCCESSFUL in 1m 50s**).
+- **Git Version Control**: Pushed commit `c5e4cd7` to `origin/master`.
 
 ---
 
 ## Key Project File Map
 - **Exam Engine Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/exam/%5Bid%5D.tsx)
+- **Student Exams Screen**: [exams.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(tabs)/exams.tsx)
 - **Student Reports Screen**: [reports.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(tabs)/reports.tsx)
 - **Exam Scorecard & Results Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/results/%5Bid%5D.tsx)
-- **Teacher Reports Screen**: [reports.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/reports.tsx)
+- **Teacher Exam Builder**: [exam-builder.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/exam-builder.tsx)
+- **Teacher Exams Screen**: [exams.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/exams.tsx)
 - **Firestore Service**: [firestore.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/services/firestore.ts)
 - **Release APK**: [Zee Prep.apk](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/Zee%20Prep.apk)
