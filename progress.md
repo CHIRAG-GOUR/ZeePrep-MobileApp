@@ -74,29 +74,33 @@
 - **Digital Student ID Card (`src/app/(tabs)/profile.tsx`)**:
   - Upgraded student profile screen with a responsive Digital Student ID Card showing School Name, Login ID, Email, Grade, Section, Board, and Stream.
 
-### 8. Enterprise Anti-Tampering & Security Hardening
+### 8. Dynamic Role-Based Screen Protection (SuperAdmin Exemption)
+- **Native Android Module (`ScreenSecurityModule.kt`)**:
+  - Built Kotlin React Native bridge module `ScreenSecurityModule` with `@ReactMethod fun allowScreenshots(allow: Boolean)`.
+- **Role Control Logic (`src/utils/security-helper.ts`)**:
+  - **SuperAdmins (`user.role === "superadmin"`)**: Calls `ScreenSecurityModule.allowScreenshots(true)` which clears `FLAG_SECURE`. SuperAdmins can take screenshots and record screen content.
+  - **All Other Roles (Students, Teachers, Admins, Guests)**: Enforces `FLAG_SECURE` (`ScreenSecurityModule.allowScreenshots(false)`), blocking all screenshots and screen recordings across the app.
+
+### 9. Enterprise Anti-Tampering & Security Hardening
 - **ProGuard / R8 Bytecode Obfuscation**:
   - Configured `android.enableMinifyInReleaseBuilds=true` and `android.enableShrinkResourcesInReleaseBuilds=true` in `gradle.properties` and `build.gradle`.
   - Scrambled Kotlin/Java symbol names and stripped debug log statements (`Log.d`, `Log.v`, `Log.i`).
 - **Hermes Bytecode Compilation**:
   - Compiled JavaScript source code into pre-compiled Hermes binary bytecode (`.hbc`).
-- **Screen Protection Shield (`FLAG_SECURE`)**:
-  - Configured `WindowManager.LayoutParams.FLAG_SECURE` in `MainActivity.kt`.
-  - Automatically blocks screenshots, screen recordings, and unauthorized screen mirroring during exam attempts and video playback.
 
-### 9. Native Release Build & Git Deployment
+### 10. Native Release Build & Git Deployment
 - **TypeScript Check**: `npx tsc --noEmit` -> **0 errors**.
-- **Gradle Release Compilation**: `gradlew assembleRelease` succeeded (`BUILD SUCCESSFUL in 5m`).
+- **Gradle Release Compilation**: `gradlew assembleRelease` succeeded (`BUILD SUCCESSFUL in 3m 6s`).
 - **Physical Device Installation**: Installed on connected device (`Performing Streamed Install -> Success`).
-- **Git Version Control**: Pushed commit `c0ef30a` to `origin/master`.
+- **Git Version Control**: Pushed commit `b13147c` to `origin/master`.
 
 ---
 
 ## Key Project File Map
+- **Screen Security Native Module**: [ScreenSecurityModule.kt](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/android/app/src/main/java/com/skillizee/zeeprep/ScreenSecurityModule.kt)
+- **Screen Security Package**: [ScreenSecurityPackage.kt](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/android/app/src/main/java/com/skillizee/zeeprep/ScreenSecurityPackage.kt)
+- **Security Helper Utility**: [security-helper.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/utils/security-helper.ts)
 - **Exam Engine Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/exam/%5Bid%5D.tsx)
 - **Exam Results & Report Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/results/%5Bid%5D.tsx)
 - **Student Profile & Digital ID Card**: [profile.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(tabs)/profile.tsx)
-- **Exam State Store**: [exam-store.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/stores/exam-store.ts)
-- **Firestore Services & Scoring Engine**: [firestore.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/services/firestore.ts)
-- **Responsive System Hook**: [useResponsive.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/hooks/useResponsive.ts)
 - **Release APK**: [Zee Prep.apk](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/Zee%20Prep.apk)
