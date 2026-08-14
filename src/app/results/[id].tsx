@@ -21,13 +21,13 @@ import {
   Home,
   Sparkles,
   Lightbulb,
-  BookOpen,
   FileText,
   Video,
-  ExternalLink,
   AlertTriangle,
   PlayCircle,
   HelpCircle,
+  TrendingUp,
+  BookOpen,
 } from "lucide-react-native";
 
 import {
@@ -161,7 +161,7 @@ export default function ResultsScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4F46E5" />
-        <Text style={styles.loadingText}>Loading Assessment Report...</Text>
+        <Text style={styles.loadingText}>Loading Academic Report...</Text>
       </View>
     );
   }
@@ -178,9 +178,50 @@ export default function ResultsScreen() {
     );
   }
 
-  const mins = Math.floor((report.timeSpentSeconds || 0) / 60);
-  const secs = (report.timeSpentSeconds || 0) % 60;
   const isFacultyViewActive = isTeacherOrAdmin && presentationMode === "faculty";
+
+  // Calculations & Formatters
+  const totalQuestions = report.totalQuestions || 0;
+  const correctCount = report.correctAnswers || 0;
+  const wrongCount = report.incorrectAnswers || 0;
+  const unansweredCount = (report as any).unansweredCount !== undefined
+    ? (report as any).unansweredCount
+    : Math.max(0, totalQuestions - (correctCount + wrongCount));
+  const attemptedCount = correctCount + wrongCount;
+
+  const totalSecs = Math.max(0, report.timeSpentSeconds || 0);
+  const mins = Math.floor(totalSecs / 60);
+  const secs = totalSecs % 60;
+  const totalTimeDisplay = mins > 0 ? `${mins} min${secs > 0 ? ` ${secs}s` : ""}` : `${secs}s`;
+
+  const avgSecsPerQ = totalQuestions > 0 ? Math.round(totalSecs / totalQuestions) : 0;
+  const avgMins = Math.floor(avgSecsPerQ / 60);
+  const avgSecs = avgSecsPerQ % 60;
+  const avgTimeDisplay = avgMins > 0 ? `${avgMins}m ${avgSecs}s` : `${avgSecs}s`;
+
+  // Performance Rating calculation
+  const percentage = report.percentage || 0;
+  const performanceLabel =
+    percentage >= 85
+      ? "Excellent Performance"
+      : percentage >= 70
+      ? "Good Performance"
+      : percentage >= 50
+      ? "Satisfactory Performance"
+      : "Needs Revision";
+
+  // Format date
+  const submittedDate = report.createdAt
+    ? new Date(report.createdAt).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+  const subjectName = (report.subject || (report as any).examSubject || "Academic Assessment").toUpperCase();
+  const examTitleName = report.examTitle || "Chapter Assessment";
+  const gradeDisplay = report.grade ? (report.grade.toLowerCase().includes("class") || report.grade.toLowerCase().includes("grade") ? report.grade : `Class ${report.grade}`) : "Class 10";
 
   return (
     <View style={styles.container}>
@@ -190,7 +231,7 @@ export default function ResultsScreen() {
           <ChevronLeft color="#0F172A" size={24} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isFacultyViewActive ? "Faculty Detailed Report" : "Examination Scorecard"}
+          {isFacultyViewActive ? "Faculty Detailed Report" : "Academic Report Card"}
         </Text>
         <View style={{ width: 24 }} />
       </View>
@@ -237,366 +278,299 @@ export default function ResultsScreen() {
       )}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Student Profile Card for Teacher / Admin Detailed Presentation */}
-        {isFacultyViewActive && (
-          <View style={styles.studentInfoCard}>
-            <View style={styles.studentInfoHeaderRow}>
-              <View style={styles.studentAvatar}>
-                <Text style={styles.studentAvatarText}>
-                  {(report.studentName || "S").charAt(0).toUpperCase()}
+        {/* ======================================================== */}
+        {/* VIEW 1: CLEAN ACADEMIC STUDENT REPORT CARD              */}
+        {/* ======================================================== */}
+        {!isFacultyViewActive ? (
+          <View style={styles.studentReportCardContainer}>
+            {/* 1. Exam Header & Hero Score */}
+            <View style={styles.reportCardHero}>
+              <Text style={styles.cardSubjectTag}>{subjectName}</Text>
+              <Text style={styles.cardExamTitle}>{examTitleName}</Text>
+              <Text style={styles.cardMetaSub}>
+                {gradeDisplay} • {submittedDate}
+              </Text>
+
+              <View style={styles.heroScoreBox}>
+                <Text style={styles.heroScoreText}>
+                  {report.obtainedMarks} <Text style={styles.heroTotalText}>/ {report.totalMarks}</Text>
                 </Text>
+                <Text style={styles.heroPercentageText}>{percentage}%</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.studentInfoName}>{report.studentName || "Student"}</Text>
-                <Text style={styles.studentInfoSub}>
-                  {report.studentEmail || "Enrolled Student"}
+
+              <View
+                style={[
+                  styles.performancePill,
+                  percentage >= 70 ? styles.pillGood : percentage >= 50 ? styles.pillAverage : styles.pillNeedsWork,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.performancePillText,
+                    percentage >= 70 ? styles.pillGoodText : percentage >= 50 ? styles.pillAverageText : styles.pillNeedsWorkText,
+                  ]}
+                >
+                  {performanceLabel}
                 </Text>
-              </View>
-              <View style={styles.attemptPill}>
-                <Text style={styles.attemptPillText}>Attempt #{report.attemptNumber || 1}</Text>
               </View>
             </View>
 
-            <View style={styles.studentMetaRow}>
-              <View style={styles.studentMetaItem}>
-                <Text style={styles.studentMetaLabel}>Class / Grade</Text>
-                <Text style={styles.studentMetaVal}>{report.grade || "Grade 10"}</Text>
-              </View>
-              <View style={styles.studentMetaItem}>
-                <Text style={styles.studentMetaLabel}>Section</Text>
-                <Text style={styles.studentMetaVal}>{report.section || "A"}</Text>
-              </View>
-              <View style={styles.studentMetaItem}>
-                <Text style={styles.studentMetaLabel}>Subject</Text>
-                <Text style={styles.studentMetaVal}>{report.subject || "General"}</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Score Hero Card */}
-        <View style={[styles.heroCard, report.passed ? styles.heroPassed : styles.heroFailed]}>
-          <View style={styles.passBadge}>
-            <Text style={[styles.passBadgeText, report.passed ? styles.textPassed : styles.textFailed]}>
-              {report.passed ? "PASSED" : "NEEDS IMPROVEMENT"}
-            </Text>
-          </View>
-
-          <Text style={styles.scoreText}>
-            {report.obtainedMarks} <Text style={styles.totalScoreText}>/ {report.totalMarks}</Text>
-          </Text>
-          <Text style={styles.examTitle}>{report.examTitle}</Text>
-
-          <View style={styles.percentagePill}>
-            <Award color="#F59E0B" size={18} />
-            <Text style={styles.percentageText}>{report.percentage}% Score</Text>
-          </View>
-        </View>
-
-        {/* Diagnostics Grid */}
-        <Text style={styles.sectionTitle}>Performance Analytics</Text>
-
-        <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Target color="#818CF8" size={22} />
-            <Text style={styles.statVal}>{report.totalQuestions}</Text>
-            <Text style={styles.statLbl}>Total Questions</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <Award color="#4F46E5" size={22} />
-            <Text style={styles.statVal}>{report.totalMarks}</Text>
-            <Text style={styles.statLbl}>Total Possible Marks</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <CheckCircle2 color="#10B981" size={22} />
-            <Text style={styles.statVal}>{report.correctAnswers}</Text>
-            <Text style={styles.statLbl}>Correct ({report.obtainedMarks} Marks)</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <XCircle color="#EF4444" size={22} />
-            <Text style={styles.statVal}>{report.incorrectAnswers}</Text>
-            <Text style={styles.statLbl}>Incorrect (0 Marks)</Text>
-          </View>
-        </View>
-
-        {/* Time Spent */}
-        <View style={styles.timeCard}>
-          <Clock color="#818CF8" size={20} />
-          <View style={styles.timeContent}>
-            <Text style={styles.timeLbl}>Total Time Spent & Accuracy</Text>
-            <Text style={styles.timeVal}>
-              {mins} mins {secs} secs • {report.accuracy}% Accuracy
-            </Text>
-          </View>
-        </View>
-
-        {/* AI Suggested Resources for Weak Topics */}
-        <View style={styles.sectionHeaderRow}>
-          <Sparkles size={18} color="#6366F1" />
-          <Text style={styles.sectionTitleWithoutMargin}>Identified Weak Areas & Recommended Resources</Text>
-        </View>
-
-        {weakTopicsData.length > 0 ? (
-          <View style={styles.weakTopicsContainer}>
-            {weakTopicsData.map((wt, wtIdx) => (
-              <View key={wtIdx} style={styles.weakTopicCard}>
-                <View style={styles.weakTopicHeader}>
-                  <View style={styles.weakTopicTitleCol}>
-                    <Text style={styles.weakTopicTitle}>{wt.topic}</Text>
-                    <Text style={styles.weakTopicStats}>
-                      {wt.correctCount} / {wt.totalQuestions} Correct • Accuracy: {wt.accuracy}%
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.accuracyPill,
-                      { backgroundColor: wt.accuracy < 40 ? "#FEF2F2" : "#FFFBEB" },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.accuracyPillText,
-                        { color: wt.accuracy < 40 ? "#DC2626" : "#D97706" },
-                      ]}
-                    >
-                      {wt.accuracy}%
-                    </Text>
-                  </View>
+            {/* 2. Question Summary Table */}
+            <View style={styles.cardSection}>
+              <Text style={styles.cardSectionTitle}>QUESTION SUMMARY</Text>
+              <View style={styles.summaryTable}>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Total Questions</Text>
+                  <Text style={styles.tableValue}>{totalQuestions}</Text>
                 </View>
-
-                {wt.diagnosis ? (
-                  <View style={styles.diagnosisBox}>
-                    <AlertTriangle size={14} color="#D97706" />
-                    <Text style={styles.diagnosisText}>{wt.diagnosis}</Text>
+                <View style={styles.tableDivider} />
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Attempted</Text>
+                  <Text style={styles.tableValue}>{attemptedCount}</Text>
+                </View>
+                <View style={styles.tableDivider} />
+                <View style={styles.tableRow}>
+                  <View style={styles.labelWithDot}>
+                    <View style={[styles.dot, { backgroundColor: "#10B981" }]} />
+                    <Text style={styles.tableLabel}>Correct</Text>
                   </View>
-                ) : null}
+                  <Text style={[styles.tableValue, { color: "#059669", fontWeight: "800" }]}>
+                    {correctCount}
+                  </Text>
+                </View>
+                <View style={styles.tableDivider} />
+                <View style={styles.tableRow}>
+                  <View style={styles.labelWithDot}>
+                    <View style={[styles.dot, { backgroundColor: "#EF4444" }]} />
+                    <Text style={styles.tableLabel}>Wrong</Text>
+                  </View>
+                  <Text style={[styles.tableValue, { color: "#DC2626", fontWeight: "800" }]}>
+                    {wrongCount}
+                  </Text>
+                </View>
+                <View style={styles.tableDivider} />
+                <View style={styles.tableRow}>
+                  <View style={styles.labelWithDot}>
+                    <View style={[styles.dot, { backgroundColor: "#94A3B8" }]} />
+                    <Text style={styles.tableLabel}>Unanswered</Text>
+                  </View>
+                  <Text style={[styles.tableValue, { color: "#64748B" }]}>
+                    {unansweredCount}
+                  </Text>
+                </View>
+              </View>
+            </View>
 
-                {/* Recommended Real ZeePrep Resources */}
-                <Text style={styles.resourceSectionLabel}>RECOMMENDED STUDY MATERIAL</Text>
+            {/* 3. Time Analysis */}
+            <View style={styles.cardSection}>
+              <Text style={styles.cardSectionTitle}>TIME ANALYSIS</Text>
+              <View style={styles.timeSummaryGrid}>
+                <View style={styles.timeSummaryBox}>
+                  <Clock size={16} color="#6366F1" />
+                  <Text style={styles.timeSummaryVal}>{totalTimeDisplay}</Text>
+                  <Text style={styles.timeSummaryLbl}>Total Time</Text>
+                </View>
+                <View style={styles.timeSummaryBox}>
+                  <Target size={16} color="#6366F1" />
+                  <Text style={styles.timeSummaryVal}>{avgTimeDisplay}</Text>
+                  <Text style={styles.timeSummaryLbl}>Avg / Question</Text>
+                </View>
+              </View>
+              {report.mostTimeSpentTopic ? (
+                <View style={styles.mostTimeSpentCard}>
+                  <Text style={styles.mostTimeSpentLabel}>Most Time Spent On</Text>
+                  <Text style={styles.mostTimeSpentValue}>{report.mostTimeSpentTopic}</Text>
+                </View>
+              ) : null}
+            </View>
 
-                {wt.recommendedResources && wt.recommendedResources.length > 0 ? (
-                  <View style={styles.resourcesStack}>
-                    {wt.recommendedResources.map((res, rIdx) => {
-                      const resType = (res.type || "pdf").toLowerCase();
-                      const isVideo = resType.includes("video") || (res.url && (res.url.includes("youtube") || res.url.includes("youtu.be")));
-                      return (
-                        <TouchableOpacity
-                          key={rIdx}
-                          style={styles.resourceCard}
-                          onPress={() => handleOpenResource(res)}
-                          activeOpacity={0.85}
-                        >
-                          <View style={styles.resourceIconBox}>
-                            {isVideo ? (
-                              <Video size={18} color="#6366F1" />
-                            ) : (
-                              <FileText size={18} color="#6366F1" />
-                            )}
-                          </View>
+            {/* 4. Your Weak Topics */}
+            <View style={styles.cardSection}>
+              <Text style={styles.cardSectionTitle}>YOUR WEAK TOPICS</Text>
+              {weakTopicsData.length > 0 ? (
+                <View style={styles.weakTopicsList}>
+                  {weakTopicsData.map((wt, idx) => (
+                    <View key={idx} style={styles.weakTopicItem}>
+                      <View style={styles.weakTopicHeaderRow}>
+                        <Text style={styles.weakTopicName}>• {wt.topic}</Text>
+                        <Text style={styles.weakTopicAccBadge}>{wt.accuracy}% Accuracy</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.masteryCard}>
+                  <CheckCircle2 size={20} color="#10B981" />
+                  <Text style={styles.masteryText}>
+                    Great job! No weak topics identified on this test.
+                  </Text>
+                </View>
+              )}
+            </View>
 
-                          <View style={styles.resourceInfo}>
-                            <View style={styles.resourceBadgeRow}>
-                              <View style={styles.resourceTypeBadge}>
-                                <Text style={styles.resourceTypeBadgeText}>
+            {/* 5. Improve Your Weak Topics (Suggested Resources) */}
+            <View style={styles.cardSection}>
+              <Text style={styles.cardSectionTitle}>IMPROVE YOUR WEAK TOPICS</Text>
+              {weakTopicsData.length > 0 ? (
+                weakTopicsData.map((wt, wtIdx) => (
+                  <View key={wtIdx} style={styles.resourceTopicGroup}>
+                    <Text style={styles.resourceTopicTitle}>{wt.topic}</Text>
+                    {wt.recommendedResources && wt.recommendedResources.length > 0 ? (
+                      <View style={styles.resourcesStack}>
+                        {wt.recommendedResources.map((res, rIdx) => {
+                          const resType = (res.type || "pdf").toLowerCase();
+                          const isVideo =
+                            resType.includes("video") ||
+                            (res.url && (res.url.includes("youtube") || res.url.includes("youtu.be")));
+                          return (
+                            <TouchableOpacity
+                              key={rIdx}
+                              style={styles.cleanResourceCard}
+                              onPress={() => handleOpenResource(res)}
+                              activeOpacity={0.85}
+                            >
+                              <View style={styles.cleanResourceIconBox}>
+                                {isVideo ? (
+                                  <Video size={16} color="#4F46E5" />
+                                ) : (
+                                  <FileText size={16} color="#4F46E5" />
+                                )}
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.cleanResourceTitle} numberOfLines={1}>
+                                  {res.title}
+                                </Text>
+                                <Text style={styles.cleanResourceType}>
                                   {resType.toUpperCase()}
                                 </Text>
                               </View>
-                              {res.relevance === "high" && (
-                                <View style={styles.highRelevanceBadge}>
-                                  <Text style={styles.highRelevanceText}>TOP MATCH</Text>
-                                </View>
-                              )}
-                            </View>
-
-                            <Text style={styles.resourceTitle} numberOfLines={2}>
-                              {res.title}
-                            </Text>
-
-                            {res.reason ? (
-                              <Text style={styles.resourceReason} numberOfLines={2}>
-                                {res.reason}
-                              </Text>
-                            ) : null}
-                          </View>
-
-                          <View style={styles.resourceActionBtn}>
-                            <PlayCircle size={20} color="#4F46E5" />
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
+                              <PlayCircle size={18} color="#4F46E5" />
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      <View style={styles.cleanNoResourceBox}>
+                        <HelpCircle size={16} color="#94A3B8" />
+                        <Text style={styles.cleanNoResourceText}>
+                          Ask teacher to upload the resource or provide it.
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                ) : (
-                  <View style={styles.noResourcesBox}>
-                    <View style={styles.noResourcesIconBox}>
-                      <HelpCircle size={18} color="#6366F1" />
-                    </View>
-                    <View style={styles.noResourcesContent}>
-                      <Text style={styles.noResourcesTitle}>
-                        Ask teacher to upload the resource or provide it.
-                      </Text>
-                      <Text style={styles.noResourcesSubtitle}>
-                        This topic ({wt.topic}) is not given or sufficiently explained in current uploaded materials.
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View style={styles.masteryCard}>
-            <CheckCircle2 size={24} color="#10B981" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.masteryTitle}>Strong Conceptual Mastery</Text>
-              <Text style={styles.masterySubtitle}>
-                No critical weak areas were identified on this assessment. Keep up the outstanding work!
-              </Text>
+                ))
+              ) : (
+                <Text style={styles.allSetText}>You're all set! Review completed topics in your library.</Text>
+              )}
             </View>
           </View>
-        )}
-
-        {/* Factual Question Analysis (100% Responsive Vertical Stack) */}
-        <Text style={styles.sectionTitle}>Question Analysis</Text>
-
-        {report.detailedAnalysis && report.detailedAnalysis.length > 0 ? (
-          <View style={styles.questionStack}>
-            {report.detailedAnalysis.map((qItem, qIdx) => {
-              const isAnsEmpty =
-                !qItem.studentAnswer || String(qItem.studentAnswer).trim() === "";
-              const isCorrect = Boolean(qItem.isCorrect);
-              const qWeight =
-                qItem.marks !== undefined && qItem.marks !== null ? qItem.marks : 1;
-              const awarded = isCorrect ? qWeight : 0;
-
-              const resolvedStudent = isAnsEmpty
-                ? "― Unanswered"
-                : resolveOptionText(qItem.studentAnswer, qItem, true);
-              const resolvedCorrect = resolveOptionText(qItem.correctAnswer, qItem, true);
-
-              return (
-                <View
-                  key={qItem.questionId || qIdx}
-                  style={[
-                    styles.qCard,
-                    isCorrect
-                      ? styles.qCardCorrect
-                      : isAnsEmpty
-                      ? styles.qCardUnattempted
-                      : styles.qCardIncorrect,
-                  ]}
-                >
-                  {/* Card Header */}
-                  <View style={styles.qCardHeader}>
-                    <Text style={styles.qNumberText}>Question {qIdx + 1}</Text>
-                    <View
-                      style={[
-                        styles.qResultPill,
-                        isCorrect
-                          ? styles.pillCorrect
-                          : isAnsEmpty
-                          ? styles.pillUnattempted
-                          : styles.pillIncorrect,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.qResultText,
-                          isCorrect
-                            ? styles.pillTextCorrect
-                            : isAnsEmpty
-                            ? styles.pillTextUnattempted
-                            : styles.pillTextIncorrect,
-                        ]}
-                      >
-                        {isCorrect
-                          ? `✓ Correct (+${awarded} / ${qWeight} ${qWeight === 1 ? "mark" : "marks"})`
-                          : isAnsEmpty
-                          ? `― Unanswered (0 / ${qWeight} ${qWeight === 1 ? "mark" : "marks"})`
-                          : `✕ Wrong (0 / ${qWeight} ${qWeight === 1 ? "mark" : "marks"})`}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Question Prompt */}
-                  <Text style={styles.fieldLabel}>Question:</Text>
-                  <Text style={styles.questionPromptText}>{qItem.questionText}</Text>
-
-                  {/* Student Answer */}
-                  <Text style={styles.fieldLabel}>Your Answer:</Text>
-                  <Text
-                    style={[
-                      styles.answerValueText,
-                      isCorrect
-                        ? styles.ansCorrect
-                        : isAnsEmpty
-                        ? styles.ansMuted
-                        : styles.ansIncorrect,
-                    ]}
-                  >
-                    {resolvedStudent}
-                  </Text>
-
-                  {/* Correct Answer */}
-                  <Text style={styles.fieldLabel}>Correct Answer:</Text>
-                  <Text style={[styles.answerValueText, styles.ansCorrect]}>
-                    {resolvedCorrect}
-                  </Text>
-
-                  {/* Card Footer Metrics */}
-                  <View style={styles.qFooterRow}>
-                    <Text style={styles.qFooterText}>
-                      Time Taken: {qItem.timeSpentSeconds || 0} sec
-                    </Text>
-                    <Text style={styles.qFooterText}>
-                      Marks: {awarded} / {qWeight}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
         ) : (
-          <Text style={{ fontSize: 13, color: "#64748B", marginBottom: 16 }}>
-            Question-level analysis data unavailable.
-          </Text>
-        )}
+          /* ======================================================== */
+          /* VIEW 2: TEACHER / FACULTY DETAILED DIAGNOSTIC REPORT     */
+          /* ======================================================== */
+          <View style={styles.facultyReportContainer}>
+            {/* Student Information Banner */}
+            <View style={styles.studentInfoCard}>
+              <View style={styles.studentInfoHeaderRow}>
+                <View style={styles.studentAvatar}>
+                  <Text style={styles.studentAvatarText}>
+                    {(report.studentName || "S").charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.studentInfoName}>{report.studentName || "Student"}</Text>
+                  <Text style={styles.studentInfoSub}>
+                    {report.studentEmail || "Enrolled Student"}
+                  </Text>
+                </View>
+                <View style={styles.attemptPill}>
+                  <Text style={styles.attemptPillText}>Attempt #{report.attemptNumber || 1}</Text>
+                </View>
+              </View>
 
-        {/* Teacher/Admin Only Diagnostic Section (Requirement 7) */}
-        {isFacultyViewActive ? (
-          <>
+              <View style={styles.studentMetaRow}>
+                <View style={styles.studentMetaItem}>
+                  <Text style={styles.studentMetaLabel}>Class / Grade</Text>
+                  <Text style={styles.studentMetaVal}>{gradeDisplay}</Text>
+                </View>
+                <View style={styles.studentMetaItem}>
+                  <Text style={styles.studentMetaLabel}>Section</Text>
+                  <Text style={styles.studentMetaVal}>{report.section || "A"}</Text>
+                </View>
+                <View style={styles.studentMetaItem}>
+                  <Text style={styles.studentMetaLabel}>Subject</Text>
+                  <Text style={styles.studentMetaVal}>{report.subject || "General"}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Performance Overview Grid */}
+            <Text style={styles.sectionTitle}>Performance Overview</Text>
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <Target color="#818CF8" size={20} />
+                <Text style={styles.statVal}>
+                  {report.obtainedMarks} / {report.totalMarks}
+                </Text>
+                <Text style={styles.statLbl}>Marks Obtained</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <Award color="#4F46E5" size={20} />
+                <Text style={styles.statVal}>{percentage}%</Text>
+                <Text style={styles.statLbl}>Percentage</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <CheckCircle2 color="#10B981" size={20} />
+                <Text style={styles.statVal}>{report.accuracy}%</Text>
+                <Text style={styles.statLbl}>Accuracy</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <Clock color="#F59E0B" size={20} />
+                <Text style={styles.statVal}>{totalTimeDisplay}</Text>
+                <Text style={styles.statLbl}>Total Time</Text>
+              </View>
+            </View>
+
+            {/* Question Telemetry Counts */}
+            <View style={styles.countsRow}>
+              <View style={styles.countBadge}>
+                <Text style={styles.countNumber}>{totalQuestions}</Text>
+                <Text style={styles.countLabel}>Total</Text>
+              </View>
+              <View style={[styles.countBadge, { backgroundColor: "#ECFDF5" }]}>
+                <Text style={[styles.countNumber, { color: "#059669" }]}>{correctCount}</Text>
+                <Text style={styles.countLabel}>Correct</Text>
+              </View>
+              <View style={[styles.countBadge, { backgroundColor: "#FEF2F2" }]}>
+                <Text style={[styles.countNumber, { color: "#DC2626" }]}>{wrongCount}</Text>
+                <Text style={styles.countLabel}>Wrong</Text>
+              </View>
+              <View style={[styles.countBadge, { backgroundColor: "#F1F5F9" }]}>
+                <Text style={[styles.countNumber, { color: "#64748B" }]}>{unansweredCount}</Text>
+                <Text style={styles.countLabel}>Unanswered</Text>
+              </View>
+            </View>
+
+            {/* Faculty Diagnostic Analysis Section */}
             <Text style={styles.sectionTitle}>Faculty Diagnostic Insights</Text>
             <View style={styles.aiDiagnosticCard}>
               <View style={styles.aiHeaderRow}>
                 <Sparkles size={18} color="#4F46E5" />
-                <Text style={styles.aiDiagnosticTitle}>Faculty Performance Analysis</Text>
+                <Text style={styles.aiDiagnosticTitle}>Diagnostic Evaluation</Text>
               </View>
 
               {aiLoading ? (
                 <View style={{ paddingVertical: 16, alignItems: "center" }}>
                   <ActivityIndicator color="#4F46E5" size="small" />
                   <Text style={{ fontSize: 12, color: "#64748B", marginTop: 6 }}>
-                    Evaluating diagnostic telemetry...
+                    Evaluating student telemetry...
                   </Text>
                 </View>
               ) : aiInsight ? (
-                <View style={{ gap: 10 }}>
-                  {Array.isArray(aiInsight.strongTopics) && aiInsight.strongTopics.length > 0 && (
-                    <View style={styles.aiTagSection}>
-                      <Text style={styles.aiTagLabel}>STRONG TOPICS</Text>
-                      <View style={styles.aiTagRow}>
-                        {aiInsight.strongTopics.map((t: string, idx: number) => (
-                          <View key={idx} style={styles.strongTag}>
-                            <Text style={styles.strongTagText}>{typeof t === "string" ? t : String(t)}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-
+                <View style={{ gap: 12 }}>
                   {Array.isArray(aiInsight.weakTopics) && aiInsight.weakTopics.length > 0 && (
                     <View style={styles.aiTagSection}>
                       <Text style={styles.aiTagLabel}>WEAK TOPICS & REVISION FOCUS</Text>
@@ -604,6 +578,19 @@ export default function ResultsScreen() {
                         {aiInsight.weakTopics.map((t: string, idx: number) => (
                           <View key={idx} style={styles.weakTag}>
                             <Text style={styles.weakTagText}>{typeof t === "string" ? t : String(t)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {Array.isArray(aiInsight.strongTopics) && aiInsight.strongTopics.length > 0 && (
+                    <View style={styles.aiTagSection}>
+                      <Text style={styles.aiTagLabel}>STRONG TOPICS</Text>
+                      <View style={styles.aiTagRow}>
+                        {aiInsight.strongTopics.map((t: string, idx: number) => (
+                          <View key={idx} style={styles.strongTag}>
+                            <Text style={styles.strongTagText}>{typeof t === "string" ? t : String(t)}</Text>
                           </View>
                         ))}
                       </View>
@@ -625,7 +612,7 @@ export default function ResultsScreen() {
 
                   {Array.isArray(aiInsight.actionableAdvice) && aiInsight.actionableAdvice.length > 0 && (
                     <View style={styles.aiTagSection}>
-                      <Text style={styles.aiTagLabel}>ACTIONABLE RECOMMENDATIONS</Text>
+                      <Text style={styles.aiTagLabel}>TEACHING RECOMMENDATIONS</Text>
                       {aiInsight.actionableAdvice.map((a: string, idx: number) => (
                         <View key={idx} style={styles.aiRecommendationBox}>
                           <Lightbulb size={14} color="#D97706" />
@@ -637,12 +624,122 @@ export default function ResultsScreen() {
                 </View>
               ) : (
                 <Text style={{ fontSize: 13, color: "#64748B" }}>
-                  Diagnostic analysis unavailable for this assessment paper.
+                  Diagnostic telemetry calculated from test performance.
                 </Text>
               )}
             </View>
-          </>
-        ) : null}
+
+            {/* Complete Itemized Question Analysis */}
+            <Text style={styles.sectionTitle}>Question-by-Question Analysis</Text>
+            {report.detailedAnalysis && report.detailedAnalysis.length > 0 ? (
+              <View style={styles.questionStack}>
+                {report.detailedAnalysis.map((qItem, qIdx) => {
+                  const isAnsEmpty =
+                    !qItem.studentAnswer || String(qItem.studentAnswer).trim() === "";
+                  const isCorrect = Boolean(qItem.isCorrect);
+                  const qWeight =
+                    qItem.marks !== undefined && qItem.marks !== null ? qItem.marks : 1;
+                  const awarded = isCorrect ? qWeight : 0;
+
+                  const resolvedStudent = isAnsEmpty
+                    ? "― Unanswered"
+                    : resolveOptionText(qItem.studentAnswer, qItem, true);
+                  const resolvedCorrect = resolveOptionText(qItem.correctAnswer, qItem, true);
+
+                  return (
+                    <View
+                      key={qItem.questionId || qIdx}
+                      style={[
+                        styles.qCard,
+                        isCorrect
+                          ? styles.qCardCorrect
+                          : isAnsEmpty
+                          ? styles.qCardUnattempted
+                          : styles.qCardIncorrect,
+                      ]}
+                    >
+                      {/* Card Header */}
+                      <View style={styles.qCardHeader}>
+                        <Text style={styles.qNumberText}>Question {qIdx + 1}</Text>
+                        <View
+                          style={[
+                            styles.qResultPill,
+                            isCorrect
+                              ? styles.pillCorrect
+                              : isAnsEmpty
+                              ? styles.pillUnattempted
+                              : styles.pillIncorrect,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.qResultText,
+                              isCorrect
+                                ? styles.pillTextCorrect
+                                : isAnsEmpty
+                                ? styles.pillTextUnattempted
+                                : styles.pillTextIncorrect,
+                            ]}
+                          >
+                            {isCorrect
+                              ? `✓ Correct (+${awarded} / ${qWeight})`
+                              : isAnsEmpty
+                              ? `― Unanswered (0 / ${qWeight})`
+                              : `✕ Wrong (0 / ${qWeight})`}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Question Prompt */}
+                      <Text style={styles.fieldLabel}>Question:</Text>
+                      <Text style={styles.questionPromptText}>{qItem.questionText}</Text>
+
+                      {/* Topic */}
+                      {qItem.topic ? (
+                        <Text style={styles.qTopicText}>Topic: {qItem.topic}</Text>
+                      ) : null}
+
+                      {/* Student Answer */}
+                      <Text style={styles.fieldLabel}>Student Answer:</Text>
+                      <Text
+                        style={[
+                          styles.answerValueText,
+                          isCorrect
+                            ? styles.ansCorrect
+                            : isAnsEmpty
+                            ? styles.ansMuted
+                            : styles.ansIncorrect,
+                        ]}
+                      >
+                        {resolvedStudent}
+                      </Text>
+
+                      {/* Correct Answer */}
+                      <Text style={styles.fieldLabel}>Correct Answer:</Text>
+                      <Text style={[styles.answerValueText, styles.ansCorrect]}>
+                        {resolvedCorrect}
+                      </Text>
+
+                      {/* Card Footer Metrics */}
+                      <View style={styles.qFooterRow}>
+                        <Text style={styles.qFooterText}>
+                          Time: {qItem.timeSpentSeconds || 0} sec
+                        </Text>
+                        <Text style={styles.qFooterText}>
+                          Marks: {awarded} / {qWeight}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={{ fontSize: 13, color: "#64748B", marginBottom: 16 }}>
+                Question-level telemetry unavailable.
+              </Text>
+            )}
+          </View>
+        )}
 
         {/* Action Button */}
         <TouchableOpacity
@@ -727,7 +824,6 @@ const styles = StyleSheet.create({
     padding: 4,
     marginHorizontal: 16,
     marginTop: 12,
-    marginBottom: 4,
     borderRadius: 12,
   },
   presentationTab: {
@@ -753,11 +849,314 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#4F46E5",
   },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+
+  // ==========================================
+  // STUDENT REPORT CARD STYLES
+  // ==========================================
+  studentReportCardContainer: {
+    gap: 16,
+  },
+  reportCardHero: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  cardSubjectTag: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#4F46E5",
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  cardExamTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#0F172A",
+    textAlign: "center",
+  },
+  cardMetaSub: {
+    fontSize: 13,
+    color: "#64748B",
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  heroScoreBox: {
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  heroScoreText: {
+    fontSize: 36,
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+  heroTotalText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#94A3B8",
+  },
+  heroPercentageText: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#4F46E5",
+    marginTop: 2,
+  },
+  performancePill: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  performancePillText: {
+    fontWeight: "800",
+    fontSize: 13,
+  },
+  pillGood: {
+    backgroundColor: "#ECFDF5",
+  },
+  pillGoodText: {
+    color: "#059669",
+    fontWeight: "800",
+    fontSize: 13,
+  },
+  pillAverage: {
+    backgroundColor: "#FEF3C7",
+  },
+  pillAverageText: {
+    color: "#D97706",
+    fontWeight: "800",
+    fontSize: 13,
+  },
+  pillNeedsWork: {
+    backgroundColor: "#FEF2F2",
+  },
+  pillNeedsWorkText: {
+    color: "#DC2626",
+    fontWeight: "800",
+    fontSize: 13,
+  },
+
+  cardSection: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  cardSectionTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#64748B",
+    letterSpacing: 0.8,
+    marginBottom: 14,
+  },
+  summaryTable: {
+    gap: 10,
+  },
+  tableRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  labelWithDot: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  tableLabel: {
+    fontSize: 14,
+    color: "#475569",
+    fontWeight: "500",
+  },
+  tableValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  tableDivider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+  },
+
+  timeSummaryGrid: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 10,
+  },
+  timeSummaryBox: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  timeSummaryVal: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  timeSummaryLbl: {
+    fontSize: 11,
+    color: "#64748B",
+    fontWeight: "600",
+  },
+  mostTimeSpentCard: {
+    backgroundColor: "#EEF2FF",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  mostTimeSpentLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#4F46E5",
+    textTransform: "uppercase",
+  },
+  mostTimeSpentValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1E1B4B",
+    marginTop: 2,
+  },
+
+  weakTopicsList: {
+    gap: 8,
+  },
+  weakTopicItem: {
+    backgroundColor: "#FFFBEB",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  weakTopicHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  weakTopicName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#92400E",
+    flex: 1,
+  },
+  weakTopicAccBadge: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#D97706",
+  },
+  masteryCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#ECFDF5",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
+  masteryText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#065F46",
+    flex: 1,
+  },
+
+  resourceTopicGroup: {
+    marginBottom: 14,
+  },
+  resourceTopicTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 8,
+  },
+  resourcesStack: {
+    gap: 8,
+  },
+  cleanResourceCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    gap: 12,
+  },
+  cleanResourceIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#EEF2FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cleanResourceTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1E293B",
+  },
+  cleanResourceType: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#6366F1",
+    marginTop: 2,
+  },
+  cleanNoResourceBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#F8FAFC",
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  cleanNoResourceText: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "500",
+    flex: 1,
+  },
+  allSetText: {
+    fontSize: 13,
+    color: "#64748B",
+    textAlign: "center",
+    paddingVertical: 8,
+  },
+
+  // ==========================================
+  // FACULTY DETAILED REPORT STYLES
+  // ==========================================
+  facultyReportContainer: {
+    gap: 16,
+  },
   studentInfoCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
     shadowColor: "#000",
@@ -830,370 +1229,144 @@ const styles = StyleSheet.create({
     color: "#1E293B",
     marginTop: 2,
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  heroCard: {
-    borderRadius: 24,
-    padding: 24,
-    alignItems: "center",
-    marginBottom: 24,
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  heroPassed: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#10B981",
-  },
-  heroFailed: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#EF4444",
-  },
-  passBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: "#F1F5F9",
-    marginBottom: 16,
-  },
-  passBadgeText: {
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-  },
-  textPassed: {
-    color: "#059669",
-  },
-  textFailed: {
-    color: "#DC2626",
-  },
-  scoreText: {
-    fontSize: 42,
-    fontWeight: "900",
-    color: "#0F172A",
-  },
-  totalScoreText: {
-    fontSize: 24,
-    color: "#64748B",
-    fontWeight: "600",
-  },
-  examTitle: {
-    fontSize: 16,
-    color: "#475569",
-    marginTop: 6,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  percentagePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#FFFBEB",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: "rgba(245, 158, 11, 0.2)",
-  },
-  percentageText: {
-    color: "#D97706",
-    fontSize: 15,
-    fontWeight: "800",
-  },
+
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "800",
     color: "#0F172A",
-    marginBottom: 14,
-    marginTop: 8,
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 10,
-    marginBottom: 14,
-  },
-  sectionTitleWithoutMargin: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#0F172A",
-    flex: 1,
-  },
-  weakTopicsContainer: {
-    flexDirection: "column",
-    gap: 14,
-    marginBottom: 24,
-  },
-  weakTopicCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  weakTopicHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
     marginBottom: 8,
-  },
-  weakTopicTitleCol: {
-    flex: 1,
-    marginRight: 10,
-  },
-  weakTopicTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  weakTopicStats: {
-    fontSize: 12,
-    color: "#64748B",
-    marginTop: 2,
-    fontWeight: "500",
-  },
-  accuracyPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  accuracyPillText: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  diagnosisBox: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: "#FFFBEB",
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#FDE68A",
     marginTop: 4,
-    marginBottom: 12,
-  },
-  diagnosisText: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#92400E",
-    lineHeight: 17,
-  },
-  resourceSectionLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#6366F1",
-    letterSpacing: 0.6,
-    marginBottom: 8,
-  },
-  resourcesStack: {
-    gap: 8,
-  },
-  resourceCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  resourceIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#EEF2FF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  resourceInfo: {
-    flex: 1,
-    marginRight: 8,
-  },
-  resourceBadgeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 2,
-  },
-  resourceTypeBadge: {
-    backgroundColor: "#E0E7FF",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  resourceTypeBadgeText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#4338CA",
-  },
-  highRelevanceBadge: {
-    backgroundColor: "#DCFCE7",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  highRelevanceText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#15803D",
-  },
-  resourceTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#1E293B",
-  },
-  resourceReason: {
-    fontSize: 11,
-    color: "#64748B",
-    marginTop: 2,
-  },
-  resourceActionBtn: {
-    padding: 4,
-  },
-  noResourcesBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderLeftWidth: 3,
-    borderLeftColor: "#6366F1",
-    gap: 10,
-  },
-  noResourcesIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: "#EEF2FF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  noResourcesContent: {
-    flex: 1,
-  },
-  noResourcesTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#334155",
-  },
-  noResourcesSubtitle: {
-    fontSize: 11,
-    color: "#64748B",
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  masteryCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#ECFDF5",
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
-    marginBottom: 24,
-  },
-  masteryTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#065F46",
-  },
-  masterySubtitle: {
-    fontSize: 12,
-    color: "#047857",
-    marginTop: 2,
-    lineHeight: 16,
   },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 12,
-    marginBottom: 20,
   },
   statCard: {
     width: "48%",
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 16,
-    alignItems: "center",
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 6,
-    elevation: 1,
+    alignItems: "center",
   },
   statVal: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: "800",
     color: "#0F172A",
     marginTop: 8,
   },
   statLbl: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#64748B",
+    fontWeight: "600",
     marginTop: 2,
   },
-  timeCard: {
+
+  countsRow: {
     flexDirection: "row",
-    alignItems: "center",
+    gap: 8,
+  },
+  countBadge: {
+    flex: 1,
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    marginBottom: 24,
   },
-  timeContent: {
-    marginLeft: 12,
-  },
-  timeLbl: {
-    fontSize: 12,
-    color: "#64748B",
-  },
-  timeVal: {
-    fontSize: 15,
-    fontWeight: "700",
+  countNumber: {
+    fontSize: 18,
+    fontWeight: "800",
     color: "#0F172A",
+  },
+  countLabel: {
+    fontSize: 11,
+    color: "#64748B",
+    fontWeight: "600",
     marginTop: 2,
   },
-  homeBtn: {
-    backgroundColor: "#4F46E5",
-    borderRadius: 14,
-    height: 50,
+
+  aiDiagnosticCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  aiHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     gap: 8,
-    marginTop: 12,
+    marginBottom: 14,
   },
-  homeBtnText: {
-    color: "#FFFFFF",
+  aiDiagnosticTitle: {
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "800",
+    color: "#0F172A",
   },
+  aiTagSection: {
+    marginTop: 4,
+  },
+  aiTagLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#64748B",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  aiTagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  strongTag: {
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
+  strongTagText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#065F46",
+  },
+  weakTag: {
+    backgroundColor: "#FEF2F2",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  weakTagText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#991B1B",
+  },
+  aiRecommendationBox: {
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: "#FFFBEB",
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    marginTop: 4,
+  },
+  aiRecommendationText: {
+    fontSize: 12,
+    color: "#92400E",
+    flex: 1,
+    lineHeight: 18,
+  },
+
   questionStack: {
-    flexDirection: "column",
-    gap: 14,
-    marginBottom: 24,
+    gap: 12,
   },
   qCard: {
     backgroundColor: "#FFFFFF",
@@ -1201,37 +1374,27 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 6,
-    elevation: 1,
   },
   qCardCorrect: {
-    borderColor: "rgba(16, 185, 129, 0.4)",
     borderLeftWidth: 4,
     borderLeftColor: "#10B981",
   },
   qCardIncorrect: {
-    borderColor: "rgba(239, 68, 68, 0.4)",
     borderLeftWidth: 4,
     borderLeftColor: "#EF4444",
   },
   qCardUnattempted: {
-    borderColor: "rgba(245, 158, 11, 0.4)",
     borderLeftWidth: 4,
-    borderLeftColor: "#F59E0B",
+    borderLeftColor: "#94A3B8",
   },
   qCardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
-    flexWrap: "wrap",
-    gap: 8,
+    marginBottom: 8,
   },
   qNumberText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
     color: "#0F172A",
   },
@@ -1247,42 +1410,45 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEF2F2",
   },
   pillUnattempted: {
-    backgroundColor: "#FFFBEB",
+    backgroundColor: "#F1F5F9",
   },
   qResultText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
   },
   pillTextCorrect: {
     color: "#059669",
   },
   pillTextIncorrect: {
-    color: "#E11D48",
+    color: "#DC2626",
   },
   pillTextUnattempted: {
-    color: "#D97706",
+    color: "#64748B",
   },
   fieldLabel: {
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#64748B",
+    marginTop: 6,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginTop: 8,
-    marginBottom: 2,
   },
   questionPromptText: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 13,
     color: "#1E293B",
-    lineHeight: 20,
-    marginBottom: 4,
+    lineHeight: 18,
+    marginTop: 2,
+    fontWeight: "500",
+  },
+  qTopicText: {
+    fontSize: 11,
+    color: "#6366F1",
+    fontWeight: "700",
+    marginTop: 4,
   },
   answerValueText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
-    lineHeight: 20,
-    marginBottom: 4,
+    marginTop: 2,
   },
   ansCorrect: {
     color: "#059669",
@@ -1296,98 +1462,30 @@ const styles = StyleSheet.create({
   qFooterRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 12,
-    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: "#F1F5F9",
+    paddingTop: 8,
+    marginTop: 10,
   },
   qFooterText: {
-    fontSize: 12,
+    fontSize: 11,
+    color: "#94A3B8",
     fontWeight: "600",
-    color: "#64748B",
   },
-  aiDiagnosticCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 28,
-    borderWidth: 1,
-    borderColor: "#C7D2FE",
-    shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
-  },
-  aiHeaderRow: {
+
+  homeBtn: {
+    backgroundColor: "#4F46E5",
+    borderRadius: 14,
+    paddingVertical: 14,
     flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
     gap: 8,
-    marginBottom: 14,
+    marginTop: 16,
   },
-  aiDiagnosticTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  aiTagSection: {
-    marginBottom: 8,
-  },
-  aiTagLabel: {
-    fontSize: 10,
-    fontWeight: "900",
-    color: "#4F46E5",
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  aiTagRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  strongTag: {
-    backgroundColor: "#ECFDF5",
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  strongTagText: {
-    fontSize: 11,
+  homeBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15,
     fontWeight: "700",
-    color: "#059669",
-  },
-  weakTag: {
-    backgroundColor: "#FEF2F2",
-    borderWidth: 1,
-    borderColor: "#FECDD3",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  weakTagText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#E11D48",
-  },
-  aiRecommendationBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#FFFBEB",
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#FDE68A",
-    marginTop: 4,
-  },
-  aiRecommendationText: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#92400E",
-    lineHeight: 17,
   },
 });

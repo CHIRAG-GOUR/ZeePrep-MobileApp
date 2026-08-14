@@ -78,6 +78,21 @@
 - **Dual Presentation Switcher for Leadership**: Added an interactive view toggle in `src/app/results/[id].tsx` (`Student Scorecard View` vs `Faculty Detailed View`) for SuperAdmin and Admin, allowing instant inspection of either presentation powered by the same single underlying report document.
 - **Real-Time Student Focus Sync (`useFocusEffect`)**: Student Reports tab now automatically refreshes historical exam reports upon screen focus with responsive retry handling.
 
-### 14. Native Build & Git Deployment Verification
+### 14. Clean Academic Student Report Card & Teacher Diagnostics Separation (`src/app/results/[id].tsx`)
+- **Academic Student Report Card Presentation**:
+  1. *Exam Header & Hero Score*: Subject tag, exam title, class/grade, submission date, marks obtained/total, percentage, and performance rating badge (`Excellent Performance`, `Good Performance`, `Needs Revision`).
+  2. *Question Summary Table*: Clean visual rows with indicators for Total Questions, Attempted, Correct (green), Wrong (red), and Unanswered (slate).
+  3. *Time Analysis*: Total Time, Average Time per Question, and Most Time Spent topic (if available).
+  4. *Your Weak Topics*: Student-friendly bullet list of identified weak topics (< 60% accuracy).
+  5. *Improve Your Weak Topics*: Study materials (PDF, Video notes, Practice links) filtered strictly by class & subject with in-app viewer.
+  6. *Strict Exclusions*: Excluded all teacher diagnostic reasoning, itemized question stacks, internal option IDs (`opt_q_a`), and faculty copilot notes from Student view.
+- **Faculty Detailed Diagnostic View**:
+  - Student Profile Banner (Name, Email/ID, Grade, Section, Subject, Exam Title, Attempt #, Timestamp).
+  - Complete performance overview, question telemetry counts, and AI diagnostic insights (Strong topics, weak topics, conceptual gaps, teaching recommendations).
+  - Full Question-by-Question itemized Analysis with full text resolution and answer evaluation.
+- **SuperAdmin & Admin View Mode Toggle**:
+  - Seamless toggle between `Student View` and `Teacher / Detailed View` on the same authoritative report data.
+
+### 15. Native Build & Git Deployment Verification
 - **TypeScript Check**: `npx tsc --noEmit` -> **0 errors**.
 - **Git Repository**: Pushed commits to `https://github.com/CHIRAG-GOUR/ZeePrep-MobileApp.git` (`master` branch).
