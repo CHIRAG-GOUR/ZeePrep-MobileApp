@@ -66,6 +66,11 @@
 - **Zero-Failure Submission Contract**: Robust fallback to deterministic local keyword/topic matching if Gemini API or network is unavailable, ensuring exam report generation never fails.
 - **In-App Resource Viewer (`ResourceViewerModal`)**: Interactive study resource cards in the Student Report screen allow students to instantly preview PDFs, video lectures, YouTube content, and documents directly from their report.
 
-### 12. Native Build & Git Deployment Verification
+### 12. Strict Class/Grade + Subject Resource Recommendation Isolation (`src/services/weak-topic-resource-engine.ts`)
+- **Deterministic Hard Filtering (Pre-AI)**: `isResourceEligibleForStudent` strictly requires `normalizeGrade(resource.grade) === normalizeGrade(student.grade)` AND `normalizeSubject(resource.subject) === normalizeSubject(student.subject)`. Cross-class (e.g. Class 7 to Class 8) and cross-subject (e.g. Mathematics to Science) recommendations are 100% blocked before the AI candidate pool is formed.
+- **Defense-in-Depth Validation (Post-AI)**: Every recommended resource returned by Gemini 2.5 Flash undergoes re-validation against the student's authorized class, subject, and schoolId. Any non-matching recommendation is immediately discarded.
+- **Uncovered Topic Guidance**: If a topic is not given or sufficiently explained in uploaded materials, renders the clear notice: *"Ask teacher to upload the resource or provide it."*
+
+### 13. Native Build & Git Deployment Verification
 - **TypeScript Check**: `npx tsc --noEmit` -> **0 errors**.
 - **Git Repository**: Pushed commits to `https://github.com/CHIRAG-GOUR/ZeePrep-MobileApp.git` (`master` branch).

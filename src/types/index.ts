@@ -193,6 +193,10 @@ export interface StudyResource {
   grade: string;
   section?: string;
   stream?: string;
+  topic?: string;
+  chapter?: string;
+  schoolId?: string;
+  schoolName?: string;
   uploadedBy: string;
   uploadedByName?: string;
   downloadCount?: number;

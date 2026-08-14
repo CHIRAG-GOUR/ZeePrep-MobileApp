@@ -12,6 +12,8 @@ export interface WeakTopicResourceRecommendation {
   url: string;
   relevance: "high" | "medium";
   reason: string;
+  class?: string;
+  subject?: string;
 }
 
 export interface WeakTopicAnalysis {
@@ -41,6 +43,191 @@ export interface FactualTopicBreakdown {
     studentAnswer: string;
     correctAnswer: string;
   }[];
+}
+
+export interface StudentResourceContext {
+  grade: string;
+  subject: string;
+  schoolId?: string;
+  section?: string;
+}
+
+/**
+ * Normalizes grade/class strings to clean canonical identifiers.
+ * e.g., "7th", "Grade 7", "Class 7", "Class-7", "7" -> "7"
+ * e.g., "10th", "Grade 10", "10" -> "10"
+ */
+export function normalizeGrade(grade: string | number | undefined | null): string {
+  if (grade === undefined || grade === null) return "";
+  const raw = String(grade).trim().toUpperCase();
+  if (!raw) return "";
+
+  // Roman numeral mappings
+  const romanMap: Record<string, string> = {
+    I: "1",
+    II: "2",
+    III: "3",
+    IV: "4",
+    V: "5",
+    VI: "6",
+    VII: "7",
+    VIII: "8",
+    IX: "9",
+    X: "10",
+    XI: "11",
+    XII: "12",
+  };
+
+  // Check direct roman numeral matches (e.g. "CLASS VII" or "VII")
+  const words = raw.split(/[\s-_]+/);
+  for (const w of words) {
+    if (romanMap[w]) return romanMap[w];
+  }
+
+  // Extract numeric digits (e.g., "Grade 7" -> "7", "10th" -> "10")
+  const numMatch = raw.match(/\b([1-9]|1[0-2])\b/) || raw.match(/(\d+)/);
+  if (numMatch) {
+    return numMatch[1];
+  }
+
+  // Handle pre-primary labels
+  if (raw.includes("UKG")) return "UKG";
+  if (raw.includes("LKG")) return "LKG";
+  if (raw.includes("NURSERY")) return "NURSERY";
+
+  return raw.toLowerCase();
+}
+
+/**
+ * Normalizes subject names into canonical subject keys.
+ * e.g., "Math", "Maths", "Mathematics" -> "mathematics"
+ * e.g., "Science", "Sci", "General Science" -> "science"
+ */
+export function normalizeSubject(subject: string | undefined | null): string {
+  if (!subject) return "";
+  const clean = subject.trim().toLowerCase().replace(/[^a-z0-9\s]/g, " ");
+
+  if (
+    clean.includes("math") ||
+    clean.includes("arithmetic") ||
+    clean.includes("algebra") ||
+    clean.includes("geometry") ||
+    clean.includes("calculus") ||
+    clean.includes("trigonometry")
+  ) {
+    return "mathematics";
+  }
+
+  if (clean.includes("physics") || clean.includes("phy")) {
+    return "physics";
+  }
+
+  if (clean.includes("chemistry") || clean.includes("chem")) {
+    return "chemistry";
+  }
+
+  if (clean.includes("biology") || clean.includes("bio") || clean.includes("botany") || clean.includes("zoology")) {
+    return "biology";
+  }
+
+  if (clean.includes("science") || clean.includes("sci") || clean.includes("general science")) {
+    return "science";
+  }
+
+  if (clean.includes("english") || clean.includes("eng") || clean.includes("literature") || clean.includes("grammar")) {
+    return "english";
+  }
+
+  if (
+    clean.includes("social") ||
+    clean.includes("sst") ||
+    clean.includes("history") ||
+    clean.includes("civics") ||
+    clean.includes("geography")
+  ) {
+    return "social science";
+  }
+
+  if (
+    clean.includes("computer") ||
+    clean.includes("cs") ||
+    clean.includes("it") ||
+    clean.includes("informatics") ||
+    clean.includes("coding")
+  ) {
+    return "computer science";
+  }
+
+  if (clean.includes("hindi")) return "hindi";
+  if (clean.includes("sanskrit")) return "sanskrit";
+
+  return clean.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Deterministic Hard Access & Recommendation Filter
+ * Enforces Class/Grade + Subject + School + Section Isolation BEFORE AI.
+ */
+export function isResourceEligibleForStudent(
+  resource: StudyResource,
+  studentContext: StudentResourceContext
+): boolean {
+  if (!resource || !resource.url || !resource.title) {
+    return false;
+  }
+
+  // 1. HARD RULE: CLASS / GRADE ISOLATION (MANDATORY)
+  const normResGrade = normalizeGrade(resource.grade);
+  const normStudGrade = normalizeGrade(studentContext.grade);
+
+  if (!normResGrade || !normStudGrade || normResGrade !== normStudGrade) {
+    // Cross-class recommendation strictly blocked
+    return false;
+  }
+
+  // 2. HARD RULE: SUBJECT ISOLATION (MANDATORY)
+  const normResSub = normalizeSubject(resource.subject);
+  const normStudSub = normalizeSubject(studentContext.subject);
+
+  if (!normResSub || !normStudSub || normResSub !== normStudSub) {
+    // Cross-subject recommendation strictly blocked
+    return false;
+  }
+
+  // 3. HARD RULE: SCHOOL / TENANT ISOLATION
+  if (resource.schoolId && studentContext.schoolId) {
+    if (resource.schoolId !== studentContext.schoolId) {
+      return false;
+    }
+  }
+
+  // 4. HARD RULE: SECTION ISOLATION (if section is explicitly assigned)
+  if (
+    resource.section &&
+    resource.section !== "All" &&
+    resource.section !== "all" &&
+    studentContext.section
+  ) {
+    if (
+      resource.section.trim().toLowerCase() !==
+      studentContext.section.trim().toLowerCase()
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Filters the library into a strictly authorized, eligible pool.
+ */
+export function filterEligibleResources(
+  availableResources: StudyResource[],
+  studentContext: StudentResourceContext
+): StudyResource[] {
+  if (!availableResources || !Array.isArray(availableResources)) return [];
+  return availableResources.filter((res) => isResourceEligibleForStudent(res, studentContext));
 }
 
 /**
@@ -97,7 +284,6 @@ export function deriveFactualTopicBreakdown(report: Report): FactualTopicBreakdo
     });
 
     const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
-    // Deterministic weakness threshold
     const isWeak = accuracy < 60 || (totalQuestions >= 2 && accuracy <= 70 && wrongCount + unansweredCount > 0);
 
     breakdowns.push({
@@ -119,13 +305,13 @@ export function deriveFactualTopicBreakdown(report: Report): FactualTopicBreakdo
 }
 
 /**
- * 2. Deterministic keyword matching fallback for uploaded ZeePrep resources.
+ * 2. Deterministic keyword matching fallback across ELIGIBLE resources only.
  */
 export function matchResourcesLocally(
   weakTopic: FactualTopicBreakdown,
-  availableResources: StudyResource[]
+  eligibleResources: StudyResource[]
 ): WeakTopicResourceRecommendation[] {
-  if (!availableResources || availableResources.length === 0) return [];
+  if (!eligibleResources || eligibleResources.length === 0) return [];
 
   const cleanTopicWords = weakTopic.topic
     .toLowerCase()
@@ -133,16 +319,16 @@ export function matchResourcesLocally(
     .split(/\s+/)
     .filter((w) => w.length > 2 && !["and", "the", "for", "with", "from"].includes(w));
 
-  const scored = availableResources.map((res) => {
+  const scored = eligibleResources.map((res) => {
     let score = 0;
     const titleLower = (res.title || "").toLowerCase();
     const descLower = (res.description || "").toLowerCase();
-    const subLower = (res.subject || "").toLowerCase();
+    const topicLower = (res.topic || res.chapter || "").toLowerCase();
 
     cleanTopicWords.forEach((word) => {
       if (titleLower.includes(word)) score += 5;
       if (descLower.includes(word)) score += 3;
-      if (subLower.includes(word)) score += 2;
+      if (topicLower.includes(word)) score += 4;
     });
 
     return { res, score };
@@ -153,16 +339,18 @@ export function matchResourcesLocally(
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
 
-  // If no keyword match found, take the top available resource for the same subject
-  if (matches.length === 0 && availableResources.length > 0) {
-    const subjectMatches = availableResources.slice(0, 2);
-    return subjectMatches.map((res) => ({
+  // If no keyword match found, pick the top eligible resources of the exact same class and subject
+  if (matches.length === 0 && eligibleResources.length > 0) {
+    const topEligible = eligibleResources.slice(0, 2);
+    return topEligible.map((res) => ({
       resourceId: res.id,
       title: res.title,
       type: res.type || "pdf",
       url: res.url || "",
       relevance: "medium",
-      reason: `Recommended reference material for ${weakTopic.topic}.`,
+      reason: `Authorized reference material for ${res.subject} (Grade ${res.grade}).`,
+      class: res.grade,
+      subject: res.subject,
     }));
   }
 
@@ -172,13 +360,15 @@ export function matchResourcesLocally(
     type: res.type || "pdf",
     url: res.url || "",
     relevance: score >= 5 ? "high" : "medium",
-    reason: `Targeted revision resource for ${weakTopic.topic}.`,
+    reason: `Targeted revision resource for ${weakTopic.topic} (Grade ${res.grade} ${res.subject}).`,
+    class: res.grade,
+    subject: res.subject,
   }));
 }
 
 /**
  * 3. AI-Powered Resource Matcher & Diagnosis using Gemini 2.5 Flash.
- * Strictly uses ACTUAL uploaded ZeePrep resources (never fabricates URLs or imaginary content).
+ * Enforces strict Class/Grade + Subject hard isolation BEFORE and AFTER AI.
  */
 export async function matchWeakTopicsWithZeePrepResources(
   report: Report,
@@ -192,30 +382,47 @@ export async function matchWeakTopicsWithZeePrepResources(
     return [];
   }
 
-  // Filter available resources by relevant subject if possible
-  const examSubject = String((report as any).subject || report.examTitle || "").toLowerCase();
-  const relevantResources = availableResources.filter((res) => {
-    if (!res.url || !res.title) return false;
-    const resSubject = (res.subject || "").toLowerCase();
-    if (examSubject && resSubject && !examSubject.includes(resSubject) && !resSubject.includes(examSubject)) {
-      // Keep if no other resources exist
-      return true;
-    }
-    return true;
-  });
+  // 1. EXTRACT AUTHORITATIVE STUDENT & EXAM CONTEXT
+  const studentContext: StudentResourceContext = {
+    grade: report.grade || "10",
+    subject: (report as any).subject || report.examTitle || "General",
+    schoolId: (report as any).schoolId || "",
+    section: report.section || "",
+  };
 
-  // Resources catalogue summary for Gemini (NO hallucination allowed)
-  const resourceCatalog = relevantResources.map((r) => ({
+  // 2. HARD FILTER BEFORE AI (CLASS + SUBJECT + SCHOOL ISOLATION)
+  const eligibleResources = filterEligibleResources(availableResources, studentContext);
+
+  console.log(`[WeakTopicEngine] Authoritative Filtering: Total ${availableResources.length} -> Eligible ${eligibleResources.length} for Grade ${studentContext.grade} (${studentContext.subject})`);
+
+  // If no authorized resources exist for this class & subject, return empty resource arrays immediately
+  if (eligibleResources.length === 0) {
+    return weakTopics.map((wt) => ({
+      topic: wt.topic,
+      accuracy: wt.accuracy,
+      totalQuestions: wt.totalQuestions,
+      correctCount: wt.correctCount,
+      wrongCount: wt.wrongCount,
+      unansweredCount: wt.unansweredCount,
+      diagnosis: `Needs structured practice and concept review in ${wt.topic} (${wt.accuracy}% accuracy).`,
+      evidence: wt.incorrectQuestions.map((iq) => `Missed Question ${iq.questionNumber}`),
+      recommendedResources: [],
+    }));
+  }
+
+  // Build eligible resource catalogue summary for Gemini (ONLY authorized resources sent to AI)
+  const resourceCatalog = eligibleResources.map((r) => ({
     resourceId: r.id,
     title: r.title,
     type: r.type,
     subject: r.subject,
     grade: r.grade,
+    topic: r.topic || r.chapter || "",
     description: r.description || "",
     url: r.url,
   }));
 
-  // Build structured prompt for Gemini
+  // Build structured weak topics summary
   const weakTopicsSummary = weakTopics.map((wt) => ({
     topic: wt.topic,
     accuracy: `${wt.accuracy}%`,
@@ -228,15 +435,19 @@ export async function matchWeakTopicsWithZeePrepResources(
   const prompt = `You are ZeePrep AI Academic Remediation Engine.
 Your task is to analyze student weak areas from an exam and recommend ACTUAL uploaded learning resources.
 
+STUDENT ACADEMIC CONTEXT:
+Class / Grade: ${studentContext.grade}
+Subject: ${studentContext.subject}
+
 STUDENT WEAK AREAS (Factual Data):
 ${JSON.stringify(weakTopicsSummary, null, 2)}
 
-CATALOGUE OF REAL UPLOADED ZEEPREP RESOURCES:
+CATALOGUE OF AUTHORIZED CLASS ${studentContext.grade} ${studentContext.subject.toUpperCase()} RESOURCES:
 ${JSON.stringify(resourceCatalog, null, 2)}
 
 INSTRUCTIONS:
 1. For each weak topic, provide a concise, factual diagnosis (1 sentence) and specific evidence based on questions missed.
-2. Match up to 3 most relevant resources from the CATALOGUE OF REAL UPLOADED ZEEPREP RESOURCES that actually cover and explain the missed topic concepts.
+2. Match up to 3 most relevant resources from the CATALOGUE OF AUTHORIZED RESOURCES that actually cover and explain the missed topic concepts.
 3. CRITICAL RULES:
    - You MUST ONLY select resources that exist in the provided catalogue. Use their exact resourceId, title, and type. NEVER invent or fabricate resource IDs or URLs.
    - If a topic is not given in any uploaded content, or is not sufficiently described/explained in the catalogue, return an empty "resources": [] array so the student is prompted to ask their teacher.
@@ -280,23 +491,29 @@ Return ONLY a JSON array matching this exact schema:
 
             if (aiItem && Array.isArray(aiItem.resources) && aiItem.resources.length > 0) {
               aiItem.resources.forEach((rObj: any) => {
-                const matchedCatalogItem = resourceCatalog.find((c) => c.resourceId === rObj.resourceId);
-                if (matchedCatalogItem) {
+                const matchedCatalogItem = eligibleResources.find((c) => c.id === rObj.resourceId);
+                // POST-AI VALIDATION (DEFENSE IN DEPTH): Must be strictly eligible
+                if (
+                  matchedCatalogItem &&
+                  isResourceEligibleForStudent(matchedCatalogItem, studentContext)
+                ) {
                   recommendedResources.push({
-                    resourceId: matchedCatalogItem.resourceId,
+                    resourceId: matchedCatalogItem.id,
                     title: matchedCatalogItem.title,
                     type: matchedCatalogItem.type,
                     url: matchedCatalogItem.url,
                     relevance: rObj.relevance === "high" ? "high" : "medium",
                     reason: String(rObj.reason || `Targeted practice for ${wt.topic}`),
+                    class: matchedCatalogItem.grade,
+                    subject: matchedCatalogItem.subject,
                   });
                 }
               });
             }
 
-            // Fallback to local matching if AI returned no catalogue matches but resources exist
-            if (recommendedResources.length === 0 && relevantResources.length > 0) {
-              recommendedResources = matchResourcesLocally(wt, relevantResources);
+            // Fallback to deterministic local keyword matching if AI returned no catalogue matches but eligible resources exist
+            if (recommendedResources.length === 0 && eligibleResources.length > 0) {
+              recommendedResources = matchResourcesLocally(wt, eligibleResources);
             }
 
             return {
@@ -321,10 +538,10 @@ Return ONLY a JSON array matching this exact schema:
       }
     }
   } catch (err) {
-    console.warn("[WeakTopicEngine] AI recommendation call failed, using deterministic matching:", err);
+    console.warn("[WeakTopicEngine] AI recommendation call failed, using deterministic matching on eligible pool:", err);
   }
 
-  // Pure Deterministic Fallback (AI failure NEVER breaks report generation)
+  // Pure Deterministic Fallback across ELIGIBLE resources ONLY
   return weakTopics.map((wt) => ({
     topic: wt.topic,
     accuracy: wt.accuracy,
@@ -334,6 +551,6 @@ Return ONLY a JSON array matching this exact schema:
     unansweredCount: wt.unansweredCount,
     diagnosis: `Needs structured practice and concept review in ${wt.topic} (${wt.accuracy}% accuracy).`,
     evidence: wt.incorrectQuestions.map((iq) => `Missed Question ${iq.questionNumber}`),
-    recommendedResources: matchResourcesLocally(wt, relevantResources),
+    recommendedResources: matchResourcesLocally(wt, eligibleResources),
   }));
 }

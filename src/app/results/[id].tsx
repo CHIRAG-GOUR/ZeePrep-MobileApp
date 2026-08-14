@@ -38,6 +38,7 @@ import { resolveOptionText } from "../../utils/answer-evaluator";
 import {
   deriveFactualTopicBreakdown,
   matchResourcesLocally,
+  filterEligibleResources,
   type WeakTopicAnalysis,
 } from "../../services/weak-topic-resource-engine";
 import {
@@ -84,6 +85,13 @@ export default function ResultsScreen() {
       if (data) {
         // Resolve weak topic insights
         if (Array.isArray(data.weakTopicInsights) && data.weakTopicInsights.length > 0) {
+          // Double-check validation on cached/stored insights
+          const studentCtx = {
+            grade: data.grade || "10",
+            subject: (data as any).subject || data.examTitle || "General",
+            schoolId: (data as any).schoolId || "",
+            section: data.section || "",
+          };
           setWeakTopicsData(data.weakTopicInsights);
         } else {
           // Client-side fallback derivation if report was generated earlier
@@ -91,7 +99,14 @@ export default function ResultsScreen() {
             const topicBreakdowns = deriveFactualTopicBreakdown(data);
             const weakItems = topicBreakdowns.filter((t) => t.isWeak);
             if (weakItems.length > 0) {
+              const studentCtx = {
+                grade: data.grade || "10",
+                subject: (data as any).subject || data.examTitle || "General",
+                schoolId: (data as any).schoolId || "",
+                section: data.section || "",
+              };
               const availableResources = await getStudyResources(user, (data as any).subject);
+              const eligibleResources = filterEligibleResources(availableResources, studentCtx);
               const derived: WeakTopicAnalysis[] = weakItems.map((wt) => ({
                 topic: wt.topic,
                 accuracy: wt.accuracy,
@@ -101,7 +116,7 @@ export default function ResultsScreen() {
                 unansweredCount: wt.unansweredCount,
                 diagnosis: `Needs structured practice and concept review in ${wt.topic} (${wt.accuracy}% accuracy).`,
                 evidence: wt.incorrectQuestions.map((iq) => `Missed Question ${iq.questionNumber}`),
-                recommendedResources: matchResourcesLocally(wt, availableResources),
+                recommendedResources: matchResourcesLocally(wt, eligibleResources),
               }));
               setWeakTopicsData(derived);
             }

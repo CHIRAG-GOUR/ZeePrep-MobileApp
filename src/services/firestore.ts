@@ -1184,6 +1184,10 @@ export async function addStudyResource(resourceData: Partial<StudyResource>, upl
       stream: resourceData.stream || "",
       uploadedBy: uploader?.uid || resourceData.uploadedBy || "teacher",
       uploadedByName: uploader?.name || "Faculty Member",
+      schoolId: resourceData.schoolId || (uploader as any)?.schoolId || "",
+      schoolName: resourceData.schoolName || (uploader as any)?.schoolName || "",
+      topic: resourceData.topic || "",
+      chapter: resourceData.chapter || "",
       downloadCount: 0,
       createdAt: new Date().toISOString(),
     };
