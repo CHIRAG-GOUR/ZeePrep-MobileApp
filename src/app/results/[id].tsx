@@ -27,6 +27,7 @@ import {
   ExternalLink,
   AlertTriangle,
   PlayCircle,
+  HelpCircle,
 } from "lucide-react-native";
 
 import {
@@ -337,10 +338,17 @@ export default function ResultsScreen() {
                   </View>
                 ) : (
                   <View style={styles.noResourcesBox}>
-                    <BookOpen size={16} color="#94A3B8" />
-                    <Text style={styles.noResourcesText}>
-                      No teacher resources currently uploaded for this specific topic. Review your textbook notes for {wt.topic}.
-                    </Text>
+                    <View style={styles.noResourcesIconBox}>
+                      <HelpCircle size={18} color="#6366F1" />
+                    </View>
+                    <View style={styles.noResourcesContent}>
+                      <Text style={styles.noResourcesTitle}>
+                        Ask teacher to upload the resource or provide it.
+                      </Text>
+                      <Text style={styles.noResourcesSubtitle}>
+                        This topic ({wt.topic}) is not given or sufficiently explained in current uploaded materials.
+                      </Text>
+                    </View>
                   </View>
                 )}
               </View>
@@ -858,17 +866,35 @@ const styles = StyleSheet.create({
   noResourcesBox: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
     backgroundColor: "#F8FAFC",
-    padding: 10,
-    borderRadius: 10,
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    borderLeftWidth: 3,
+    borderLeftColor: "#6366F1",
+    gap: 10,
   },
-  noResourcesText: {
+  noResourcesIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noResourcesContent: {
     flex: 1,
+  },
+  noResourcesTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#334155",
+  },
+  noResourcesSubtitle: {
     fontSize: 11,
     color: "#64748B",
+    marginTop: 2,
     lineHeight: 15,
   },
   masteryCard: {

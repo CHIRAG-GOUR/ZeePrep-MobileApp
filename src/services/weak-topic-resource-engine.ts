@@ -236,9 +236,10 @@ ${JSON.stringify(resourceCatalog, null, 2)}
 
 INSTRUCTIONS:
 1. For each weak topic, provide a concise, factual diagnosis (1 sentence) and specific evidence based on questions missed.
-2. Match up to 3 most relevant resources from the CATALOGUE OF REAL UPLOADED ZEEPREP RESOURCES.
-3. CRITICAL RULE: You MUST ONLY select resources that exist in the provided catalogue. Use their exact resourceId, title, and type. NEVER invent or fabricate resource IDs or URLs.
-4. If no uploaded resource in the catalogue fits a topic, return an empty "resources" array for that topic.
+2. Match up to 3 most relevant resources from the CATALOGUE OF REAL UPLOADED ZEEPREP RESOURCES that actually cover and explain the missed topic concepts.
+3. CRITICAL RULES:
+   - You MUST ONLY select resources that exist in the provided catalogue. Use their exact resourceId, title, and type. NEVER invent or fabricate resource IDs or URLs.
+   - If a topic is not given in any uploaded content, or is not sufficiently described/explained in the catalogue, return an empty "resources": [] array so the student is prompted to ask their teacher.
 
 Return ONLY a JSON array matching this exact schema:
 [
