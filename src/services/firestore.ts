@@ -30,6 +30,7 @@ import type {
   ClassGrade,
   QuestionLevel,
   UserRole,
+  TeacherReview,
 } from "../types";
 
 // ==========================================
@@ -1566,3 +1567,92 @@ export async function deleteUserAccountPermanently(
     return false;
   }
 }
+
+/**
+ * Permanently saves Teacher Review Annotations (Overall remarks, edited AI insights, topic/question remarks)
+ * to Firestore, device persistent disk storage, and in-memory cache without modifying authoritative exam scores.
+ */
+export async function saveTeacherReviewToReport(
+  reportId: string,
+  review: TeacherReview,
+  teacherUser: User
+): Promise<{ success: boolean; updatedReport?: Report; error?: string }> {
+  if (!teacherUser || (teacherUser.role !== "teacher" && teacherUser.role !== "admin" && teacherUser.role !== "superadmin")) {
+    return { success: false, error: "Unauthorized: Only faculty members and administrators can modify teacher reviews." };
+  }
+
+  if (!reportId) {
+    return { success: false, error: "Invalid report ID." };
+  }
+
+  try {
+    const updatedReview: TeacherReview = {
+      ...review,
+      updatedBy: teacherUser.uid,
+      updatedByName: teacherUser.name || "Faculty Member",
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updatePayload: Record<string, any> = {
+      teacherReview: updatedReview,
+      teacherRemarks: updatedReview.overallRemark || "",
+      updatedAt: serverTimestamp(),
+    };
+
+    // 1. Update primary report document in Firestore
+    const cleanId = String(reportId).trim();
+    const primaryRef = doc(db, "reports", cleanId);
+    await setDoc(primaryRef, updatePayload, { merge: true });
+
+    // 2. Also update examAttempts if doc with same ID exists
+    try {
+      const attemptRef = doc(db, "examAttempts", cleanId);
+      const attemptSnap = await getDoc(attemptRef);
+      if (attemptSnap.exists()) {
+        await setDoc(attemptRef, updatePayload, { merge: true });
+      }
+    } catch (attemptErr) {
+      console.log("[ZeePrep Firestore] Notice updating examAttempt copy:", attemptErr);
+    }
+
+    // 3. Fetch latest report and update local persistent caches
+    let fullReport = await getStudentReport(cleanId, teacherUser.uid);
+    if (!fullReport) {
+      fullReport = localReportCache.get(cleanId) || null;
+    }
+
+    if (fullReport) {
+      fullReport = {
+        ...fullReport,
+        teacherReview: updatedReview,
+        teacherRemarks: updatedReview.overallRemark || "",
+      };
+      localReportCache.set(cleanId, fullReport);
+      if (fullReport.id) localReportCache.set(fullReport.id, fullReport);
+      if (fullReport.examId && fullReport.studentId) {
+        localReportCache.set(`${fullReport.studentId}_${fullReport.examId}`, fullReport);
+      }
+      await persistReportToDisk(fullReport);
+    }
+
+    // 4. Log Audit Event
+    try {
+      await logAuditEvent({
+        action: "TEACHER_REVIEW_SAVED",
+        performedBy: teacherUser.uid,
+        performedByName: teacherUser.name,
+        targetUser: fullReport?.studentId || "",
+        details: `Saved faculty review and annotations for report ${cleanId}`,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (auditErr) {
+      console.log("[ZeePrep Firestore] Notice logging teacher review audit:", auditErr);
+    }
+
+    return { success: true, updatedReport: fullReport || undefined };
+  } catch (err: any) {
+    console.error("[ZeePrep Firestore] Error saving teacher review:", err);
+    return { success: false, error: err?.message || "Failed to save teacher review to Firebase." };
+  }
+}
+

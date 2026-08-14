@@ -6,11 +6,17 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
-import { getStudentReport, getStudyResources } from "../../services/firestore";
-import type { Report } from "../../types";
+import {
+  getStudentReport,
+  getStudyResources,
+  saveTeacherReviewToReport,
+} from "../../services/firestore";
+import type { Report, TeacherReview } from "../../types";
 import {
   Award,
   CheckCircle2,
@@ -26,8 +32,11 @@ import {
   AlertTriangle,
   PlayCircle,
   HelpCircle,
-  TrendingUp,
-  BookOpen,
+  Edit3,
+  Save,
+  MessageSquare,
+  Check,
+  RefreshCw,
 } from "lucide-react-native";
 
 import {
@@ -61,6 +70,23 @@ export default function ResultsScreen() {
   const [selectedResource, setSelectedResource] = useState<ResourceItem | null>(null);
   const [viewerVisible, setViewerVisible] = useState(false);
 
+  // Teacher Remarks & Review State
+  const [overallRemark, setOverallRemark] = useState("");
+  const [topicRemarks, setTopicRemarks] = useState<Record<string, string>>({});
+  const [questionRemarks, setQuestionRemarks] = useState<Record<string, string>>({});
+  const [isEditingAi, setIsEditingAi] = useState(false);
+  const [editedAiWeakTopics, setEditedAiWeakTopics] = useState("");
+  const [editedAiStrongTopics, setEditedAiStrongTopics] = useState("");
+  const [editedAiGaps, setEditedAiGaps] = useState("");
+  const [editedAiAdvice, setEditedAiAdvice] = useState("");
+  const [isAiEditedByTeacher, setIsAiEditedByTeacher] = useState(false);
+
+  // Save State
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
   const isTeacherOrAdmin =
     user?.role === "teacher" || user?.role === "admin" || user?.role === "superadmin";
   const isSuperAdminOrAdmin = user?.role === "superadmin" || user?.role === "admin";
@@ -87,6 +113,21 @@ export default function ResultsScreen() {
       setLoading(false);
 
       if (data) {
+        // Initialize Teacher Review and Remarks if present
+        const tr = data.teacherReview;
+        if (tr) {
+          setOverallRemark(tr.overallRemark || data.teacherRemarks || "");
+          setTopicRemarks(tr.topicRemarks || {});
+          setQuestionRemarks(tr.questionRemarks || {});
+          if (tr.updatedAt) {
+            setLastSavedTime(
+              new Date(tr.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            );
+          }
+        } else if (data.teacherRemarks) {
+          setOverallRemark(data.teacherRemarks);
+        }
+
         // Resolve weak topic insights
         if (Array.isArray(data.weakTopicInsights) && data.weakTopicInsights.length > 0) {
           setWeakTopicsData(data.weakTopicInsights);
@@ -122,15 +163,58 @@ export default function ResultsScreen() {
           }
         }
 
-        // ONLY generate/fetch AI analysis for authorized Teacher/Admin screens
+        // Handle AI Analysis for Teacher / Admin
         if (isTeacherOrAdmin) {
-          if ((data as any).aiInsight) {
-            setAiInsight((data as any).aiInsight);
+          // Check if teacher has previously edited AI insights
+          if (tr?.aiInsights?.editedByTeacher && tr.aiInsights.current) {
+            const currentInsight = tr.aiInsights.current;
+            setAiInsight(currentInsight);
+            setIsAiEditedByTeacher(true);
+            setEditedAiWeakTopics(
+              Array.isArray(currentInsight.weakTopics) ? currentInsight.weakTopics.join(", ") : ""
+            );
+            setEditedAiStrongTopics(
+              Array.isArray(currentInsight.strongTopics) ? currentInsight.strongTopics.join(", ") : ""
+            );
+            setEditedAiGaps(
+              Array.isArray(currentInsight.conceptualGaps) ? currentInsight.conceptualGaps.join("\n") : ""
+            );
+            setEditedAiAdvice(
+              Array.isArray(currentInsight.actionableAdvice) ? currentInsight.actionableAdvice.join("\n") : ""
+            );
+          } else if ((data as any).aiInsight) {
+            const insight = (data as any).aiInsight;
+            setAiInsight(insight);
+            setEditedAiWeakTopics(
+              Array.isArray(insight.weakTopics) ? insight.weakTopics.join(", ") : ""
+            );
+            setEditedAiStrongTopics(
+              Array.isArray(insight.strongTopics) ? insight.strongTopics.join(", ") : ""
+            );
+            setEditedAiGaps(
+              Array.isArray(insight.conceptualGaps) ? insight.conceptualGaps.join("\n") : ""
+            );
+            setEditedAiAdvice(
+              Array.isArray(insight.actionableAdvice) ? insight.actionableAdvice.join("\n") : ""
+            );
           } else {
+            // Generate AI insights once if not already saved
             setAiLoading(true);
             try {
               const insight = await generateTeacherAIReportAnalysis(data);
               setAiInsight(insight);
+              setEditedAiWeakTopics(
+                Array.isArray(insight.weakTopics) ? insight.weakTopics.join(", ") : ""
+              );
+              setEditedAiStrongTopics(
+                Array.isArray(insight.strongTopics) ? insight.strongTopics.join(", ") : ""
+              );
+              setEditedAiGaps(
+                Array.isArray(insight.conceptualGaps) ? insight.conceptualGaps.join("\n") : ""
+              );
+              setEditedAiAdvice(
+                Array.isArray(insight.actionableAdvice) ? insight.actionableAdvice.join("\n") : ""
+              );
             } catch (e) {
               console.warn("Report insight error:", e);
             } finally {
@@ -155,6 +239,85 @@ export default function ResultsScreen() {
       subject: (report as any)?.subject || report?.examTitle || "Study Material",
     });
     setViewerVisible(true);
+  };
+
+  const handleSaveTeacherReview = async () => {
+    if (!report || !user) return;
+    setIsSaving(true);
+    setSaveMessage(null);
+
+    try {
+      // Build structured current AI insights
+      const currentAiStructure: ReportInsightResult = {
+        strongTopics: editedAiStrongTopics
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        weakTopics: editedAiWeakTopics
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        conceptualGaps: editedAiGaps
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        actionableAdvice: editedAiAdvice
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        recommendation: editedAiAdvice.trim() || aiInsight?.recommendation || "Focus on targeted practice for identified weak areas.",
+      };
+
+      const reviewPayload: TeacherReview = {
+        overallRemark: overallRemark.trim(),
+        topicRemarks,
+        questionRemarks,
+        aiInsights: {
+          original: report.teacherReview?.aiInsights?.original || aiInsight || {},
+          current: currentAiStructure,
+          editedByTeacher: true,
+          editedBy: user.uid,
+          editedByName: user.name || "Faculty Member",
+          editedAt: new Date().toISOString(),
+          aiModel: "gemini-2.5-flash",
+        },
+      };
+
+      const res = await saveTeacherReviewToReport(report.id, reviewPayload, user);
+
+      if (res.success) {
+        setIsAiEditedByTeacher(true);
+        setIsEditingAi(false);
+        setAiInsight(currentAiStructure);
+        setHasUnsavedChanges(false);
+        const timeNow = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        setLastSavedTime(timeNow);
+        setSaveMessage({ type: "success", text: `✓ Changes saved permanently (${timeNow})` });
+        if (res.updatedReport) setReport(res.updatedReport);
+      } else {
+        setSaveMessage({ type: "error", text: res.error || "Unable to save changes. Please try again." });
+      }
+    } catch (err: any) {
+      console.error("Save teacher review exception:", err);
+      setSaveMessage({ type: "error", text: err?.message || "Failed to save teacher review to Firebase." });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleBackNavigation = () => {
+    if (hasUnsavedChanges && isFacultyViewActive) {
+      Alert.alert(
+        "Unsaved Changes",
+        "You have modified teacher remarks or AI insights. Do you want to save before leaving?",
+        [
+          { text: "Discard", style: "destructive", onPress: () => router.back() },
+          { text: "Save Now", onPress: () => handleSaveTeacherReview() },
+        ]
+      );
+    } else {
+      router.back();
+    }
   };
 
   if (loading) {
@@ -184,9 +347,10 @@ export default function ResultsScreen() {
   const totalQuestions = report.totalQuestions || 0;
   const correctCount = report.correctAnswers || 0;
   const wrongCount = report.incorrectAnswers || 0;
-  const unansweredCount = (report as any).unansweredCount !== undefined
-    ? (report as any).unansweredCount
-    : Math.max(0, totalQuestions - (correctCount + wrongCount));
+  const unansweredCount =
+    (report as any).unansweredCount !== undefined
+      ? (report as any).unansweredCount
+      : Math.max(0, totalQuestions - (correctCount + wrongCount));
   const attemptedCount = correctCount + wrongCount;
 
   const totalSecs = Math.max(0, report.timeSpentSeconds || 0);
@@ -221,13 +385,17 @@ export default function ResultsScreen() {
 
   const subjectName = (report.subject || (report as any).examSubject || "Academic Assessment").toUpperCase();
   const examTitleName = report.examTitle || "Chapter Assessment";
-  const gradeDisplay = report.grade ? (report.grade.toLowerCase().includes("class") || report.grade.toLowerCase().includes("grade") ? report.grade : `Class ${report.grade}`) : "Class 10";
+  const gradeDisplay = report.grade
+    ? report.grade.toLowerCase().includes("class") || report.grade.toLowerCase().includes("grade")
+      ? report.grade
+      : `Class ${report.grade}`
+    : "Class 10";
 
   return (
     <View style={styles.container}>
       {/* Header Bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.headerBtn} onPress={handleBackNavigation}>
           <ChevronLeft color="#0F172A" size={24} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
@@ -301,13 +469,21 @@ export default function ResultsScreen() {
               <View
                 style={[
                   styles.performancePill,
-                  percentage >= 70 ? styles.pillGood : percentage >= 50 ? styles.pillAverage : styles.pillNeedsWork,
+                  percentage >= 70
+                    ? styles.pillGood
+                    : percentage >= 50
+                    ? styles.pillAverage
+                    : styles.pillNeedsWork,
                 ]}
               >
                 <Text
                   style={[
                     styles.performancePillText,
-                    percentage >= 70 ? styles.pillGoodText : percentage >= 50 ? styles.pillAverageText : styles.pillNeedsWorkText,
+                    percentage >= 70
+                      ? styles.pillGoodText
+                      : percentage >= 50
+                      ? styles.pillAverageText
+                      : styles.pillNeedsWorkText,
                   ]}
                 >
                   {performanceLabel}
@@ -554,12 +730,32 @@ export default function ResultsScreen() {
               </View>
             </View>
 
-            {/* Faculty Diagnostic Analysis Section */}
-            <Text style={styles.sectionTitle}>Faculty Diagnostic Insights</Text>
+            {/* 1. Editable AI Faculty Insights Section */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitleWithoutMargin}>Faculty AI Insights</Text>
+              <TouchableOpacity
+                style={styles.editToggleBtn}
+                onPress={() => {
+                  setIsEditingAi(!isEditingAi);
+                  setHasUnsavedChanges(true);
+                }}
+              >
+                <Edit3 size={14} color="#4F46E5" />
+                <Text style={styles.editToggleText}>
+                  {isEditingAi ? "Done Editing" : "Edit Insights"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.aiDiagnosticCard}>
               <View style={styles.aiHeaderRow}>
                 <Sparkles size={18} color="#4F46E5" />
                 <Text style={styles.aiDiagnosticTitle}>Diagnostic Evaluation</Text>
+                {isAiEditedByTeacher && (
+                  <View style={styles.editedBadge}>
+                    <Text style={styles.editedBadgeText}>Edited by Faculty</Text>
+                  </View>
+                )}
               </View>
 
               {aiLoading ? (
@@ -569,7 +765,63 @@ export default function ResultsScreen() {
                     Evaluating student telemetry...
                   </Text>
                 </View>
+              ) : isEditingAi ? (
+                /* Editable Form Mode */
+                <View style={styles.editableAiContainer}>
+                  <Text style={styles.inputFieldLabel}>WEAK TOPICS (Comma Separated)</Text>
+                  <TextInput
+                    style={styles.fieldInput}
+                    value={editedAiWeakTopics}
+                    onChangeText={(t) => {
+                      setEditedAiWeakTopics(t);
+                      setHasUnsavedChanges(true);
+                    }}
+                    placeholder="e.g. Linear Equations, Coordinate Geometry"
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  <Text style={styles.inputFieldLabel}>STRONG TOPICS (Comma Separated)</Text>
+                  <TextInput
+                    style={styles.fieldInput}
+                    value={editedAiStrongTopics}
+                    onChangeText={(t) => {
+                      setEditedAiStrongTopics(t);
+                      setHasUnsavedChanges(true);
+                    }}
+                    placeholder="e.g. Real Numbers, Polynomials"
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  <Text style={styles.inputFieldLabel}>CONCEPTUAL GAPS (One per line)</Text>
+                  <TextInput
+                    style={[styles.fieldInput, styles.multilineInput]}
+                    value={editedAiGaps}
+                    onChangeText={(t) => {
+                      setEditedAiGaps(t);
+                      setHasUnsavedChanges(true);
+                    }}
+                    multiline
+                    numberOfLines={3}
+                    placeholder="e.g. Difficulty with multi-step equation balancing"
+                    placeholderTextColor="#94A3B8"
+                  />
+
+                  <Text style={styles.inputFieldLabel}>TEACHING RECOMMENDATIONS (One per line)</Text>
+                  <TextInput
+                    style={[styles.fieldInput, styles.multilineInput]}
+                    value={editedAiAdvice}
+                    onChangeText={(t) => {
+                      setEditedAiAdvice(t);
+                      setHasUnsavedChanges(true);
+                    }}
+                    multiline
+                    numberOfLines={3}
+                    placeholder="e.g. Assign 10 worksheet problems on linear equations"
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
               ) : aiInsight ? (
+                /* Display View Mode */
                 <View style={{ gap: 12 }}>
                   {Array.isArray(aiInsight.weakTopics) && aiInsight.weakTopics.length > 0 && (
                     <View style={styles.aiTagSection}>
@@ -629,6 +881,98 @@ export default function ResultsScreen() {
               )}
             </View>
 
+            {/* 2. Overall Teacher Remarks & Observations */}
+            <Text style={styles.sectionTitle}>Teacher Remarks & Academic Observations</Text>
+            <View style={styles.remarksCard}>
+              <View style={styles.remarksHeaderRow}>
+                <MessageSquare size={16} color="#4F46E5" />
+                <Text style={styles.remarksHeaderTitle}>Faculty Assessment Feedback</Text>
+              </View>
+              <TextInput
+                style={styles.remarksTextInput}
+                placeholder="Write professional observations and specific improvement goals for the student..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                numberOfLines={4}
+                value={overallRemark}
+                onChangeText={(text) => {
+                  setOverallRemark(text);
+                  setHasUnsavedChanges(true);
+                }}
+              />
+            </View>
+
+            {/* 3. Topic-Specific Teacher Remarks */}
+            {weakTopicsData.length > 0 && (
+              <View style={{ marginTop: 8 }}>
+                <Text style={styles.sectionTitle}>Topic-Specific Remedial Notes</Text>
+                {weakTopicsData.map((wt, idx) => (
+                  <View key={idx} style={styles.topicRemarkCard}>
+                    <View style={styles.topicRemarkHeader}>
+                      <Text style={styles.topicRemarkTitle}>• {wt.topic}</Text>
+                      <Text style={styles.topicRemarkAcc}>{wt.accuracy}% Accuracy</Text>
+                    </View>
+                    <TextInput
+                      style={styles.topicRemarkInput}
+                      placeholder={`Add specific advice for ${wt.topic} (e.g. Solve 5 practice problems)...`}
+                      placeholderTextColor="#94A3B8"
+                      value={topicRemarks[wt.topic] || ""}
+                      onChangeText={(t) => {
+                        setTopicRemarks((prev) => ({ ...prev, [wt.topic]: t }));
+                        setHasUnsavedChanges(true);
+                      }}
+                    />
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Save Status Banner */}
+            {saveMessage && (
+              <View
+                style={[
+                  styles.saveBanner,
+                  saveMessage.type === "success" ? styles.saveSuccessBanner : styles.saveErrorBanner,
+                ]}
+              >
+                {saveMessage.type === "success" ? (
+                  <Check size={16} color="#059669" />
+                ) : (
+                  <AlertTriangle size={16} color="#DC2626" />
+                )}
+                <Text
+                  style={[
+                    styles.saveBannerText,
+                    saveMessage.type === "success" ? styles.saveSuccessText : styles.saveErrorText,
+                  ]}
+                >
+                  {saveMessage.text}
+                </Text>
+              </View>
+            )}
+
+            {/* Save Changes Action Bar */}
+            <View style={styles.saveActionContainer}>
+              <TouchableOpacity
+                style={[styles.saveReviewBtn, isSaving && { opacity: 0.7 }]}
+                onPress={handleSaveTeacherReview}
+                disabled={isSaving}
+                activeOpacity={0.85}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Save size={18} color="#FFFFFF" />
+                )}
+                <Text style={styles.saveReviewBtnText}>
+                  {isSaving ? "Saving to Firebase..." : "Save Review & Remarks"}
+                </Text>
+              </TouchableOpacity>
+              {lastSavedTime && (
+                <Text style={styles.lastSavedSub}>Last saved: {lastSavedTime}</Text>
+              )}
+            </View>
+
             {/* Complete Itemized Question Analysis */}
             <Text style={styles.sectionTitle}>Question-by-Question Analysis</Text>
             {report.detailedAnalysis && report.detailedAnalysis.length > 0 ? (
@@ -645,10 +989,11 @@ export default function ResultsScreen() {
                     ? "― Unanswered"
                     : resolveOptionText(qItem.studentAnswer, qItem, true);
                   const resolvedCorrect = resolveOptionText(qItem.correctAnswer, qItem, true);
+                  const qKey = qItem.questionId || String(qIdx);
 
                   return (
                     <View
-                      key={qItem.questionId || qIdx}
+                      key={qKey}
                       style={[
                         styles.qCard,
                         isCorrect
@@ -719,6 +1064,23 @@ export default function ResultsScreen() {
                       <Text style={[styles.answerValueText, styles.ansCorrect]}>
                         {resolvedCorrect}
                       </Text>
+
+                      {/* Optional Question-Specific Teacher Remark */}
+                      {!isCorrect && (
+                        <View style={styles.qRemarkBox}>
+                          <Text style={styles.qRemarkLabel}>FACULTY NOTE FOR Q{qIdx + 1}:</Text>
+                          <TextInput
+                            style={styles.qRemarkInput}
+                            placeholder="Add specific question feedback..."
+                            placeholderTextColor="#94A3B8"
+                            value={questionRemarks[qKey] || ""}
+                            onChangeText={(t) => {
+                              setQuestionRemarks((prev) => ({ ...prev, [qKey]: t }));
+                              setHasUnsavedChanges(true);
+                            }}
+                          />
+                        </View>
+                      )}
 
                       {/* Card Footer Metrics */}
                       <View style={styles.qFooterRow}>
@@ -926,24 +1288,18 @@ const styles = StyleSheet.create({
   },
   pillGoodText: {
     color: "#059669",
-    fontWeight: "800",
-    fontSize: 13,
   },
   pillAverage: {
     backgroundColor: "#FEF3C7",
   },
   pillAverageText: {
     color: "#D97706",
-    fontWeight: "800",
-    fontSize: 13,
   },
   pillNeedsWork: {
     backgroundColor: "#FEF2F2",
   },
   pillNeedsWorkText: {
     color: "#DC2626",
-    fontWeight: "800",
-    fontSize: 13,
   },
 
   cardSection: {
@@ -1237,6 +1593,33 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 4,
   },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  sectionTitleWithoutMargin: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  editToggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  editToggleText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
+
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1307,6 +1690,43 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#0F172A",
   },
+  editedBadge: {
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: "auto",
+  },
+  editedBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
+  editableAiContainer: {
+    gap: 12,
+  },
+  inputFieldLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#64748B",
+    letterSpacing: 0.5,
+  },
+  fieldInput: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: "#0F172A",
+    fontWeight: "500",
+  },
+  multilineInput: {
+    minHeight: 60,
+    textAlignVertical: "top",
+  },
+
   aiTagSection: {
     marginTop: 4,
   },
@@ -1363,6 +1783,135 @@ const styles = StyleSheet.create({
     color: "#92400E",
     flex: 1,
     lineHeight: 18,
+  },
+
+  remarksCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 8,
+  },
+  remarksHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  remarksHeaderTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  remarksTextInput: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 13,
+    color: "#0F172A",
+    minHeight: 85,
+    textAlignVertical: "top",
+    lineHeight: 18,
+  },
+
+  topicRemarkCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 8,
+  },
+  topicRemarkHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  topicRemarkTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  topicRemarkAcc: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#D97706",
+  },
+  topicRemarkInput: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 12,
+    color: "#0F172A",
+  },
+
+  saveBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  saveSuccessBanner: {
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
+  saveErrorBanner: {
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  saveBannerText: {
+    fontSize: 12,
+    fontWeight: "600",
+    flex: 1,
+  },
+  saveSuccessText: {
+    color: "#065F46",
+  },
+  saveErrorText: {
+    color: "#991B1B",
+  },
+
+  saveActionContainer: {
+    alignItems: "center",
+    marginVertical: 12,
+    gap: 6,
+  },
+  saveReviewBtn: {
+    backgroundColor: "#059669",
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    width: "100%",
+    shadowColor: "#059669",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  saveReviewBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  lastSavedSub: {
+    fontSize: 11,
+    color: "#94A3B8",
+    fontWeight: "500",
   },
 
   questionStack: {
@@ -1458,6 +2007,30 @@ const styles = StyleSheet.create({
   },
   ansMuted: {
     color: "#94A3B8",
+  },
+  qRemarkBox: {
+    backgroundColor: "#FFFBEB",
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  qRemarkLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#92400E",
+    marginBottom: 4,
+  },
+  qRemarkInput: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontSize: 12,
+    color: "#0F172A",
   },
   qFooterRow: {
     flexDirection: "row",

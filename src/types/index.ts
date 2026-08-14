@@ -176,7 +176,27 @@ export interface Report {
   weakTopicInsights?: any[];
   aiAnalysisText?: string;
   teacherRemarks?: string;
+  teacherReview?: TeacherReview;
   createdAt?: any;
+}
+
+export interface TeacherReview {
+  overallRemark?: string;
+  aiInsights?: {
+    original?: any;
+    current?: any;
+    editedByTeacher?: boolean;
+    editedBy?: string;
+    editedByName?: string;
+    editedAt?: string;
+    aiGeneratedAt?: string;
+    aiModel?: string;
+  };
+  topicRemarks?: Record<string, string>;
+  questionRemarks?: Record<string, string>;
+  updatedBy?: string;
+  updatedByName?: string;
+  updatedAt?: string;
 }
 
 export type ResourceType = "pdf" | "docx" | "doc" | "word" | "pptx" | "excel" | "txt" | "text" | "image" | "video" | "audio" | "link";

@@ -93,6 +93,17 @@
 - **SuperAdmin & Admin View Mode Toggle**:
   - Seamless toggle between `Student View` and `Teacher / Detailed View` on the same authoritative report data.
 
-### 15. Native Build & Git Deployment Verification
+### 15. Teacher Remarks, Editable AI Insights, and Permanent Firebase Persistence (`src/services/firestore.ts`, `src/app/results/[id].tsx`)
+- **Teacher Review & Annotation Layer (`TeacherReview` Model)**:
+  - `overallRemark`: Multi-line academic observations and remedial goals for the student.
+  - `topicRemarks`: Dictionary of topic-specific remedial notes tied directly to identified weak areas.
+  - `questionRemarks`: Question-level feedback for incorrect or unanswered questions.
+  - `aiInsights`: Retains both `original` Gemini output and `current` teacher-edited structure (`editedByTeacher: true`, `editedBy`, `editedByName`, `editedAt`).
+- **AI Overwrite Protection**: Once a teacher modifies and saves AI insights, future report openings immediately load the teacher's persisted version and prevent Gemini from overwriting faculty work.
+- **Immutable Core Assessment Calculations**: Authoritative scores, percentages, marks, question answers, and duration remain 100% immutable and strictly governed by `report-engine.ts`.
+- **Permanent Multi-Tier Persistence (`saveTeacherReviewToReport`)**: Persists modifications atomically to Firestore (`reports` & `examAttempts`), disk storage (`SecureStore`), and in-memory cache with audit event logging.
+- **Unsaved Changes Warning**: Alerts teachers if they attempt to exit the report screen with unsaved remarks.
+
+### 16. Native Build & Git Deployment Verification
 - **TypeScript Check**: `npx tsc --noEmit` -> **0 errors**.
 - **Git Repository**: Pushed commits to `https://github.com/CHIRAG-GOUR/ZeePrep-MobileApp.git` (`master` branch).
