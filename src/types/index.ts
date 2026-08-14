@@ -166,9 +166,14 @@ export interface Report {
     timeSpentSeconds: number;
   };
   mostTimeSpentTopic?: string;
+  subject?: string;
+  schoolId?: string;
+  schoolName?: string;
+  teacherId?: string;
   aiInsight?: any;
   strongTopics?: string[];
   weakTopics?: string[];
+  weakTopicInsights?: any[];
   aiAnalysisText?: string;
   teacherRemarks?: string;
   createdAt?: any;

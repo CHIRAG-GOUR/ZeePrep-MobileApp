@@ -640,6 +640,8 @@ export function cacheReportLocally(report: Report) {
   }
 }
 
+import { matchWeakTopicsWithZeePrepResources } from "./weak-topic-resource-engine";
+
 export async function submitStudentExamAttempt(
   exam: Exam,
   questions: Question[],
@@ -652,7 +654,7 @@ export async function submitStudentExamAttempt(
   const prevAttempts = await getStudentExamAttempts(exam.id, user.uid);
   const attemptNum = prevAttempts.length + 1;
 
-  // Single authoritative report engine calculation
+  // 1. Single authoritative report engine calculation
   const { attempt, report } = calculateExamReport(
     exam,
     questions,
@@ -662,7 +664,18 @@ export async function submitStudentExamAttempt(
     attemptNum
   );
 
-  // Instantly cache locally for zero-latency retrieval
+  // 2. Fetch real ZeePrep study resources & match weak topics (Zero failure contract)
+  try {
+    const availableResources = await getStudyResources(user, exam.subject);
+    const weakTopicInsights = await matchWeakTopicsWithZeePrepResources(report, availableResources);
+    report.weakTopicInsights = weakTopicInsights;
+    report.weakTopics = weakTopicInsights.map((w) => w.topic);
+    (attempt as any).weakTopicInsights = weakTopicInsights;
+  } catch (resourceErr) {
+    console.warn("[ZeePrep] Notice deriving weak topic resources (preserving report):", resourceErr);
+  }
+
+  // 3. Instantly cache locally for zero-latency retrieval
   cacheReportLocally(report);
 
   const enrichedAttempt: any = {
@@ -676,21 +689,26 @@ export async function submitStudentExamAttempt(
     unattempted: report.unattempted,
     timeSpentSeconds: report.timeSpentSeconds,
     accuracy: report.accuracy,
-    board: user.board,
-    grade: user.grade,
-    section: user.section,
-    stream: user.stream,
+    board: user.board || exam.board || "CBSE",
+    grade: user.grade || exam.grade || "10",
+    section: user.section || exam.section || "A",
+    stream: user.stream || exam.stream || "Science",
     subject: exam.subject || "",
+    schoolId: (user as any).schoolId || (exam as any).schoolId || "",
+    schoolName: (user as any).schoolName || "",
+    teacherId: (exam as any).teacherId || (exam as any).createdBy || "",
     detailedAnalysis: report.detailedAnalysis,
     mostTimeSpentQuestion: report.mostTimeSpentQuestion,
     mostTimeSpentTopic: report.mostTimeSpentTopic,
+    weakTopicInsights: report.weakTopicInsights || [],
+    weakTopics: report.weakTopics || [],
   };
 
   try {
     await setDoc(doc(db, "examAttempts", attempt.id), enrichedAttempt);
     await setDoc(doc(db, "reports", report.id), report);
     await clearExamDraftLocally(exam.id, user.uid);
-    console.log("[ZeePrep] Report saved to Firestore successfully with ID:", report.id);
+    console.log("[ZeePrep] Report saved to Firestore successfully with ID:", report.id, "weakTopicsCount:", report.weakTopicInsights?.length || 0);
   } catch (err) {
     console.error("[ZeePrep] Firestore save notice (offline fallback active):", err);
   }
@@ -780,10 +798,24 @@ function mapDocumentToReport(docSnap: any): Report {
     d.subject ||
     "General";
 
+  const weakTopicInsights = Array.isArray(d.weakTopicInsights)
+    ? d.weakTopicInsights
+    : Array.isArray(d.weakTopicsData)
+    ? d.weakTopicsData
+    : [];
+
+  const weakTopics = Array.isArray(d.weakTopics)
+    ? d.weakTopics
+    : weakTopicInsights.map((w: any) => w.topic || String(w));
+
   return {
     id,
     examId: d.examId || d.testId || "",
     examTitle: d.examTitle || d.title || d.testTitle || "Assessment Report",
+    subject: d.subject || d.examSubject || "",
+    schoolId: d.schoolId || "",
+    schoolName: d.schoolName || "",
+    teacherId: d.teacherId || "",
     studentId: d.studentId || d.userId || d.uid || "",
     studentName: d.studentName || d.userName || "Student",
     studentEmail: d.studentEmail || d.email || "",
@@ -806,6 +838,9 @@ function mapDocumentToReport(docSnap: any): Report {
     detailedAnalysis,
     mostTimeSpentQuestion,
     mostTimeSpentTopic,
+    weakTopicInsights,
+    weakTopics,
+    strongTopics: Array.isArray(d.strongTopics) ? d.strongTopics : [],
     aiInsight: d.aiInsight,
     teacherRemarks: d.teacherRemarks || d.overallRemarks || d.teacherNotes || "",
     createdAt: d.createdAt || d.submittedAt || d.startedAt || new Date().toISOString(),

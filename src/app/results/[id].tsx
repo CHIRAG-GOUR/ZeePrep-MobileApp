@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
-import { getStudentReport } from "../../services/firestore";
+import { getStudentReport, getStudyResources } from "../../services/firestore";
 import type { Report } from "../../types";
 import {
   Award,
@@ -21,6 +21,12 @@ import {
   Home,
   Sparkles,
   Lightbulb,
+  BookOpen,
+  FileText,
+  Video,
+  ExternalLink,
+  AlertTriangle,
+  PlayCircle,
 } from "lucide-react-native";
 
 import {
@@ -28,6 +34,15 @@ import {
   type ReportInsightResult,
 } from "../../services/ai";
 import { resolveOptionText } from "../../utils/answer-evaluator";
+import {
+  deriveFactualTopicBreakdown,
+  matchResourcesLocally,
+  type WeakTopicAnalysis,
+} from "../../services/weak-topic-resource-engine";
+import {
+  ResourceViewerModal,
+  type ResourceItem,
+} from "../../components/ResourceViewerModal";
 
 export default function ResultsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -38,6 +53,11 @@ export default function ResultsScreen() {
   const [aiInsight, setAiInsight] = useState<ReportInsightResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Weak topic resources state
+  const [weakTopicsData, setWeakTopicsData] = useState<WeakTopicAnalysis[]>([]);
+  const [selectedResource, setSelectedResource] = useState<ResourceItem | null>(null);
+  const [viewerVisible, setViewerVisible] = useState(false);
 
   const isTeacherOrAdmin =
     user?.role === "teacher" || user?.role === "admin" || user?.role === "superadmin";
@@ -60,19 +80,49 @@ export default function ResultsScreen() {
       setReport(data);
       setLoading(false);
 
-      // Requirement 8: ONLY generate/fetch AI analysis for authorized Teacher/Admin screens
-      if (data && isTeacherOrAdmin) {
-        if ((data as any).aiInsight) {
-          setAiInsight((data as any).aiInsight);
+      if (data) {
+        // Resolve weak topic insights
+        if (Array.isArray(data.weakTopicInsights) && data.weakTopicInsights.length > 0) {
+          setWeakTopicsData(data.weakTopicInsights);
         } else {
-          setAiLoading(true);
+          // Client-side fallback derivation if report was generated earlier
           try {
-            const insight = await generateTeacherAIReportAnalysis(data);
-            setAiInsight(insight);
-          } catch (e) {
-            console.warn("Report insight error:", e);
-          } finally {
-            setAiLoading(false);
+            const topicBreakdowns = deriveFactualTopicBreakdown(data);
+            const weakItems = topicBreakdowns.filter((t) => t.isWeak);
+            if (weakItems.length > 0) {
+              const availableResources = await getStudyResources(user, (data as any).subject);
+              const derived: WeakTopicAnalysis[] = weakItems.map((wt) => ({
+                topic: wt.topic,
+                accuracy: wt.accuracy,
+                totalQuestions: wt.totalQuestions,
+                correctCount: wt.correctCount,
+                wrongCount: wt.wrongCount,
+                unansweredCount: wt.unansweredCount,
+                diagnosis: `Needs structured practice and concept review in ${wt.topic} (${wt.accuracy}% accuracy).`,
+                evidence: wt.incorrectQuestions.map((iq) => `Missed Question ${iq.questionNumber}`),
+                recommendedResources: matchResourcesLocally(wt, availableResources),
+              }));
+              setWeakTopicsData(derived);
+            }
+          } catch (deriveErr) {
+            console.warn("[ZeePrep Results] Notice deriving local weak topics:", deriveErr);
+          }
+        }
+
+        // ONLY generate/fetch AI analysis for authorized Teacher/Admin screens
+        if (isTeacherOrAdmin) {
+          if ((data as any).aiInsight) {
+            setAiInsight((data as any).aiInsight);
+          } else {
+            setAiLoading(true);
+            try {
+              const insight = await generateTeacherAIReportAnalysis(data);
+              setAiInsight(insight);
+            } catch (e) {
+              console.warn("Report insight error:", e);
+            } finally {
+              setAiLoading(false);
+            }
           }
         }
       }
@@ -80,6 +130,19 @@ export default function ResultsScreen() {
 
     loadReport();
   }, [id, user, isTeacherOrAdmin]);
+
+  const handleOpenResource = (res: any) => {
+    setSelectedResource({
+      id: res.resourceId || res.id,
+      title: res.title,
+      url: res.url,
+      type: res.type || "pdf",
+      format: res.type || "pdf",
+      displayType: (res.type || "pdf").toUpperCase(),
+      subject: (report as any)?.subject || report?.examTitle || "Study Material",
+    });
+    setViewerVisible(true);
+  };
 
   if (loading) {
     return (
@@ -175,6 +238,125 @@ export default function ResultsScreen() {
             </Text>
           </View>
         </View>
+
+        {/* AI Suggested Resources for Weak Topics */}
+        <View style={styles.sectionHeaderRow}>
+          <Sparkles size={18} color="#6366F1" />
+          <Text style={styles.sectionTitleWithoutMargin}>Identified Weak Areas & Recommended Resources</Text>
+        </View>
+
+        {weakTopicsData.length > 0 ? (
+          <View style={styles.weakTopicsContainer}>
+            {weakTopicsData.map((wt, wtIdx) => (
+              <View key={wtIdx} style={styles.weakTopicCard}>
+                <View style={styles.weakTopicHeader}>
+                  <View style={styles.weakTopicTitleCol}>
+                    <Text style={styles.weakTopicTitle}>{wt.topic}</Text>
+                    <Text style={styles.weakTopicStats}>
+                      {wt.correctCount} / {wt.totalQuestions} Correct • Accuracy: {wt.accuracy}%
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.accuracyPill,
+                      { backgroundColor: wt.accuracy < 40 ? "#FEF2F2" : "#FFFBEB" },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.accuracyPillText,
+                        { color: wt.accuracy < 40 ? "#DC2626" : "#D97706" },
+                      ]}
+                    >
+                      {wt.accuracy}%
+                    </Text>
+                  </View>
+                </View>
+
+                {wt.diagnosis ? (
+                  <View style={styles.diagnosisBox}>
+                    <AlertTriangle size={14} color="#D97706" />
+                    <Text style={styles.diagnosisText}>{wt.diagnosis}</Text>
+                  </View>
+                ) : null}
+
+                {/* Recommended Real ZeePrep Resources */}
+                <Text style={styles.resourceSectionLabel}>RECOMMENDED STUDY MATERIAL</Text>
+
+                {wt.recommendedResources && wt.recommendedResources.length > 0 ? (
+                  <View style={styles.resourcesStack}>
+                    {wt.recommendedResources.map((res, rIdx) => {
+                      const resType = (res.type || "pdf").toLowerCase();
+                      const isVideo = resType.includes("video") || (res.url && (res.url.includes("youtube") || res.url.includes("youtu.be")));
+                      return (
+                        <TouchableOpacity
+                          key={rIdx}
+                          style={styles.resourceCard}
+                          onPress={() => handleOpenResource(res)}
+                          activeOpacity={0.85}
+                        >
+                          <View style={styles.resourceIconBox}>
+                            {isVideo ? (
+                              <Video size={18} color="#6366F1" />
+                            ) : (
+                              <FileText size={18} color="#6366F1" />
+                            )}
+                          </View>
+
+                          <View style={styles.resourceInfo}>
+                            <View style={styles.resourceBadgeRow}>
+                              <View style={styles.resourceTypeBadge}>
+                                <Text style={styles.resourceTypeBadgeText}>
+                                  {resType.toUpperCase()}
+                                </Text>
+                              </View>
+                              {res.relevance === "high" && (
+                                <View style={styles.highRelevanceBadge}>
+                                  <Text style={styles.highRelevanceText}>TOP MATCH</Text>
+                                </View>
+                              )}
+                            </View>
+
+                            <Text style={styles.resourceTitle} numberOfLines={2}>
+                              {res.title}
+                            </Text>
+
+                            {res.reason ? (
+                              <Text style={styles.resourceReason} numberOfLines={2}>
+                                {res.reason}
+                              </Text>
+                            ) : null}
+                          </View>
+
+                          <View style={styles.resourceActionBtn}>
+                            <PlayCircle size={20} color="#4F46E5" />
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View style={styles.noResourcesBox}>
+                    <BookOpen size={16} color="#94A3B8" />
+                    <Text style={styles.noResourcesText}>
+                      No teacher resources currently uploaded for this specific topic. Review your textbook notes for {wt.topic}.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.masteryCard}>
+            <CheckCircle2 size={24} color="#10B981" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.masteryTitle}>Strong Conceptual Mastery</Text>
+              <Text style={styles.masterySubtitle}>
+                No critical weak areas were identified on this assessment. Keep up the outstanding work!
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Factual Question Analysis (100% Responsive Vertical Stack) */}
         <Text style={styles.sectionTitle}>Question Analysis</Text>
@@ -371,6 +553,13 @@ export default function ResultsScreen() {
           <Text style={styles.homeBtnText}>Return to Dashboard</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Resource Viewer Modal for In-App Preview */}
+      <ResourceViewerModal
+        visible={viewerVisible}
+        onClose={() => setViewerVisible(false)}
+        resource={selectedResource}
+      />
     </View>
   );
 }
@@ -513,6 +702,196 @@ const styles = StyleSheet.create({
     color: "#0F172A",
     marginBottom: 14,
     marginTop: 8,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 14,
+  },
+  sectionTitleWithoutMargin: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0F172A",
+    flex: 1,
+  },
+  weakTopicsContainer: {
+    flexDirection: "column",
+    gap: 14,
+    marginBottom: 24,
+  },
+  weakTopicCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  weakTopicHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  weakTopicTitleCol: {
+    flex: 1,
+    marginRight: 10,
+  },
+  weakTopicTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  weakTopicStats: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
+    fontWeight: "500",
+  },
+  accuracyPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  accuracyPillText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  diagnosisBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "#FFFBEB",
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  diagnosisText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#92400E",
+    lineHeight: 17,
+  },
+  resourceSectionLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#6366F1",
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+  resourcesStack: {
+    gap: 8,
+  },
+  resourceCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  resourceIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  resourceInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  resourceBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
+  resourceTypeBadge: {
+    backgroundColor: "#E0E7FF",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  resourceTypeBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#4338CA",
+  },
+  highRelevanceBadge: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  highRelevanceText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#15803D",
+  },
+  resourceTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1E293B",
+  },
+  resourceReason: {
+    fontSize: 11,
+    color: "#64748B",
+    marginTop: 2,
+  },
+  resourceActionBtn: {
+    padding: 4,
+  },
+  noResourcesBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#F8FAFC",
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  noResourcesText: {
+    flex: 1,
+    fontSize: 11,
+    color: "#64748B",
+    lineHeight: 15,
+  },
+  masteryCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#ECFDF5",
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+    marginBottom: 24,
+  },
+  masteryTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#065F46",
+  },
+  masterySubtitle: {
+    fontSize: 12,
+    color: "#047857",
+    marginTop: 2,
+    lineHeight: 16,
   },
   statsGrid: {
     flexDirection: "row",

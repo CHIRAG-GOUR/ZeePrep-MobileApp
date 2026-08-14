@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { getPlatformMetrics, getAllStudentReports } from "../../services/firestore";
 import type { Report } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
@@ -45,9 +46,11 @@ export default function SuperAdminAnalyticsScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchAnalytics();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);

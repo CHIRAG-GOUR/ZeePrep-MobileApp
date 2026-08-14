@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   TextInput,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
 import { getTeacherReports } from "../../services/firestore";
 import type { Report } from "../../types";
@@ -39,9 +39,11 @@ export default function TeacherReportsScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchReports();
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchReports();
+    }, [user])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);

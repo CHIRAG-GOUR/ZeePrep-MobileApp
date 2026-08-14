@@ -55,24 +55,17 @@
 - **ProGuard / R8 Bytecode Obfuscation**: Enabled minification and resource shrinking in Gradle release builds.
 - **Hermes Bytecode Compilation**: Pre-compiles JavaScript source into Hermes binary bytecode (`.hbc`).
 
-### 10. Native Build & Git Deployment Verification
+### 10. Teacher & Admin Real-Time Report Visibility Engine
+- **Lifecycle Focus Refetch**: Integrated `useFocusEffect` and `useCallback` across `src/app/(teacher)/reports.tsx`, `src/app/(teacher)/submissions.tsx`, `src/app/(admin)/reports.tsx`, and `src/app/(superadmin)/analytics.tsx`.
+- **Zero Restart Requirement**: Newly submitted student reports populate immediately when a Teacher or Admin opens or returns to the Reports screen without needing to reinstall, log out, or restart the app.
+- **Interactive Search & Scoped Routing**: Added real-time search filtering across student names, exam titles, grades, and subjects, with seamless navigation to `/results/${report.id}`.
+
+### 11. AI Suggested Resources for Weak Topics Architecture (`src/services/weak-topic-resource-engine.ts`)
+- **Deterministic Weak Topic Derivation**: Factual weakness calculation based on question-level telemetry (`deriveFactualTopicBreakdown` with threshold `accuracy < 60%`).
+- **Grounded AI Matching with Gemini 2.5 Flash**: Evaluates student mistakes against actual uploaded ZeePrep resources from the `study_resources` collection. Strict negative prompt constraints prevent fabrication or hallucination of fake resource IDs or URLs.
+- **Zero-Failure Submission Contract**: Robust fallback to deterministic local keyword/topic matching if Gemini API or network is unavailable, ensuring exam report generation never fails.
+- **In-App Resource Viewer (`ResourceViewerModal`)**: Interactive study resource cards in the Student Report screen allow students to instantly preview PDFs, video lectures, YouTube content, and documents directly from their report.
+
+### 12. Native Build & Git Deployment Verification
 - **TypeScript Check**: `npx tsc --noEmit` -> **0 errors**.
 - **Git Repository**: Pushed commits to `https://github.com/CHIRAG-GOUR/ZeePrep-MobileApp.git` (`master` branch).
-- **Release APK**: Built and installed cleanly via `npx expo run:android --variant release`.
-
----
-
-## Key Project File Map
-- **Authoritative Report Engine**: [report-engine.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/services/report-engine.ts)
-- **Canonical Answer Evaluator**: [answer-evaluator.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/utils/answer-evaluator.ts)
-- **Question Normalizer**: [question-normalizer.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/utils/question-normalizer.ts)
-- **Safe Number Utils**: [number-utils.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/utils/number-utils.ts)
-- **Exam Engine Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/exam/%5Bid%5D.tsx)
-- **Exam Scorecard & Results Screen**: [id.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/results/%5Bid%5D.tsx)
-- **Teacher Question Bank (1-100 Generator)**: [question-bank.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/question-bank.tsx)
-- **Teacher Reports Screen**: [reports.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/reports.tsx)
-- **Teacher Submissions Screen**: [submissions.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/submissions.tsx)
-- **Teacher Exam Builder**: [exam-builder.tsx](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/app/(teacher)/exam-builder.tsx)
-- **Firestore Service**: [firestore.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/services/firestore.ts)
-- **AI Service**: [ai.ts](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/src/services/ai.ts)
-- **Release APK**: [Zee Prep.apk](file:///E:/1.%20Skillizee/Zee%20Prep%20-%20Mobile%20App/Zee%20Prep.apk)
