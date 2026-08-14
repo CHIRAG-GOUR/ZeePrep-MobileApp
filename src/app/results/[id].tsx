@@ -63,6 +63,10 @@ export default function ResultsScreen() {
 
   const isTeacherOrAdmin =
     user?.role === "teacher" || user?.role === "admin" || user?.role === "superadmin";
+  const isSuperAdminOrAdmin = user?.role === "superadmin" || user?.role === "admin";
+  const [presentationMode, setPresentationMode] = useState<"student" | "faculty">(
+    user?.role === "student" ? "student" : "faculty"
+  );
 
   useEffect(() => {
     async function loadReport() {
@@ -85,13 +89,6 @@ export default function ResultsScreen() {
       if (data) {
         // Resolve weak topic insights
         if (Array.isArray(data.weakTopicInsights) && data.weakTopicInsights.length > 0) {
-          // Double-check validation on cached/stored insights
-          const studentCtx = {
-            grade: data.grade || "10",
-            subject: (data as any).subject || data.examTitle || "General",
-            schoolId: (data as any).schoolId || "",
-            section: data.section || "",
-          };
           setWeakTopicsData(data.weakTopicInsights);
         } else {
           // Client-side fallback derivation if report was generated earlier
@@ -164,7 +161,7 @@ export default function ResultsScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4F46E5" />
-        <Text style={styles.loadingText}>Generating Performance Report...</Text>
+        <Text style={styles.loadingText}>Loading Assessment Report...</Text>
       </View>
     );
   }
@@ -183,19 +180,100 @@ export default function ResultsScreen() {
 
   const mins = Math.floor((report.timeSpentSeconds || 0) / 60);
   const secs = (report.timeSpentSeconds || 0) % 60;
+  const isFacultyViewActive = isTeacherOrAdmin && presentationMode === "faculty";
 
   return (
     <View style={styles.container}>
       {/* Header Bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerBtn} onPress={() => router.replace("/(tabs)")}>
+        <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
           <ChevronLeft color="#0F172A" size={24} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Examination Scorecard</Text>
+        <Text style={styles.headerTitle}>
+          {isFacultyViewActive ? "Faculty Detailed Report" : "Examination Scorecard"}
+        </Text>
         <View style={{ width: 24 }} />
       </View>
 
+      {/* SuperAdmin / Admin View Mode Switcher */}
+      {isSuperAdminOrAdmin && (
+        <View style={styles.presentationToggleRow}>
+          <TouchableOpacity
+            style={[
+              styles.presentationTab,
+              presentationMode === "student" && styles.presentationTabActive,
+            ]}
+            onPress={() => setPresentationMode("student")}
+            activeOpacity={0.85}
+          >
+            <Text
+              style={[
+                styles.presentationTabText,
+                presentationMode === "student" && styles.presentationTabTextActive,
+              ]}
+            >
+              Student View
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.presentationTab,
+              presentationMode === "faculty" && styles.presentationTabActive,
+            ]}
+            onPress={() => setPresentationMode("faculty")}
+            activeOpacity={0.85}
+          >
+            <Text
+              style={[
+                styles.presentationTabText,
+                presentationMode === "faculty" && styles.presentationTabTextActive,
+              ]}
+            >
+              Teacher / Detailed View
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Student Profile Card for Teacher / Admin Detailed Presentation */}
+        {isFacultyViewActive && (
+          <View style={styles.studentInfoCard}>
+            <View style={styles.studentInfoHeaderRow}>
+              <View style={styles.studentAvatar}>
+                <Text style={styles.studentAvatarText}>
+                  {(report.studentName || "S").charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.studentInfoName}>{report.studentName || "Student"}</Text>
+                <Text style={styles.studentInfoSub}>
+                  {report.studentEmail || "Enrolled Student"}
+                </Text>
+              </View>
+              <View style={styles.attemptPill}>
+                <Text style={styles.attemptPillText}>Attempt #{report.attemptNumber || 1}</Text>
+              </View>
+            </View>
+
+            <View style={styles.studentMetaRow}>
+              <View style={styles.studentMetaItem}>
+                <Text style={styles.studentMetaLabel}>Class / Grade</Text>
+                <Text style={styles.studentMetaVal}>{report.grade || "Grade 10"}</Text>
+              </View>
+              <View style={styles.studentMetaItem}>
+                <Text style={styles.studentMetaLabel}>Section</Text>
+                <Text style={styles.studentMetaVal}>{report.section || "A"}</Text>
+              </View>
+              <View style={styles.studentMetaItem}>
+                <Text style={styles.studentMetaLabel}>Subject</Text>
+                <Text style={styles.studentMetaVal}>{report.subject || "General"}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Score Hero Card */}
         <View style={[styles.heroCard, report.passed ? styles.heroPassed : styles.heroFailed]}>
           <View style={styles.passBadge}>
@@ -488,7 +566,7 @@ export default function ResultsScreen() {
         )}
 
         {/* Teacher/Admin Only Diagnostic Section (Requirement 7) */}
-        {isTeacherOrAdmin ? (
+        {isFacultyViewActive ? (
           <>
             <Text style={styles.sectionTitle}>Faculty Diagnostic Insights</Text>
             <View style={styles.aiDiagnosticCard}>
@@ -642,6 +720,115 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "800",
     color: "#0F172A",
+  },
+  presentationToggleRow: {
+    flexDirection: "row",
+    backgroundColor: "#F1F5F9",
+    padding: 4,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 12,
+  },
+  presentationTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  presentationTabActive: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  presentationTabText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  presentationTabTextActive: {
+    fontWeight: "800",
+    color: "#4F46E5",
+  },
+  studentInfoCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  studentInfoHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 12,
+  },
+  studentAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#EEF2FF",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  studentAvatarText: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#4F46E5",
+  },
+  studentInfoName: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  studentInfoSub: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
+  },
+  attemptPill: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  attemptPillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#475569",
+  },
+  studentMetaRow: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    paddingTop: 10,
+    justifyContent: "space-between",
+  },
+  studentMetaItem: {
+    flex: 1,
+  },
+  studentMetaLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#94A3B8",
+    textTransform: "uppercase",
+  },
+  studentMetaVal: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginTop: 2,
   },
   scrollContent: {
     padding: 16,

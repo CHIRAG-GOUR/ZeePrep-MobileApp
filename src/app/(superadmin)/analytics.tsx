@@ -6,16 +6,18 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { getPlatformMetrics, getAllStudentReports } from "../../services/firestore";
 import type { Report } from "../../types";
 import { ZEEPREP_THEME } from "../../constants/theme";
-import { TrendingUp, Award, Users, FileCheck, Activity, CheckCircle2, Shield } from "lucide-react-native";
+import { TrendingUp, Award, Users, FileCheck, Activity, CheckCircle2, Shield, ChevronRight, FileBarChart } from "lucide-react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 
 export default function SuperAdminAnalyticsScreen() {
+  const router = useRouter();
   const [metrics, setMetrics] = useState({
     totalUsers: 164,
     studentCount: 142,
@@ -134,6 +136,36 @@ export default function SuperAdminAnalyticsScreen() {
           <Text style={styles.val}>{metrics.totalExams} Exams</Text>
         </View>
       </View>
+
+      {/* Recent Assessment Reports */}
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>Recent Examination Reports ({reports.length})</Text>
+      </View>
+
+      {reports.slice(0, 5).map((r) => (
+        <TouchableOpacity
+          key={r.id}
+          style={styles.recentReportCard}
+          onPress={() => router.push(`/results/${r.id}` as any)}
+          activeOpacity={0.85}
+        >
+          <View style={styles.recentReportHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.recentReportStudent}>{r.studentName || "Student"}</Text>
+              <Text style={styles.recentReportExam}>{r.examTitle || "ZeePrep Assessment"}</Text>
+            </View>
+            <View style={styles.recentReportScorePill}>
+              <Text style={styles.recentReportScoreText}>{r.percentage}%</Text>
+            </View>
+          </View>
+          <View style={styles.recentReportFooter}>
+            <Text style={styles.recentReportMeta}>
+              Grade {r.grade || "10"} • {r.subject || "General"} • Attempt #{r.attemptNumber || 1}
+            </Text>
+            <ChevronRight size={14} color="#6366F1" />
+          </View>
+        </TouchableOpacity>
+      ))}
       </ScrollView>
     </View>
   );
@@ -251,5 +283,59 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
     color: "#059669",
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  recentReportCard: {
+    backgroundColor: ZEEPREP_THEME.colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: ZEEPREP_THEME.colors.border,
+  },
+  recentReportHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  recentReportStudent: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: ZEEPREP_THEME.colors.textPrimary,
+  },
+  recentReportExam: {
+    fontSize: 12,
+    color: ZEEPREP_THEME.colors.textSecondary,
+    marginTop: 2,
+  },
+  recentReportScorePill: {
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  recentReportScoreText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#4F46E5",
+  },
+  recentReportFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    paddingTop: 8,
+  },
+  recentReportMeta: {
+    fontSize: 11,
+    color: "#94A3B8",
+    fontWeight: "500",
   },
 });

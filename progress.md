@@ -71,6 +71,13 @@
 - **Defense-in-Depth Validation (Post-AI)**: Every recommended resource returned by Gemini 2.5 Flash undergoes re-validation against the student's authorized class, subject, and schoolId. Any non-matching recommendation is immediately discarded.
 - **Uncovered Topic Guidance**: If a topic is not given or sufficiently explained in uploaded materials, renders the clear notice: *"Ask teacher to upload the resource or provide it."*
 
-### 13. Native Build & Git Deployment Verification
+### 13. Permanent Multi-Layer Report Persistence & Recovery Architecture (`src/services/firestore.ts`)
+- **Offline & Cross-Day Persistent Disk Layer**: Replaced fragile in-memory-only caching with persistent device storage powered by `expo-secure-store` / `localStorage` (`persistReportToDisk` and `loadPersistentReportsFromDisk`). Every submitted exam and fetched report is indexed and saved to disk.
+- **10-Tier Multi-Layer Recovery Hierarchy**: `getStudentReport` checks in-memory RAM -> persistent device disk -> direct Firestore `reports` -> direct Firestore `examAttempts` -> ID prefix translations -> single-field queries (bypassing Firestore composite index limitations) -> full disk catalog hydration.
+- **Permanent Visibility Across Restarts & Days**: Reports survive app closure, process termination, phone reboots, login/logout cycles, and network dropouts without ever disappearing.
+- **Dual Presentation Switcher for Leadership**: Added an interactive view toggle in `src/app/results/[id].tsx` (`Student Scorecard View` vs `Faculty Detailed View`) for SuperAdmin and Admin, allowing instant inspection of either presentation powered by the same single underlying report document.
+- **Real-Time Student Focus Sync (`useFocusEffect`)**: Student Reports tab now automatically refreshes historical exam reports upon screen focus with responsive retry handling.
+
+### 14. Native Build & Git Deployment Verification
 - **TypeScript Check**: `npx tsc --noEmit` -> **0 errors**.
 - **Git Repository**: Pushed commits to `https://github.com/CHIRAG-GOUR/ZeePrep-MobileApp.git` (`master` branch).

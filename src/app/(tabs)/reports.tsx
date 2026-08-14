@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
 import { getStudentReportsList, getGlobalReportStatus } from "../../services/firestore";
 import type { Report } from "../../types";
@@ -24,6 +24,8 @@ import {
   FileCheck,
   Lock,
   Sparkles,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react-native";
 
 export default function StudentReportsScreen() {
@@ -33,6 +35,7 @@ export default function StudentReportsScreen() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [globalStatus, setGlobalStatus] = useState<{
     isUnlocked: boolean;
     completedCount: number;
@@ -50,24 +53,29 @@ export default function StudentReportsScreen() {
   const fetchReports = async () => {
     if (!user) return;
     setLoading(true);
+    setFetchError(null);
     try {
+      console.log("[ZeePrep Student Reports] Loading persistent reports for student:", user.uid);
       const [data, status] = await Promise.all([
         getStudentReportsList(user.uid),
         getGlobalReportStatus(user),
       ]);
       setReports(data);
       setGlobalStatus(status);
-    } catch (err) {
-      console.error("Error loading student reports:", err);
+    } catch (err: any) {
+      console.error("[ZeePrep Student Reports] Error loading student reports:", err);
+      setFetchError("Unable to load reports. Please check your internet connection.");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchReports();
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchReports();
+    }, [user?.uid])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -154,7 +162,17 @@ export default function StudentReportsScreen() {
       {/* Reports List */}
       <Text style={styles.sectionTitle}>Examination Reports</Text>
 
-      {loading ? (
+      {fetchError ? (
+        <View style={styles.errorCard}>
+          <AlertCircle size={28} color="#DC2626" />
+          <Text style={styles.errorCardTitle}>Unable to Load Reports</Text>
+          <Text style={styles.errorCardSub}>{fetchError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchReports} activeOpacity={0.8}>
+            <RefreshCw size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.retryButtonText}>Retry Now</Text>
+          </TouchableOpacity>
+        </View>
+      ) : loading ? (
         <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginVertical: 30 }} />
       ) : reports.length > 0 ? (
         reports.map((report) => {
@@ -459,5 +477,40 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: ZEEPREP_THEME.colors.primary,
     borderRadius: 3,
+  },
+  errorCard: {
+    backgroundColor: "#FEF2F2",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    marginVertical: 12,
+  },
+  errorCardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#991B1B",
+    marginTop: 8,
+  },
+  errorCardSub: {
+    fontSize: 13,
+    color: "#B91C1C",
+    textAlign: "center",
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  retryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#DC2626",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
   },
 });

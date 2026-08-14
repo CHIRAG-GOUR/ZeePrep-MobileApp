@@ -630,6 +630,83 @@ import { calculateExamReport } from "./report-engine";
 
 // In-memory report cache for instant, fail-safe lookup
 const localReportCache = new Map<string, Report>();
+const PERSISTENT_REPORTS_INDEX_KEY = "zeeprep_persistent_reports_index_v2";
+
+export async function persistReportToDisk(report: Report): Promise<void> {
+  try {
+    if (!report || !report.id) return;
+    const docKey = `zp_rep_${report.id}`;
+    const serialized = JSON.stringify(report);
+
+    if (Platform.OS === "web") {
+      try { localStorage.setItem(docKey, serialized); } catch (e) {}
+    } else {
+      await SecureStore.setItemAsync(docKey, serialized);
+    }
+
+    // Update indexed report keys
+    let index: string[] = [];
+    try {
+      const rawIndex = Platform.OS === "web"
+        ? localStorage.getItem(PERSISTENT_REPORTS_INDEX_KEY)
+        : await SecureStore.getItemAsync(PERSISTENT_REPORTS_INDEX_KEY);
+      if (rawIndex) {
+        index = JSON.parse(rawIndex);
+      }
+    } catch (e) {}
+
+    if (!index.includes(report.id)) {
+      index.push(report.id);
+      if (index.length > 100) index = index.slice(index.length - 100);
+      const serializedIndex = JSON.stringify(index);
+      if (Platform.OS === "web") {
+        try { localStorage.setItem(PERSISTENT_REPORTS_INDEX_KEY, serializedIndex); } catch (e) {}
+      } else {
+        await SecureStore.setItemAsync(PERSISTENT_REPORTS_INDEX_KEY, serializedIndex);
+      }
+    }
+  } catch (err) {
+    console.warn("[ZeePrep] Notice saving report to persistent storage:", err);
+  }
+}
+
+export async function loadPersistentReportsFromDisk(): Promise<Report[]> {
+  try {
+    let index: string[] = [];
+    try {
+      const rawIndex = Platform.OS === "web"
+        ? localStorage.getItem(PERSISTENT_REPORTS_INDEX_KEY)
+        : await SecureStore.getItemAsync(PERSISTENT_REPORTS_INDEX_KEY);
+      if (rawIndex) {
+        index = JSON.parse(rawIndex);
+      }
+    } catch (e) {}
+
+    const reports: Report[] = [];
+    for (const repId of index) {
+      try {
+        const docKey = `zp_rep_${repId}`;
+        const rawDoc = Platform.OS === "web"
+          ? localStorage.getItem(docKey)
+          : await SecureStore.getItemAsync(docKey);
+        if (rawDoc) {
+          const parsed = JSON.parse(rawDoc) as Report;
+          if (parsed && parsed.id) {
+            reports.push(parsed);
+            localReportCache.set(parsed.id, parsed);
+            if (parsed.examId && parsed.studentId) {
+              localReportCache.set(`${parsed.studentId}_${parsed.examId}`, parsed);
+            }
+          }
+        }
+      } catch (e) {}
+    }
+    return reports;
+  } catch (err) {
+    console.warn("[ZeePrep] Notice loading reports from persistent storage:", err);
+    return [];
+  }
+}
 
 export function cacheReportLocally(report: Report) {
   if (report && report.id) {
@@ -637,6 +714,8 @@ export function cacheReportLocally(report: Report) {
     if (report.examId) {
       localReportCache.set(`${report.studentId}_${report.examId}`, report);
     }
+    // Asynchronously write to persistent disk storage to survive app restarts / next-day sessions
+    persistReportToDisk(report).catch(() => {});
   }
 }
 
@@ -851,45 +930,77 @@ export async function getStudentReport(idOrExamId: string, studentId?: string): 
   try {
     if (!idOrExamId) return null;
 
-    // 0. Instant in-memory cache resolution
+    // 0. Level 0: In-memory cache
     if (localReportCache.has(idOrExamId)) {
-      console.log("[ZeePrep] Retained report from in-memory cache for ID:", idOrExamId);
       return localReportCache.get(idOrExamId)!;
     }
-
     if (studentId && localReportCache.has(`${studentId}_${idOrExamId}`)) {
-      console.log("[ZeePrep] Retained report from in-memory cache for student_exam:", idOrExamId);
       return localReportCache.get(`${studentId}_${idOrExamId}`)!;
     }
 
-    // 1. Direct lookup by exact document ID in reports collection
-    const directReportDoc = await getDoc(doc(db, "reports", idOrExamId));
-    if (directReportDoc.exists()) {
-      const rep = mapDocumentToReport(directReportDoc);
-      cacheReportLocally(rep);
-      return rep;
-    }
+    // 1. Level 1: Persistent device disk storage (Hydrates memory cache across app restarts & days)
+    try {
+      const diskKey = `zp_rep_${idOrExamId}`;
+      const rawDiskDoc = Platform.OS === "web"
+        ? localStorage.getItem(diskKey)
+        : await SecureStore.getItemAsync(diskKey);
+      if (rawDiskDoc) {
+        const parsed = JSON.parse(rawDiskDoc) as Report;
+        if (parsed && parsed.id) {
+          cacheReportLocally(parsed);
+          return parsed;
+        }
+      }
+    } catch (e) {}
 
-    // 2. Direct lookup by exact document ID in examAttempts collection
-    const directAttemptDoc = await getDoc(doc(db, "examAttempts", idOrExamId));
-    if (directAttemptDoc.exists()) {
-      const rep = mapDocumentToReport(directAttemptDoc);
-      cacheReportLocally(rep);
-      return rep;
-    }
-
-    // 3. Handle attempt_ / report_ prefix translation
-    if (idOrExamId.startsWith("attempt_")) {
-      const correspondingReportId = idOrExamId.replace(/^attempt_/, "report_");
-      const corrReportDoc = await getDoc(doc(db, "reports", correspondingReportId));
-      if (corrReportDoc.exists()) {
-        const rep = mapDocumentToReport(corrReportDoc);
+    // 2. Level 2: Direct lookup by exact ID in Firestore 'reports'
+    try {
+      const directReportDoc = await getDoc(doc(db, "reports", idOrExamId));
+      if (directReportDoc.exists()) {
+        const rep = mapDocumentToReport(directReportDoc);
         cacheReportLocally(rep);
         return rep;
       }
+    } catch (e) {
+      console.warn("[ZeePrep] Notice direct reports getDoc:", e);
     }
 
-    // 4. Constructed candidate IDs with studentId if present
+    // 3. Level 3: Direct lookup by exact ID in Firestore 'examAttempts'
+    try {
+      const directAttemptDoc = await getDoc(doc(db, "examAttempts", idOrExamId));
+      if (directAttemptDoc.exists()) {
+        const rep = mapDocumentToReport(directAttemptDoc);
+        cacheReportLocally(rep);
+        return rep;
+      }
+    } catch (e) {
+      console.warn("[ZeePrep] Notice direct examAttempts getDoc:", e);
+    }
+
+    // 4. Level 4: Handle attempt_ / report_ prefix translation
+    if (idOrExamId.startsWith("attempt_")) {
+      const correspondingReportId = idOrExamId.replace(/^attempt_/, "report_");
+      try {
+        const corrReportDoc = await getDoc(doc(db, "reports", correspondingReportId));
+        if (corrReportDoc.exists()) {
+          const rep = mapDocumentToReport(corrReportDoc);
+          cacheReportLocally(rep);
+          return rep;
+        }
+      } catch (e) {}
+    } else if (idOrExamId.startsWith("report_")) {
+      const correspondingAttemptId = idOrExamId.replace(/^report_/, "attempt_");
+      try {
+        const corrAttemptDoc = await getDoc(doc(db, "examAttempts", correspondingAttemptId));
+        if (corrAttemptDoc.exists()) {
+          const rep = mapDocumentToReport(corrAttemptDoc);
+          cacheReportLocally(rep);
+          return rep;
+        }
+      } catch (e) {}
+    }
+
+    // 5. Level 5: Candidate deterministic document IDs
     if (studentId) {
       const cleanStudent = studentId.replace(/[^a-zA-Z0-9_-]/g, "");
       const cleanExam = idOrExamId.replace(/[^a-zA-Z0-9_-]/g, "");
@@ -901,102 +1012,105 @@ export async function getStudentReport(idOrExamId: string, studentId?: string): 
         `attempt_${idOrExamId}_${studentId}`,
         `report_${cleanExam}_${cleanStudent}`,
         `attempt_${cleanExam}_${cleanStudent}`,
+        `${cleanStudent}_${cleanExam}_att1`,
+        `${cleanStudent}_${cleanExam}_att2`,
+        `${cleanStudent}_${cleanExam}_att3`,
       ];
 
       for (const cId of candidateIds) {
         if (localReportCache.has(cId)) return localReportCache.get(cId)!;
 
-        const rDoc = await getDoc(doc(db, "reports", cId));
-        if (rDoc.exists()) {
-          const rep = mapDocumentToReport(rDoc);
-          cacheReportLocally(rep);
-          return rep;
-        }
+        try {
+          const rDoc = await getDoc(doc(db, "reports", cId));
+          if (rDoc.exists()) {
+            const rep = mapDocumentToReport(rDoc);
+            cacheReportLocally(rep);
+            return rep;
+          }
+        } catch (e) {}
 
-        const aDoc = await getDoc(doc(db, "examAttempts", cId));
-        if (aDoc.exists()) {
-          const rep = mapDocumentToReport(aDoc);
-          cacheReportLocally(rep);
-          return rep;
-        }
+        try {
+          const aDoc = await getDoc(doc(db, "examAttempts", cId));
+          if (aDoc.exists()) {
+            const rep = mapDocumentToReport(aDoc);
+            cacheReportLocally(rep);
+            return rep;
+          }
+        } catch (e) {}
       }
 
-      // 5. Query by field values in reports collection matching EXACT examId
-      const qReports = query(
-        collection(db, "reports"),
-        where("examId", "==", idOrExamId),
-        where("studentId", "==", studentId)
-      );
-      const snapReports = await getDocs(qReports);
-      if (!snapReports.empty) {
-        const rep = mapDocumentToReport(snapReports.docs[0]);
-        cacheReportLocally(rep);
-        return rep;
-      }
-
-      // 6. Query by field values in examAttempts collection matching EXACT examId
-      const qAttempts = query(
-        collection(db, "examAttempts"),
-        where("examId", "==", idOrExamId),
-        where("studentId", "==", studentId)
-      );
-      const snapAttempts = await getDocs(qAttempts);
-      if (!snapAttempts.empty) {
-        const rep = mapDocumentToReport(snapAttempts.docs[0]);
-        cacheReportLocally(rep);
-        return rep;
-      }
-    } else {
-      // Direct query by examId without studentId
-      const qReports = query(
-        collection(db, "reports"),
-        where("examId", "==", idOrExamId)
-      );
-      const snapReports = await getDocs(qReports);
-      if (!snapReports.empty) {
-        const rep = mapDocumentToReport(snapReports.docs[0]);
-        cacheReportLocally(rep);
-        return rep;
-      }
-
-      const qAttempts = query(
-        collection(db, "examAttempts"),
-        where("examId", "==", idOrExamId)
-      );
-      const snapAttempts = await getDocs(qAttempts);
-      if (!snapAttempts.empty) {
-        const rep = mapDocumentToReport(snapAttempts.docs[0]);
-        cacheReportLocally(rep);
-        return rep;
-      }
-    }
-
-    // 7. Ultimate Fallback: query student's reports or attempts if studentId is present
-    if (studentId) {
+      // 6. Level 6: Query reports by studentId (single-field index)
       try {
         const qReports = query(collection(db, "reports"), where("studentId", "==", studentId));
         const snapReports = await getDocs(qReports);
-        if (!snapReports.empty) {
-          const docs = snapReports.docs.map((d) => mapDocumentToReport(d));
-          docs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-          return docs[0];
-        }
-
-        const qAttempts = query(collection(db, "examAttempts"), where("studentId", "==", studentId));
-        const snapAttempts = await getDocs(qAttempts);
-        if (!snapAttempts.empty) {
-          const docs = snapAttempts.docs.map((d) => mapDocumentToReport(d));
-          docs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-          return docs[0];
+        for (const d of snapReports.docs) {
+          const rep = mapDocumentToReport(d);
+          cacheReportLocally(rep);
+          if (rep.examId === idOrExamId || rep.id === idOrExamId) {
+            return rep;
+          }
         }
       } catch (e) {
-        console.warn("Fallback student report query warning:", e);
+        console.warn("[ZeePrep] Notice querying reports by studentId:", e);
+      }
+
+      // 7. Level 7: Query examAttempts by studentId
+      try {
+        const qAttempts = query(collection(db, "examAttempts"), where("studentId", "==", studentId));
+        const snapAttempts = await getDocs(qAttempts);
+        for (const d of snapAttempts.docs) {
+          const rep = mapDocumentToReport(d);
+          cacheReportLocally(rep);
+          if (rep.examId === idOrExamId || rep.id === idOrExamId) {
+            return rep;
+          }
+        }
+      } catch (e) {
+        console.warn("[ZeePrep] Notice querying examAttempts by studentId:", e);
+      }
+    }
+
+    // 8. Level 8: Query reports by examId
+    try {
+      const qReports = query(collection(db, "reports"), where("examId", "==", idOrExamId));
+      const snapReports = await getDocs(qReports);
+      for (const d of snapReports.docs) {
+        const rep = mapDocumentToReport(d);
+        cacheReportLocally(rep);
+        if (!studentId || rep.studentId === studentId) {
+          return rep;
+        }
+      }
+    } catch (e) {
+      console.warn("[ZeePrep] Notice querying reports by examId:", e);
+    }
+
+    // 9. Level 9: Query examAttempts by examId
+    try {
+      const qAttempts = query(collection(db, "examAttempts"), where("examId", "==", idOrExamId));
+      const snapAttempts = await getDocs(qAttempts);
+      for (const d of snapAttempts.docs) {
+        const rep = mapDocumentToReport(d);
+        cacheReportLocally(rep);
+        if (!studentId || rep.studentId === studentId) {
+          return rep;
+        }
+      }
+    } catch (e) {
+      console.warn("[ZeePrep] Notice querying examAttempts by examId:", e);
+    }
+
+    // 10. Level 10: Load all reports from persistent disk
+    const diskReports = await loadPersistentReportsFromDisk();
+    for (const r of diskReports) {
+      if (r.id === idOrExamId || (r.examId === idOrExamId && (!studentId || r.studentId === studentId))) {
+        return r;
       }
     }
 
     return null;
   } catch (error) {
-    console.error("Error fetching student report:", error);
+    console.error("[ZeePrep] Error in getStudentReport:", error, { idOrExamId, studentId });
     return null;
   }
 }
@@ -1005,33 +1119,41 @@ export async function getTeacherReports(teacher: User): Promise<Report[]> {
   try {
     const reportsMap = new Map<string, Report>();
 
-    // 0. Include locally cached reports first so newly submitted exams appear instantly
+    // 1. Hydrate from persistent device disk storage first
+    const diskReports = await loadPersistentReportsFromDisk();
+    diskReports.forEach((rep) => {
+      reportsMap.set(rep.id, rep);
+    });
+
+    // 2. Include in-memory cached reports
     localReportCache.forEach((rep) => {
       reportsMap.set(rep.id, rep);
     });
 
-    // 1. Query reports collection
+    // 3. Query Firestore 'reports' collection
     try {
       const snapReports = await getDocs(collection(db, "reports"));
       snapReports.forEach((docSnap) => {
         const rep = mapDocumentToReport(docSnap);
         reportsMap.set(rep.id, rep);
+        persistReportToDisk(rep).catch(() => {});
       });
     } catch (e) {
-      console.warn("Notice querying reports collection:", e);
+      console.warn("[ZeePrep] Notice querying reports collection:", e);
     }
 
-    // 2. Query examAttempts collection as fallback/supplement
+    // 4. Query Firestore 'examAttempts' collection
     try {
       const snapAttempts = await getDocs(collection(db, "examAttempts"));
       snapAttempts.forEach((docSnap) => {
         const rep = mapDocumentToReport(docSnap);
         if (!reportsMap.has(rep.id)) {
           reportsMap.set(rep.id, rep);
+          persistReportToDisk(rep).catch(() => {});
         }
       });
     } catch (e) {
-      console.warn("Notice querying examAttempts collection:", e);
+      console.warn("[ZeePrep] Notice querying examAttempts collection:", e);
     }
 
     let list = Array.from(reportsMap.values());
@@ -1072,7 +1194,7 @@ export async function getTeacherReports(teacher: User): Promise<Report[]> {
     list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     return list;
   } catch (error) {
-    console.error("Error fetching teacher reports:", error);
+    console.error("[ZeePrep] Error fetching teacher reports:", error, { teacherId: teacher?.uid });
     return [];
   }
 }
@@ -1085,7 +1207,7 @@ export async function updateTeacherRemarksOnReport(reportId: string, remarks: st
     });
     return true;
   } catch (error) {
-    console.error("Error updating teacher remarks:", error);
+    console.error("[ZeePrep] Error updating teacher remarks:", error);
     return false;
   }
 }
@@ -1095,26 +1217,35 @@ export async function getStudentReportsList(studentId: string): Promise<Report[]
     if (!studentId) return [];
     const reportsMap = new Map<string, Report>();
 
-    // 0. Include locally cached reports for studentId
+    // 1. Hydrate from persistent device disk storage
+    const diskReports = await loadPersistentReportsFromDisk();
+    diskReports.forEach((rep) => {
+      if (rep.studentId === studentId) {
+        reportsMap.set(rep.id, rep);
+      }
+    });
+
+    // 2. Include in-memory cached reports
     localReportCache.forEach((rep) => {
       if (rep.studentId === studentId) {
         reportsMap.set(rep.id, rep);
       }
     });
 
-    // 1. Query reports collection by studentId
+    // 3. Query Firestore 'reports' collection by studentId
     try {
       const qReports = query(collection(db, "reports"), where("studentId", "==", studentId));
       const snapReports = await getDocs(qReports);
       snapReports.forEach((docSnap) => {
         const rep = mapDocumentToReport(docSnap);
         reportsMap.set(rep.id, rep);
+        persistReportToDisk(rep).catch(() => {});
       });
     } catch (e) {
-      console.warn("Notice querying reports for student:", e);
+      console.warn("[ZeePrep] Notice querying reports for student:", e);
     }
 
-    // 2. Query examAttempts collection by studentId as fallback
+    // 4. Query Firestore 'examAttempts' collection by studentId as fallback
     try {
       const qAttempts = query(collection(db, "examAttempts"), where("studentId", "==", studentId));
       const snapAttempts = await getDocs(qAttempts);
@@ -1122,17 +1253,18 @@ export async function getStudentReportsList(studentId: string): Promise<Report[]
         const rep = mapDocumentToReport(docSnap);
         if (!reportsMap.has(rep.id)) {
           reportsMap.set(rep.id, rep);
+          persistReportToDisk(rep).catch(() => {});
         }
       });
     } catch (e) {
-      console.warn("Notice querying examAttempts for student:", e);
+      console.warn("[ZeePrep] Notice querying examAttempts for student:", e);
     }
 
     const list = Array.from(reportsMap.values());
     list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     return list;
   } catch (error) {
-    console.error("Error fetching student reports list:", error);
+    console.error("[ZeePrep] Error fetching student reports list:", error, { studentId });
     return [];
   }
 }
@@ -1162,7 +1294,7 @@ export async function getStudyResources(user: User | null, subject?: string): Pr
 
     return resources;
   } catch (error) {
-    console.error("Error fetching study resources:", error);
+    console.error("[ZeePrep] Error fetching study resources:", error);
     return [];
   }
 }
@@ -1195,7 +1327,7 @@ export async function addStudyResource(resourceData: Partial<StudyResource>, upl
     await setDoc(resDocRef, newResource);
     return newResource;
   } catch (error) {
-    console.error("Error adding study resource:", error);
+    console.error("[ZeePrep] Error adding study resource:", error);
     return null;
   }
 }
@@ -1204,40 +1336,48 @@ export async function getAllStudentReports(): Promise<Report[]> {
   try {
     const reportsMap = new Map<string, Report>();
 
-    // 0. Merge locally cached reports
+    // 1. Hydrate from persistent device disk storage
+    const diskReports = await loadPersistentReportsFromDisk();
+    diskReports.forEach((rep) => {
+      reportsMap.set(rep.id, rep);
+    });
+
+    // 2. Include in-memory cached reports
     localReportCache.forEach((rep) => {
       reportsMap.set(rep.id, rep);
     });
 
-    // 1. Query reports collection
+    // 3. Query Firestore 'reports'
     try {
       const snapReports = await getDocs(collection(db, "reports"));
       snapReports.forEach((docSnap) => {
         const rep = mapDocumentToReport(docSnap);
         reportsMap.set(rep.id, rep);
+        persistReportToDisk(rep).catch(() => {});
       });
     } catch (e) {
-      console.warn("Notice querying reports collection:", e);
+      console.warn("[ZeePrep] Notice querying reports in getAllStudentReports:", e);
     }
 
-    // 2. Query examAttempts collection
+    // 4. Query Firestore 'examAttempts'
     try {
       const snapAttempts = await getDocs(collection(db, "examAttempts"));
       snapAttempts.forEach((docSnap) => {
         const rep = mapDocumentToReport(docSnap);
         if (!reportsMap.has(rep.id)) {
           reportsMap.set(rep.id, rep);
+          persistReportToDisk(rep).catch(() => {});
         }
       });
     } catch (e) {
-      console.warn("Notice querying examAttempts collection:", e);
+      console.warn("[ZeePrep] Notice querying examAttempts in getAllStudentReports:", e);
     }
 
     const list = Array.from(reportsMap.values());
     list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     return list;
   } catch (error) {
-    console.error("Error fetching all student reports:", error);
+    console.error("[ZeePrep] Error in getAllStudentReports:", error);
     return [];
   }
 }
