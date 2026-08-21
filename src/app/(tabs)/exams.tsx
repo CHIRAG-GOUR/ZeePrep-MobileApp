@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
@@ -19,6 +21,8 @@ import { FileText, Clock, ChevronRight, CheckCircle2, PlayCircle, AlertCircle, R
 export default function StudentExamsScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
 
   const [exams, setExams] = useState<Exam[]>([]);
   const [attemptsMap, setAttemptsMap] = useState<Record<string, ExamAttempt[]>>({});
@@ -70,7 +74,10 @@ export default function StudentExamsScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[
+        styles.contentContainer,
+        isDesktopWeb && { maxWidth: 1280, alignSelf: "center", width: "100%", paddingHorizontal: 32, paddingTop: 24 },
+      ]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -90,22 +97,27 @@ export default function StudentExamsScreen() {
       {loading ? (
         <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginTop: 40 }} />
       ) : exams.length > 0 ? (
-        exams.map((exam) => {
-          const userAttempts = attemptsMap[exam.id] || [];
-          const usedCount = userAttempts.length;
-          const maxAttemptsSetting = exam.maxAttempts || 1;
-          const isUnlimited = maxAttemptsSetting === "unlimited";
-          const maxAttemptsNum = isUnlimited ? Infinity : Number(maxAttemptsSetting);
-          const isLimitReached = !isUnlimited && usedCount >= maxAttemptsNum;
-          const attemptsRemaining = isUnlimited ? "Unlimited" : Math.max(0, maxAttemptsNum - usedCount);
+        <View style={[styles.examListWrapper, isDesktopWeb && styles.desktopCardGrid]}>
+          {exams.map((exam) => {
+            const userAttempts = attemptsMap[exam.id] || [];
+            const usedCount = userAttempts.length;
+            const maxAttemptsSetting = exam.maxAttempts || 1;
+            const isUnlimited = maxAttemptsSetting === "unlimited";
+            const maxAttemptsNum = isUnlimited ? Infinity : Number(maxAttemptsSetting);
+            const isLimitReached = !isUnlimited && usedCount >= maxAttemptsNum;
+            const attemptsRemaining = isUnlimited ? "Unlimited" : Math.max(0, maxAttemptsNum - usedCount);
 
-          return (
-            <TouchableOpacity
-              key={exam.id}
-              style={[styles.examCard, isLimitReached && styles.examCardDisabled]}
-              onPress={() => handleExamPress(exam, isLimitReached, maxAttemptsSetting)}
-              activeOpacity={isLimitReached ? 0.9 : 0.85}
-            >
+            return (
+              <TouchableOpacity
+                key={exam.id}
+                style={[
+                  styles.examCard,
+                  isLimitReached && styles.examCardDisabled,
+                  isDesktopWeb && styles.desktopCardItem,
+                ]}
+                onPress={() => handleExamPress(exam, isLimitReached, maxAttemptsSetting)}
+                activeOpacity={isLimitReached ? 0.9 : 0.85}
+              >
               <View style={styles.cardHeader}>
                 <View style={styles.subjectChip}>
                   <Text style={styles.subjectChipText}>{exam.subject?.toUpperCase() || "ASSESSMENT"}</Text>
@@ -180,7 +192,8 @@ export default function StudentExamsScreen() {
               </View>
             </TouchableOpacity>
           );
-        })
+        })}
+        </View>
       ) : (
         <View style={styles.emptyCard}>
           <FileText size={40} color={ZEEPREP_THEME.colors.textMuted} />
@@ -359,5 +372,19 @@ const styles = StyleSheet.create({
     color: ZEEPREP_THEME.colors.textSecondary,
     textAlign: "center",
     lineHeight: 18,
+  },
+  examListWrapper: {
+    gap: 14,
+  },
+  desktopCardGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 16,
+  },
+  desktopCardItem: {
+    flex: 1,
+    minWidth: 340,
+    maxWidth: "49%",
+    marginBottom: 0,
   },
 });

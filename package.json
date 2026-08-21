@@ -38,7 +38,9 @@
   },
   "scripts": {
     "start": "expo start",
+    "dev": "expo start --web",
     "prebuild": "expo prebuild",
+    "build": "expo export -p web",
     "build:android": "expo run:android",
     "android": "expo run:android",
     "android:release": "expo run:android --variant release",
@@ -47,6 +49,8 @@
     "reset-project": "node ./scripts/reset-project.js",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "build:web": "expo export -p web",
+    "deploy:web": "expo export -p web && firebase deploy --only hosting:zeeprep-app",
     "lint": "expo lint"
   },
   "private": true

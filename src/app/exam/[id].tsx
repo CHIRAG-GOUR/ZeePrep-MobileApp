@@ -11,6 +11,8 @@ import {
   Modal,
   SafeAreaView,
   Image,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
@@ -52,6 +54,8 @@ export default function ExamEngineScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const responsive = useResponsive();
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
 
   const {
     currentExam,
@@ -337,7 +341,7 @@ export default function ExamEngineScreen() {
   const unansweredCount = questions.length - answeredCount;
 
   return (
-    <View style={[styles.container, { paddingTop: Math.max(responsive.safeTop, 12) }]}>
+    <View style={[styles.container, { paddingTop: Math.max(responsive.safeTop, 12) }, isDesktopWeb && { maxWidth: 1100, alignSelf: "center", width: "100%", paddingHorizontal: 24 }]}>
       {/* 1. Top Fixed Header Bar */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.iconBtn} onPress={handleLeaveExam} activeOpacity={0.7}>

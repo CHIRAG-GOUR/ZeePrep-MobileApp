@@ -313,13 +313,20 @@ export function matchResourcesLocally(
 ): WeakTopicResourceRecommendation[] {
   if (!eligibleResources || eligibleResources.length === 0) return [];
 
+  const seenIds = new Set<string>();
+  const uniqueEligible = eligibleResources.filter((r) => {
+    if (!r.id || seenIds.has(r.id)) return false;
+    seenIds.add(r.id);
+    return true;
+  });
+
   const cleanTopicWords = weakTopic.topic
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .filter((w) => w.length > 2 && !["and", "the", "for", "with", "from"].includes(w));
 
-  const scored = eligibleResources.map((res) => {
+  const scored = uniqueEligible.map((res) => {
     let score = 0;
     const titleLower = (res.title || "").toLowerCase();
     const descLower = (res.description || "").toLowerCase();
@@ -340,8 +347,8 @@ export function matchResourcesLocally(
     .slice(0, 3);
 
   // If no keyword match found, pick the top eligible resources of the exact same class and subject
-  if (matches.length === 0 && eligibleResources.length > 0) {
-    const topEligible = eligibleResources.slice(0, 2);
+  if (matches.length === 0 && uniqueEligible.length > 0) {
+    const topEligible = uniqueEligible.slice(0, 2);
     return topEligible.map((res) => ({
       resourceId: res.id,
       title: res.title,
@@ -487,16 +494,20 @@ Return ONLY a JSON array matching this exact schema:
               (p) => String(p.topic || "").trim().toLowerCase() === wt.topic.trim().toLowerCase()
             );
 
+            const seenRecIds = new Set<string>();
             let recommendedResources: WeakTopicResourceRecommendation[] = [];
 
             if (aiItem && Array.isArray(aiItem.resources) && aiItem.resources.length > 0) {
               aiItem.resources.forEach((rObj: any) => {
-                const matchedCatalogItem = eligibleResources.find((c) => c.id === rObj.resourceId);
+                const targetId = rObj?.resourceId || rObj?.id;
+                if (!targetId || seenRecIds.has(targetId)) return;
+                const matchedCatalogItem = eligibleResources.find((c) => c.id === targetId);
                 // POST-AI VALIDATION (DEFENSE IN DEPTH): Must be strictly eligible
                 if (
                   matchedCatalogItem &&
                   isResourceEligibleForStudent(matchedCatalogItem, studentContext)
                 ) {
+                  seenRecIds.add(matchedCatalogItem.id);
                   recommendedResources.push({
                     resourceId: matchedCatalogItem.id,
                     title: matchedCatalogItem.title,

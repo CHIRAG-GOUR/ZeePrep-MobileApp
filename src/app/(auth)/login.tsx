@@ -10,7 +10,6 @@ import {
   Platform,
   ScrollView,
   Modal,
-  Image,
   useWindowDimensions,
   Keyboard,
 } from "react-native";
@@ -21,33 +20,101 @@ import { getUserByLoginId, getUserProfile } from "../../services/firestore";
 import { useAuthStore } from "../../stores/auth-store";
 import { ZEEPREP_THEME } from "../../constants/theme";
 import {
-  User,
   LogIn,
-  Phone,
-  ShieldCheck,
-  BookOpen,
   Eye,
   EyeOff,
-  ArrowRight,
-  GraduationCap,
   UserCheck,
+  GraduationCap,
   X,
   Mail,
-  UserPlus,
+  Check,
 } from "lucide-react-native";
+import Svg, {
+  Defs,
+  LinearGradient,
+  Stop,
+  Path,
+  Rect,
+  Polygon,
+} from "react-native-svg";
 import { AnimatedExamIllustration } from "../../components/AnimatedExamIllustration";
+
+function ZeePrepLogoSvg({ size = 42 }: { size?: number }) {
+  return (
+    <View style={{ width: size, height: size }}>
+      <Svg viewBox="0 0 512 512" style={{ width: "100%", height: "100%" }}>
+        <Defs>
+          <LinearGradient id="zpBg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#4F46E5" />
+            <Stop offset="50%" stopColor="#4338CA" />
+            <Stop offset="100%" stopColor="#3730A3" />
+          </LinearGradient>
+          <LinearGradient id="zpGold" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#FBBF24" />
+            <Stop offset="100%" stopColor="#F59E0B" />
+          </LinearGradient>
+          <LinearGradient id="zpSparkle" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor="#FFFFFF" />
+            <Stop offset="100%" stopColor="#E0E7FF" />
+          </LinearGradient>
+        </Defs>
+
+        {/* Background Badge Shield */}
+        <Rect x="32" y="32" width="448" height="448" rx="112" fill="url(#zpBg)" />
+        <Rect
+          x="40"
+          y="40"
+          width="432"
+          height="432"
+          rx="104"
+          fill="none"
+          stroke="#818CF8"
+          strokeWidth="10"
+          strokeOpacity={0.4}
+        />
+
+        {/* Cap Roof */}
+        <Polygon points="256,112 400,184 256,256 112,184" fill="url(#zpGold)" />
+
+        {/* Cap Base */}
+        <Path
+          d="M168,218 L168,280 C168,320 206,344 256,344 C306,344 344,320 344,280 L344,218 L256,262 Z"
+          fill="#FFFFFF"
+          fillOpacity={0.95}
+        />
+
+        {/* Zee Z Stroke */}
+        <Path
+          d="M200,168 L312,168 L224,248 L312,248"
+          fill="none"
+          stroke="#1E1B4B"
+          strokeWidth="22"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* Sparkle Accent */}
+        <Path
+          d="M392,104 C392,128 408,144 432,144 C408,144 392,160 392,184 C392,160 376,144 352,144 C376,144 392,128 392,104 Z"
+          fill="url(#zpSparkle)"
+        />
+      </Svg>
+    </View>
+  );
+}
 
 export default function LoginScreen() {
   const router = useRouter();
   const setUser = useAuthStore((state) => state.setUser);
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
 
   const isSmallScreen = width < 360;
-  const isLargeScreen = width >= 600;
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
 
   const [activeTab, setActiveTab] = useState<"teacher" | "student">("teacher");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -148,31 +215,19 @@ export default function LoginScreen() {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
-        try {
-          const { createOrUpdateUserProfile } = require("../../services/firestore");
-          await createOrUpdateUserProfile(superAdminProfile);
-        } catch (e) {
-          console.warn("Could not write SuperAdmin profile to Firestore:", e);
-        }
-        userProfile = superAdminProfile as any;
+        setUser(superAdminProfile);
+        router.replace("/(superadmin)" as any);
+        return;
       }
 
       if (userProfile) {
-        if (userProfile.status === "disabled" || userProfile.status === "rejected") {
-          setErrorMessage("Your account is currently inactive. Please contact administration.");
-          setLoading(false);
-          return;
-        }
-
         setUser(userProfile);
-
-        // Direct role-based navigation guard
         if (userProfile.role === "superadmin") {
           router.replace("/(superadmin)" as any);
-        } else if (userProfile.role === "admin") {
-          router.replace("/(admin)" as any);
         } else if (userProfile.role === "teacher") {
           router.replace("/(teacher)" as any);
+        } else if (userProfile.role === "admin") {
+          router.replace("/(admin)" as any);
         } else {
           router.replace("/(tabs)" as any);
         }
@@ -210,209 +265,251 @@ export default function LoginScreen() {
     }
   };
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+  const renderFormCard = () => (
+    <View
+      style={[styles.card, isSmallScreen && { padding: 14, borderRadius: 16 }]}
+      onTouchStart={() => setIsFormActive(true)}
     >
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingHorizontal: isSmallScreen ? 12 : isLargeScreen ? 32 : 20,
-            paddingVertical: isSmallScreen ? 12 : 24,
-            paddingBottom: isKeyboardVisible ? (Platform.OS === "android" ? 180 : 120) : 32,
-            alignItems: "center",
-          },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={{ width: "100%", maxWidth: 520 }}>
-          {/* Top Header Branding */}
-          <View style={[styles.header, isKeyboardVisible && { marginBottom: 12 }]}>
-            <Text style={[styles.brandTitle, (isSmallScreen || isKeyboardVisible) && { fontSize: 20 }]}>ZeePrep</Text>
-            <Text style={[styles.brandSubtitle, (isSmallScreen || isKeyboardVisible) && { fontSize: 10 }]}>
-              Intelligent Productivity & Diagnostic Portal
-            </Text>
-
-            {/* Dynamic Exam Vector Illustration — Collapses when keyboard is active to maximize input visibility */}
-            {!isKeyboardVisible ? (
-              <AnimatedExamIllustration isFormActive={isFormActive} />
-            ) : null}
-          </View>
-
-          {/* Outer Card Container */}
-          <View
-            style={[styles.card, isSmallScreen && { padding: 14, borderRadius: 16 }]}
-            onTouchStart={() => setIsFormActive(true)}
+      {/* 1. Role Selection Tabs (Pill Grid) */}
+      <View style={styles.roleTabGrid}>
+        <TouchableOpacity
+          style={[
+            styles.roleTab,
+            activeTab === "teacher" && styles.roleTabActiveTeacher,
+          ]}
+          onPress={() => {
+            setActiveTab("teacher");
+            setErrorMessage("");
+            setIsFormActive(true);
+          }}
+          activeOpacity={0.85}
+        >
+          <UserCheck
+            size={16}
+            color={activeTab === "teacher" ? "#4F46E5" : "#64748B"}
+          />
+          <Text
+            style={[
+              styles.roleTabText,
+              activeTab === "teacher" && styles.roleTabTextActiveTeacher,
+            ]}
           >
-          {/* Role Selection Tabs */}
-          <View style={styles.roleTabGrid}>
-            <TouchableOpacity
-              style={[
-                styles.roleTab,
-                activeTab === "teacher" && styles.roleTabActive,
-              ]}
-              onPress={() => {
-                setActiveTab("teacher");
-                setErrorMessage("");
-                setIsFormActive(true);
-              }}
-              activeOpacity={0.8}
-            >
-              <UserCheck
-                size={18}
-                color={activeTab === "teacher" ? ZEEPREP_THEME.colors.primary : "#64748B"}
-              />
-              <Text
-                style={[
-                  styles.roleTabText,
-                  activeTab === "teacher" && styles.roleTabTextActive,
-                ]}
-              >
-                Teacher Portal
-              </Text>
-            </TouchableOpacity>
+            Teacher Login
+          </Text>
+        </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.roleTab,
-                activeTab === "student" && styles.roleTabActive,
-              ]}
-              onPress={() => {
-                setActiveTab("student");
-                setErrorMessage("");
-                setIsFormActive(true);
-              }}
-              activeOpacity={0.8}
-            >
-              <GraduationCap
-                size={18}
-                color={activeTab === "student" ? ZEEPREP_THEME.colors.primary : "#64748B"}
-              />
-              <Text
-                style={[
-                  styles.roleTabText,
-                  activeTab === "student" && styles.roleTabTextActive,
-                ]}
-              >
-                Student Portal
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Error Message Display */}
-          {errorMessage ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          ) : null}
-
-          {/* Identifier Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>
-              {activeTab === "teacher" ? "Faculty ID / Email Address" : "Student ID / Email Address"}
-            </Text>
-            <View style={styles.inputWrapper}>
-              <User size={20} color="#64748B" style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { fontSize: isSmallScreen ? 12 : 13 }]}
-                placeholder={
-                  activeTab === "teacher"
-                    ? "Email or Faculty ID (e.g. teacher@school.com)"
-                    : "Email or Student ID (e.g. student@school.com)"
-                }
-                placeholderTextColor="#94A3B8"
-                value={identifier}
-                onChangeText={(text) => {
-                  setIdentifier(text);
-                  if (text) setIsFormActive(true);
-                }}
-                onFocus={() => setIsFormActive(true)}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                numberOfLines={1}
-                multiline={false}
-              />
-            </View>
-          </View>
-
-          {/* Password Input */}
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <TouchableOpacity onPress={() => setShowForgotModal(true)}>
-                <Text style={styles.forgotLink}>Forgot?</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.inputWrapper}>
-              <LogIn size={20} color="#64748B" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your password"
-                placeholderTextColor="#94A3B8"
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (text) setIsFormActive(true);
-                }}
-                onFocus={() => setIsFormActive(true)}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                {showPassword ? (
-                  <EyeOff size={20} color="#64748B" />
-                ) : (
-                  <Eye size={20} color="#64748B" />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Submit Sign In Button */}
-          <TouchableOpacity
-            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-            activeOpacity={0.85}
+        <TouchableOpacity
+          style={[
+            styles.roleTab,
+            activeTab === "student" && styles.roleTabActiveStudent,
+          ]}
+          onPress={() => {
+            setActiveTab("student");
+            setErrorMessage("");
+            setIsFormActive(true);
+          }}
+          activeOpacity={0.85}
+        >
+          <GraduationCap
+            size={16}
+            color={activeTab === "student" ? "#7C3AED" : "#64748B"}
+          />
+          <Text
+            style={[
+              styles.roleTabText,
+              activeTab === "student" && styles.roleTabTextActiveStudent,
+            ]}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <View style={styles.buttonContent}>
-                <Text style={styles.submitButtonText}>
-                  Sign In as {activeTab === "teacher" ? "Teacher" : "Student"}
-                </Text>
-                <ArrowRight color="#FFFFFF" size={20} />
-              </View>
-            )}
-          </TouchableOpacity>
+            Student Login
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-          {/* Registration Navigation Options */}
-          <View style={styles.registerBox}>
-            <Text style={styles.registerPrompt}>Don't have an account yet?</Text>
-            <TouchableOpacity
-              onPress={() => router.push("/(auth)/register" as any)}
-              style={styles.registerLinkBtn}
-            >
-              <UserPlus size={16} color={ZEEPREP_THEME.colors.primary} />
-              <Text style={styles.registerLinkText}>Register for ZeePrep</Text>
-            </TouchableOpacity>
-          </View>
+      {/* 2. Portal Title & Instruction Subtitle */}
+      <View style={styles.cardHeaderArea}>
+        <Text style={styles.cardTitle}>
+          {activeTab === "teacher" ? "Teacher Portal Login" : "Student Portal Login"}
+        </Text>
+        <Text style={styles.cardSub}>
+          {activeTab === "teacher"
+            ? "Sign in with your email or Login ID (e.g. ZP-TCH-7K4M92)"
+            : "Sign in with your email or Login ID (e.g. ZP-STU-8X2P91)"}
+        </Text>
+      </View>
+
+      {/* Error Message Banner */}
+      {errorMessage ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{errorMessage}</Text>
         </View>
+      ) : null}
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            © {new Date().getFullYear()} ZeePrep. All rights reserved.
-          </Text>
-          <Text style={styles.footerSubtext}>
-            Connected Backend: zeeprep01 (Shared Production)
-          </Text>
+      {/* 3. Input: LOGIN ID OR EMAIL */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>LOGIN ID OR EMAIL</Text>
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={styles.input}
+            placeholder={
+              activeTab === "teacher"
+                ? "teacher@school.com or ZP-TCH-7K4M92"
+                : "student@school.com or ZP-STU-5PQ814"
+            }
+            placeholderTextColor="#94A3B8"
+            value={identifier}
+            onChangeText={(text) => {
+              setIdentifier(text);
+              if (text) setIsFormActive(true);
+            }}
+            onFocus={() => setIsFormActive(true)}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
         </View>
       </View>
+
+      {/* 4. Input: PASSWORD */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>PASSWORD</Text>
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your password"
+            placeholderTextColor="#94A3B8"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (text) setIsFormActive(true);
+            }}
+            onFocus={() => setIsFormActive(true)}
+          />
+          <TouchableOpacity
+            onPress={() => setShowPassword(!showPassword)}
+            style={styles.eyeBtn}
+            activeOpacity={0.7}
+          >
+            {showPassword ? (
+              <EyeOff size={18} color="#94A3B8" />
+            ) : (
+              <Eye size={18} color="#94A3B8" />
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* 5. Remember Me Checkbox & Forgot Password Link */}
+      <View style={styles.optionsRow}>
+        <TouchableOpacity
+          style={styles.rememberMeGroup}
+          onPress={() => setRememberMe(!rememberMe)}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.customCheckbox, rememberMe && styles.customCheckboxChecked]}>
+            {rememberMe && <Check size={12} color="#FFFFFF" strokeWidth={3} />}
+          </View>
+          <Text style={styles.rememberMeText}>Remember me for 30 days</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => {
+            setForgotEmail(identifier.includes("@") ? identifier : "");
+            setShowForgotModal(true);
+            setForgotSuccess(false);
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.forgotLink}>Forgot Password?</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 6. Primary Action Button */}
+      <TouchableOpacity
+        style={[
+          styles.submitButton,
+          activeTab === "teacher" ? styles.submitBtnTeacher : styles.submitBtnStudent,
+          loading && styles.submitButtonDisabled,
+        ]}
+        onPress={handleLogin}
+        disabled={loading}
+        activeOpacity={0.85}
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.submitButtonText}>
+            Log In as {activeTab === "teacher" ? "Teacher" : "Student"}
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      {/* 7. Bottom Registration Banner & Outlined Button */}
+      <View style={styles.registerContainer}>
+        <Text style={styles.registerPrompt}>
+          {activeTab === "teacher" ? "New teacher? Create your account" : "New student? Create your account"}
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.push("/(auth)/register" as any)}
+          style={[
+            styles.registerOutlinedBtn,
+            activeTab === "teacher" ? styles.registerOutlinedBtnTeacher : styles.registerOutlinedBtnStudent,
+          ]}
+          activeOpacity={0.8}
+        >
+          <Text
+            style={[
+              styles.registerOutlinedBtnText,
+              activeTab === "teacher" ? styles.registerOutlinedBtnTextTeacher : styles.registerOutlinedBtnTextStudent,
+            ]}
+          >
+            {activeTab === "teacher" ? "Create Teacher Account" : "Create Student Account"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // ==========================================
+  // DESKTOP WEBSITE 50/50 SPLIT LAYOUT
+  // ==========================================
+  if (isDesktopWeb) {
+    return (
+      <View style={styles.desktopLayoutRoot}>
+        {/* Left Side: Clean Gray Background with Centered Exam Illustration */}
+        <View style={styles.desktopLeftCol}>
+          <View style={styles.illustrationWrapper}>
+            <AnimatedExamIllustration isFormActive={isFormActive} />
+          </View>
+        </View>
+
+        {/* Right Side: Centered Login Card with Top ZeePrep Branding */}
+        <ScrollView
+          style={styles.desktopRightCol}
+          contentContainerStyle={styles.desktopRightColContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.desktopFormWrapper}>
+            {/* Top Brand Logo Header */}
+            <View style={styles.desktopBrandHeader}>
+              <View style={styles.brandTitleRow}>
+                <ZeePrepLogoSvg size={44} />
+                <View style={styles.brandTextGroup}>
+                  <View style={styles.brandNameRow}>
+                    <Text style={styles.brandZee}>Zee</Text>
+                    <Text style={styles.brandPrep}>Prep</Text>
+                  </View>
+                  <Text style={styles.brandTagline}>SMART LMS PLATFORM</Text>
+                </View>
+              </View>
+              <Text style={styles.brandPortalSub}>
+                Intelligent Productivity & Diagnostic Portal
+              </Text>
+            </View>
+
+            {/* Login Card Component */}
+            {renderFormCard()}
+          </View>
+        </ScrollView>
 
         {/* Forgot Password Modal */}
         <Modal visible={showForgotModal} transparent animationType="fade">
@@ -421,14 +518,14 @@ export default function LoginScreen() {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Reset Password</Text>
                 <TouchableOpacity onPress={() => setShowForgotModal(false)}>
-                  <X size={24} color="#64748B" />
+                  <X size={22} color="#64748B" />
                 </TouchableOpacity>
               </View>
 
               {forgotSuccess ? (
                 <View style={styles.forgotSuccessBox}>
                   <Text style={styles.forgotSuccessText}>
-                    Password reset link sent! Check your inbox.
+                    Password reset link sent! Check your email inbox.
                   </Text>
                   <TouchableOpacity
                     style={styles.closeForgotBtn}
@@ -446,15 +543,15 @@ export default function LoginScreen() {
                     Enter your registered email address below to receive password reset instructions.
                   </Text>
                   <View style={styles.inputWrapper}>
-                    <Mail size={20} color="#64748B" style={styles.inputIcon} />
+                    <Mail size={18} color="#64748B" style={{ marginRight: 10 }} />
                     <TextInput
                       style={styles.input}
                       placeholder="teacher@school.com"
                       placeholderTextColor="#94A3B8"
                       value={forgotEmail}
                       onChangeText={setForgotEmail}
-                      keyboardType="email-address"
                       autoCapitalize="none"
+                      keyboardType="email-address"
                     />
                   </View>
                   <TouchableOpacity
@@ -468,83 +565,249 @@ export default function LoginScreen() {
             </View>
           </View>
         </Modal>
+      </View>
+    );
+  }
+
+  // ==========================================
+  // MOBILE / NATIVE SINGLE-COLUMN LAYOUT
+  // ==========================================
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: isSmallScreen ? 12 : 20,
+            paddingVertical: 20,
+            paddingBottom: isKeyboardVisible ? (Platform.OS === "android" ? 180 : 120) : 32,
+            alignItems: "center",
+          },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ width: "100%", maxWidth: 440 }}>
+          {/* Top Brand Logo Header */}
+          <View style={[styles.header, isKeyboardVisible && { marginBottom: 12 }]}>
+            <View style={styles.brandTitleRow}>
+              <ZeePrepLogoSvg size={38} />
+              <View style={styles.brandTextGroup}>
+                <View style={styles.brandNameRow}>
+                  <Text style={styles.brandZee}>Zee</Text>
+                  <Text style={styles.brandPrep}>Prep</Text>
+                </View>
+                <Text style={styles.brandTagline}>SMART LMS PLATFORM</Text>
+              </View>
+            </View>
+            <Text style={styles.brandPortalSub}>
+              Intelligent Productivity & Diagnostic Portal
+            </Text>
+
+            {!isKeyboardVisible ? (
+              <View style={{ width: "100%", marginTop: 8 }}>
+                <AnimatedExamIllustration isFormActive={isFormActive} />
+              </View>
+            ) : null}
+          </View>
+
+          {/* Form Card */}
+          {renderFormCard()}
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            © {new Date().getFullYear()} ZeePrep. All rights reserved.
+          </Text>
+          <Text style={styles.footerSubtext}>
+            Connected Backend: zeeprep01 (Shared Production)
+          </Text>
+        </View>
       </ScrollView>
+
+      {/* Forgot Password Modal */}
+      <Modal visible={showForgotModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Reset Password</Text>
+              <TouchableOpacity onPress={() => setShowForgotModal(false)}>
+                <X size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {forgotSuccess ? (
+              <View style={styles.forgotSuccessBox}>
+                <Text style={styles.forgotSuccessText}>
+                  Password reset link sent! Check your inbox.
+                </Text>
+                <TouchableOpacity
+                  style={styles.closeForgotBtn}
+                  onPress={() => {
+                    setShowForgotModal(false);
+                    setForgotSuccess(false);
+                  }}
+                >
+                  <Text style={styles.closeForgotBtnText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View>
+                <Text style={styles.modalSub}>
+                  Enter your registered email address below to receive password reset instructions.
+                </Text>
+                <View style={styles.inputWrapper}>
+                  <Mail size={20} color="#64748B" style={{ marginRight: 10 }} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="teacher@school.com"
+                    placeholderTextColor="#94A3B8"
+                    value={forgotEmail}
+                    onChangeText={setForgotEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.sendResetBtn}
+                  onPress={() => setForgotSuccess(true)}
+                >
+                  <Text style={styles.sendResetBtnText}>Send Reset Link</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  // Mobile / Native Root
   container: {
     flex: 1,
-    backgroundColor: ZEEPREP_THEME.colors.background,
+    backgroundColor: "#F8FAFC",
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 32,
   },
   header: {
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 16,
   },
-  logoBadge: {
-    width: 68,
-    height: 68,
-    borderRadius: 20,
-    backgroundColor: ZEEPREP_THEME.colors.surface,
-    borderWidth: 1,
-    borderColor: ZEEPREP_THEME.colors.border,
+
+  // 50/50 Desktop Layout
+  desktopLayoutRoot: {
+    flex: 1,
+    flexDirection: "row",
+    minHeight: "100vh" as any,
+    backgroundColor: "#FFFFFF",
+  },
+  desktopLeftCol: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    borderRightWidth: 1,
+    borderRightColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    padding: 40,
+  },
+  illustrationWrapper: {
+    width: "100%",
+    maxWidth: 580,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  desktopRightCol: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  desktopRightColContent: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+  },
+  desktopFormWrapper: {
+    width: "100%",
+    maxWidth: 440,
+  },
+
+  // Brand Logo Header Elements
+  desktopBrandHeader: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  brandTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  brandTextGroup: {
+    justifyContent: "center",
+  },
+  brandNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  brandZee: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: "#4F46E5",
+    letterSpacing: -0.5,
+  },
+  brandPrep: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: "#0F172A",
+    letterSpacing: -0.5,
+  },
+  brandTagline: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#64748B",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginTop: -2,
+  },
+  brandPortalSub: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#64748B",
+    marginTop: 6,
+    textAlign: "center",
+  },
+
+  // Card Container
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 28,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  brandTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: ZEEPREP_THEME.colors.textPrimary,
-    letterSpacing: -0.5,
-  },
-  brandSubtitle: {
-    fontSize: 13,
-    color: ZEEPREP_THEME.colors.textSecondary,
-    marginTop: 4,
-    fontWeight: "500",
-  },
-  illustrationContainer: {
-    width: "100%",
-    height: 140,
-    marginTop: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  illustrationImage: {
-    width: "100%",
-    height: "100%",
-  },
-  card: {
-    backgroundColor: ZEEPREP_THEME.colors.surface,
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: ZEEPREP_THEME.colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
     shadowRadius: 16,
     elevation: 3,
   },
+
+  // Role Tab Selector
   roleTabGrid: {
     flexDirection: "row",
     backgroundColor: "#F1F5F9",
     borderRadius: 14,
     padding: 4,
     marginBottom: 20,
+    gap: 4,
   },
   roleTab: {
     flex: 1,
@@ -555,78 +818,83 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     gap: 8,
   },
-  roleTabActive: {
-    backgroundColor: ZEEPREP_THEME.colors.surface,
+  roleTabActiveTeacher: {
+    backgroundColor: "#FFFFFF",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  roleTabActiveStudent: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
     elevation: 1,
   },
   roleTabText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#64748B",
-  },
-  roleTabTextActive: {
-    color: ZEEPREP_THEME.colors.primary,
+    fontSize: 12.5,
     fontWeight: "700",
-  },
-  methodSelector: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 16,
-  },
-  methodChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: "#F1F5F9",
-  },
-  methodChipActive: {
-    backgroundColor: ZEEPREP_THEME.colors.primaryLight,
-  },
-  methodChipText: {
-    fontSize: 12,
-    fontWeight: "600",
     color: "#64748B",
   },
-  methodChipTextActive: {
-    color: ZEEPREP_THEME.colors.primary,
+  roleTabTextActiveTeacher: {
+    color: "#4F46E5",
+    fontWeight: "800",
   },
+  roleTabTextActiveStudent: {
+    color: "#7C3AED",
+    fontWeight: "800",
+  },
+
+  // Card Header Area
+  cardHeaderArea: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#0F172A",
+    letterSpacing: -0.5,
+    textAlign: "center",
+  },
+  cardSub: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#64748B",
+    textAlign: "center",
+    marginTop: 4,
+  },
+
+  // Error Banner
   errorBox: {
-    backgroundColor: ZEEPREP_THEME.colors.errorLight,
+    backgroundColor: "#FEF2F2",
     borderWidth: 1,
     borderColor: "rgba(239, 68, 68, 0.2)",
     borderRadius: 12,
-    padding: 12,
+    padding: 10,
     marginBottom: 16,
   },
   errorText: {
-    color: ZEEPREP_THEME.colors.error,
-    fontSize: 13,
-    fontWeight: "500",
+    color: "#DC2626",
+    fontSize: 12,
+    fontWeight: "600",
     textAlign: "center",
   },
+
+  // Inputs
   inputGroup: {
     marginBottom: 16,
   },
-  labelRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
   inputLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: ZEEPREP_THEME.colors.textPrimary,
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#475569",
+    letterSpacing: 0.5,
     marginBottom: 6,
-  },
-  forgotLink: {
-    fontSize: 12,
-    color: ZEEPREP_THEME.colors.primary,
-    fontWeight: "600",
+    textTransform: "uppercase",
   },
   inputWrapper: {
     flexDirection: "row",
@@ -634,80 +902,144 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: ZEEPREP_THEME.colors.border,
+    borderColor: "#E2E8F0",
     paddingHorizontal: 14,
-  },
-  inputIcon: {
-    marginRight: 10,
+    height: 46,
   },
   input: {
     flex: 1,
-    height: 50,
-    color: ZEEPREP_THEME.colors.textPrimary,
-    fontSize: 13,
-    paddingVertical: 0,
-    textAlignVertical: "center",
+    fontSize: 13.5,
+    color: "#0F172A",
+    fontWeight: "500",
   },
   eyeBtn: {
-    padding: 6,
+    padding: 4,
   },
-  submitButton: {
-    backgroundColor: ZEEPREP_THEME.colors.primary,
-    borderRadius: 14,
-    height: 50,
-    justifyContent: "center",
+
+  // Options Row: Checkbox & Forgot Password
+  optionsRow: {
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    justifyContent: "space-between",
+    marginBottom: 20,
+    marginTop: 2,
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  buttonContent: {
+  rememberMeGroup: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
+  customCheckbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  customCheckboxChecked: {
+    backgroundColor: "#2563EB",
+    borderColor: "#2563EB",
+  },
+  rememberMeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  forgotLink: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
+
+  // Submit Button
+  submitButton: {
+    height: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  submitBtnTeacher: {
+    backgroundColor: "#4F46E5",
+  },
+  submitBtnStudent: {
+    backgroundColor: "#7C3AED",
+    shadowColor: "#7C3AED",
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
   submitButtonText: {
     color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "800",
   },
-  registerBox: {
-    marginTop: 20,
+
+  // Register Container
+  registerContainer: {
+    marginTop: 24,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: ZEEPREP_THEME.colors.border,
+    borderTopColor: "#F1F5F9",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
   },
   registerPrompt: {
-    fontSize: 13,
-    color: ZEEPREP_THEME.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
   },
-  registerLinkBtn: {
-    flexDirection: "row",
+  registerOutlinedBtn: {
+    width: "100%",
+    height: 42,
+    borderRadius: 12,
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
+    borderWidth: 1,
   },
-  registerLinkText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: ZEEPREP_THEME.colors.primary,
+  registerOutlinedBtnTeacher: {
+    backgroundColor: "#EEF2FF",
+    borderColor: "#C7D2FE",
   },
+  registerOutlinedBtnStudent: {
+    backgroundColor: "#FAF5FF",
+    borderColor: "#E9D5FF",
+  },
+  registerOutlinedBtnText: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  registerOutlinedBtnTextTeacher: {
+    color: "#4F46E5",
+  },
+  registerOutlinedBtnTextStudent: {
+    color: "#7C3AED",
+  },
+
+  // Footer
   footer: {
     alignItems: "center",
     marginTop: 24,
   },
   footerText: {
-    color: ZEEPREP_THEME.colors.textSecondary,
+    color: "#64748B",
     fontSize: 12,
     fontWeight: "500",
   },
   footerSubtext: {
-    color: ZEEPREP_THEME.colors.textMuted,
+    color: "#94A3B8",
     fontSize: 11,
     marginTop: 2,
   },
+
+  // Forgot Password Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.5)",
@@ -717,6 +1049,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "100%",
+    maxWidth: 400,
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 24,
@@ -729,26 +1062,26 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: "700",
-    color: ZEEPREP_THEME.colors.textPrimary,
+    fontWeight: "800",
+    color: "#0F172A",
   },
   modalSub: {
     fontSize: 13,
-    color: ZEEPREP_THEME.colors.textSecondary,
+    color: "#64748B",
     marginBottom: 16,
   },
   sendResetBtn: {
-    backgroundColor: ZEEPREP_THEME.colors.primary,
+    backgroundColor: "#4F46E5",
     borderRadius: 12,
-    height: 46,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 16,
   },
   sendResetBtnText: {
     color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 13.5,
+    fontWeight: "800",
   },
   forgotSuccessBox: {
     alignItems: "center",
@@ -757,18 +1090,18 @@ const styles = StyleSheet.create({
   },
   forgotSuccessText: {
     fontSize: 14,
-    color: ZEEPREP_THEME.colors.success,
+    color: "#059669",
     textAlign: "center",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   closeForgotBtn: {
-    backgroundColor: ZEEPREP_THEME.colors.primary,
+    backgroundColor: "#4F46E5",
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 10,
   },
   closeForgotBtnText: {
     color: "#FFFFFF",
-    fontWeight: "700",
+    fontWeight: "800",
   },
 });

@@ -6,6 +6,7 @@ dist/
 web-build/
 firebase-debug.log
 firebase-debug.*.log
+.firebase/
 
 # Environment variables & secrets
 .env

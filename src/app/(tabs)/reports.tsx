@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
@@ -31,6 +33,8 @@ import {
 export default function StudentReportsScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
 
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +96,10 @@ export default function StudentReportsScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[
+        styles.contentContainer,
+        isDesktopWeb && { maxWidth: 1280, alignSelf: "center", width: "100%", paddingHorizontal: 32, paddingTop: 24 },
+      ]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -175,65 +182,67 @@ export default function StudentReportsScreen() {
       ) : loading ? (
         <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginVertical: 30 }} />
       ) : reports.length > 0 ? (
-        reports.map((report) => {
-          const mins = Math.floor((report.timeSpentSeconds || 0) / 60);
-          return (
-            <TouchableOpacity
-              key={report.id}
-              style={styles.reportCard}
-              onPress={() => router.push(`/results/${report.id || report.examId}` as any)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.cardHeader}>
-                <View
-                  style={[
-                    styles.passBadge,
-                    report.passed ? styles.passBadgePassed : styles.passBadgeFailed,
-                  ]}
-                >
-                  {report.passed ? (
-                    <CheckCircle2 size={14} color="#059669" />
-                  ) : (
-                    <XCircle size={14} color="#DC2626" />
-                  )}
-                  <Text
+        <View style={[styles.reportListWrapper, isDesktopWeb && styles.desktopCardGrid]}>
+          {reports.map((report) => {
+            const mins = Math.floor((report.timeSpentSeconds || 0) / 60);
+            return (
+              <TouchableOpacity
+                key={report.id}
+                style={[styles.reportCard, isDesktopWeb && styles.desktopCardItem]}
+                onPress={() => router.push(`/results/${report.id || report.examId}` as any)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.cardHeader}>
+                  <View
                     style={[
-                      styles.passBadgeText,
-                      report.passed ? styles.passTextPassed : styles.passTextFailed,
+                      styles.passBadge,
+                      report.passed ? styles.passBadgePassed : styles.passBadgeFailed,
                     ]}
                   >
-                    {report.passed ? "PASSED" : "NEEDS REVISION"}
-                  </Text>
+                    {report.passed ? (
+                      <CheckCircle2 size={14} color="#059669" />
+                    ) : (
+                      <XCircle size={14} color="#DC2626" />
+                    )}
+                    <Text
+                      style={[
+                        styles.passBadgeText,
+                        report.passed ? styles.passTextPassed : styles.passTextFailed,
+                      ]}
+                    >
+                      {report.passed ? "PASSED" : "NEEDS REVISION"}
+                    </Text>
+                  </View>
+
+                  <View style={styles.timeBadge}>
+                    <Clock size={12} color="#64748B" />
+                    <Text style={styles.timeBadgeText}>Attempt {report.attemptNumber || 1} • {mins} mins</Text>
+                  </View>
                 </View>
 
-                <View style={styles.timeBadge}>
-                  <Clock size={12} color="#64748B" />
-                  <Text style={styles.timeBadgeText}>Attempt {report.attemptNumber || 1} • {mins} mins</Text>
+                <Text style={styles.examTitle}>{report.examTitle || "ZeePrep Assessment"}</Text>
+
+                <View style={styles.scoreRow}>
+                  <View>
+                    <Text style={styles.scoreNumber}>
+                      {report.obtainedMarks} <Text style={styles.totalMarksText}>/ {report.totalMarks}</Text>
+                    </Text>
+                    <Text style={styles.scoreLabel}>Score Obtained</Text>
+                  </View>
+
+                  <View style={styles.percentagePill}>
+                    <Text style={styles.percentagePillText}>{report.percentage}%</Text>
+                  </View>
                 </View>
-              </View>
 
-              <Text style={styles.examTitle}>{report.examTitle || "ZeePrep Assessment"}</Text>
-
-              <View style={styles.scoreRow}>
-                <View>
-                  <Text style={styles.scoreNumber}>
-                    {report.obtainedMarks} <Text style={styles.totalMarksText}>/ {report.totalMarks}</Text>
-                  </Text>
-                  <Text style={styles.scoreLabel}>Score Obtained</Text>
+                <View style={styles.cardFooter}>
+                  <Text style={styles.viewDetailsText}>View Full Scorecard & Analytics</Text>
+                  <ChevronRight size={16} color={ZEEPREP_THEME.colors.primary} />
                 </View>
-
-                <View style={styles.percentagePill}>
-                  <Text style={styles.percentagePillText}>{report.percentage}%</Text>
-                </View>
-              </View>
-
-              <View style={styles.cardFooter}>
-                <Text style={styles.viewDetailsText}>View Full Scorecard & Analytics</Text>
-                <ChevronRight size={16} color={ZEEPREP_THEME.colors.primary} />
-              </View>
-            </TouchableOpacity>
-          );
-        })
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       ) : (
         <View style={styles.emptyCard}>
           <FileBarChart size={36} color={ZEEPREP_THEME.colors.textMuted} />
@@ -512,5 +521,19 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "700",
+  },
+  reportListWrapper: {
+    gap: 12,
+  },
+  desktopCardGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 16,
+  },
+  desktopCardItem: {
+    flex: 1,
+    minWidth: 340,
+    maxWidth: "49%",
+    marginBottom: 0,
   },
 });

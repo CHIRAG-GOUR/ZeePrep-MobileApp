@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   useWindowDimensions,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
@@ -38,6 +39,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
 
   const isSmall = width < 360;
   const isLarge = width >= 600;
@@ -83,7 +85,10 @@ export default function DashboardScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[
+        styles.contentContainer,
+        isDesktopWeb && { maxWidth: 1280, alignSelf: "center", width: "100%", paddingHorizontal: 32, paddingTop: 24 },
+      ]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -97,33 +102,60 @@ export default function DashboardScreen() {
       <SuperAdminRoleSwitcher />
 
       {/* Student Welcome Card Header */}
-      <View style={styles.welcomeCard}>
-        <View style={styles.userInfoRow}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{user?.name?.charAt(0) || "S"}</Text>
-          </View>
-          <View style={styles.userTextCol}>
-            <View style={styles.badgeRow}>
-              <Award size={14} color={ZEEPREP_THEME.colors.primary} />
-              <Text style={styles.roleBadge}>{user?.role?.toUpperCase() || "STUDENT"}</Text>
-            </View>
-            <Text style={styles.userName}>{user?.name || "Welcome Back!"}</Text>
-            <Text style={styles.academicMeta}>
-              {user?.grade ? `Grade ${user.grade}` : "Class N/A"} • {user?.board || "ZeePrep Academic"}
+      {isDesktopWeb ? (
+        <View style={styles.desktopBannerHeader}>
+          <View>
+            <Text style={styles.desktopBannerTitle}>Student Dashboard</Text>
+            <Text style={styles.desktopBannerSub}>
+              Grade {user?.grade || "10"} • Track your performance, study resources, and attempt active examinations
             </Text>
           </View>
+          <TouchableOpacity
+            style={styles.desktopStartExamBtn}
+            onPress={() => router.push("/(tabs)/exams")}
+            activeOpacity={0.85}
+          >
+            <FileCheck size={18} color="#FFFFFF" />
+            <Text style={styles.desktopStartExamBtnText}>Start Active Exam</Text>
+          </TouchableOpacity>
         </View>
-      </View>
+      ) : (
+        <View style={styles.welcomeCard}>
+          <View style={styles.userInfoRow}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>{user?.name?.charAt(0) || "S"}</Text>
+            </View>
+            <View style={styles.userTextCol}>
+              <View style={styles.badgeRow}>
+                <Award size={14} color={ZEEPREP_THEME.colors.primary} />
+                <Text style={styles.roleBadge}>{user?.role?.toUpperCase() || "STUDENT"}</Text>
+              </View>
+              <Text style={styles.userName}>{user?.name || "Welcome Back!"}</Text>
+              <Text style={styles.academicMeta}>
+                {user?.grade ? `Grade ${user.grade}` : "Class N/A"} • {user?.board || "ZeePrep Academic"}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
 
-      {/* Student Overview Statistics Grid (Explicit 3-Column Horizontal Row) */}
+      {/* Student Overview Statistics Grid (4 columns on Desktop, 3 on Mobile) */}
       <View style={styles.gridSection}>
-        <View style={styles.gridRow}>
+        <View style={[styles.gridRow, isDesktopWeb && { gap: 14 }]}>
           <AdminStatTile
             icon={<FileCheck color={ZEEPREP_THEME.colors.primary} size={18} />}
             value={activeExams.length}
             label="AVAILABLE"
             iconBgColor="#EEF2FF"
             accessibilityLabel={`${activeExams.length} Available Exams`}
+          />
+
+          <AdminStatTile
+            icon={<BookOpen color="#7C3AED" size={18} />}
+            value={resources.length}
+            label="RESOURCES"
+            iconBgColor="#F3E8FF"
+            accessibilityLabel={`${resources.length} Study Resources`}
           />
 
           <AdminStatTile
@@ -270,34 +302,36 @@ export default function DashboardScreen() {
       {loading ? (
         <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginVertical: 20 }} />
       ) : activeExams.length > 0 ? (
-        activeExams.slice(0, 2).map((exam) => (
-          <TouchableOpacity
-            key={exam.id}
-            style={styles.examCard}
-            onPress={() => router.push(`/exam/${exam.id}` as any)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.examBadgeHeader}>
-              <View style={styles.subjectChip}>
-                <Text style={styles.subjectChipText}>{exam.subject || "General"}</Text>
+        <View style={[styles.cardGridWrapper, isDesktopWeb && styles.desktopCardGrid]}>
+          {activeExams.slice(0, isDesktopWeb ? 4 : 2).map((exam) => (
+            <TouchableOpacity
+              key={exam.id}
+              style={[styles.examCard, isDesktopWeb && styles.desktopCardItem]}
+              onPress={() => router.push(`/exam/${exam.id}` as any)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.examBadgeHeader}>
+                <View style={styles.subjectChip}>
+                  <Text style={styles.subjectChipText}>{exam.subject || "General"}</Text>
+                </View>
+                <View style={styles.timerBadge}>
+                  <Clock size={14} color="#D97706" />
+                  <Text style={styles.timerText}>{exam.durationMinutes} mins</Text>
+                </View>
               </View>
-              <View style={styles.timerBadge}>
-                <Clock size={14} color="#D97706" />
-                <Text style={styles.timerText}>{exam.durationMinutes} mins</Text>
+
+              <Text style={styles.examCardTitle}>{exam.title}</Text>
+              <Text style={styles.examCardMeta}>
+                Grade {exam.grade || "12"} • {exam.totalMarks || 100} Marks • {exam.questions?.length || 10} Items
+              </Text>
+
+              <View style={styles.examCardFooter}>
+                <Text style={styles.startText}>Tap to Start Exam</Text>
+                <ChevronRight color={ZEEPREP_THEME.colors.primary} size={18} />
               </View>
-            </View>
-
-            <Text style={styles.examCardTitle}>{exam.title}</Text>
-            <Text style={styles.examCardMeta}>
-              Grade {exam.grade || "12"} • {exam.totalMarks || 100} Marks • {exam.questions?.length || 10} Items
-            </Text>
-
-            <View style={styles.examCardFooter}>
-              <Text style={styles.startText}>Tap to Start Exam</Text>
-              <ChevronRight color={ZEEPREP_THEME.colors.primary} size={18} />
-            </View>
-          </TouchableOpacity>
-        ))
+            </TouchableOpacity>
+          ))}
+        </View>
       ) : (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyText}>No pending exams assigned right now.</Text>
@@ -313,23 +347,25 @@ export default function DashboardScreen() {
       </View>
 
       {resources.length > 0 ? (
-        resources.slice(0, 3).map((rawRes) => {
-          const res = normalizeResourceType(rawRes);
-          return (
-            <View key={res.id} style={styles.resourceItem}>
-              <View style={styles.resourceIconBox}>
-                <BookOpen color={ZEEPREP_THEME.colors.primary} size={20} />
+        <View style={[styles.cardGridWrapper, isDesktopWeb && styles.desktopCardGrid]}>
+          {resources.slice(0, isDesktopWeb ? 4 : 3).map((rawRes) => {
+            const res = normalizeResourceType(rawRes);
+            return (
+              <View key={res.id} style={[styles.resourceItem, isDesktopWeb && styles.desktopCardItem]}>
+                <View style={styles.resourceIconBox}>
+                  <BookOpen color={ZEEPREP_THEME.colors.primary} size={20} />
+                </View>
+                <View style={styles.resourceInfo}>
+                  <Text style={styles.resourceTitle}>{res.title}</Text>
+                  <Text style={styles.resourceMeta}>
+                    {res.subject} • {res.displayType}
+                  </Text>
+                </View>
+                <ChevronRight color={ZEEPREP_THEME.colors.textMuted} size={18} />
               </View>
-              <View style={styles.resourceInfo}>
-                <Text style={styles.resourceTitle}>{res.title}</Text>
-                <Text style={styles.resourceMeta}>
-                  {res.subject} • {res.displayType}
-                </Text>
-              </View>
-              <ChevronRight color={ZEEPREP_THEME.colors.textMuted} size={18} />
-            </View>
-          );
-        })
+            );
+          })}
+        </View>
       ) : (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyText}>No study materials uploaded for your grade yet.</Text>
@@ -604,5 +640,57 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 13,
     color: ZEEPREP_THEME.colors.textSecondary,
+  },
+  cardGridWrapper: {
+    gap: 12,
+  },
+  desktopCardGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 16,
+  },
+  desktopCardItem: {
+    flex: 1,
+    minWidth: 320,
+    maxWidth: "49%",
+    marginBottom: 0,
+  },
+  desktopBannerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+    gap: 16,
+    flexWrap: "wrap",
+  },
+  desktopBannerTitle: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#0F172A",
+    letterSpacing: -0.5,
+  },
+  desktopBannerSub: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
+    marginTop: 4,
+  },
+  desktopStartExamBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#4F46E5",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  desktopStartExamBtnText: {
+    fontSize: 13.5,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
 });

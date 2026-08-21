@@ -10,6 +10,8 @@ import {
   RefreshControl,
   Alert,
   Clipboard,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
 import { getClassGrades, getAcademicSessions } from "../../services/firestore";
 import type { ClassGrade, AcademicSession } from "../../types";
@@ -19,6 +21,8 @@ import { Layers, Calendar, School, Link2, Copy, CheckCircle2 } from "lucide-reac
 import { AppHeader } from "../../components/AppHeader";
 
 export default function AcademicHierarchyScreen() {
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
   const [classes, setClasses] = useState<ClassGrade[]>([]);
   const [sessions, setSessions] = useState<AcademicSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +78,7 @@ export default function AcademicHierarchyScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDesktopWeb && { maxWidth: 1280, alignSelf: "center", width: "100%", paddingHorizontal: 32, paddingTop: 24 }]}>
       <AppHeader
         title="Academic Hierarchy & Invites"
         subtitle="Boards, Sessions, Grades, Sections & Faculty Registration Links"

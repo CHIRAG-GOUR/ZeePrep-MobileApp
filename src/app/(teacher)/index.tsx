@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   useWindowDimensions,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
@@ -36,6 +37,7 @@ export default function TeacherDashboardScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
 
   const isSmall = width < 360;
   const isLarge = width >= 600;
@@ -79,7 +81,10 @@ export default function TeacherDashboardScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[
+        styles.contentContainer,
+        isDesktopWeb && { maxWidth: 1280, alignSelf: "center", width: "100%", paddingHorizontal: 32, paddingTop: 24 },
+      ]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -93,27 +98,51 @@ export default function TeacherDashboardScreen() {
       <SuperAdminRoleSwitcher />
 
       {/* Teacher Header Card */}
-      <View style={styles.welcomeCard}>
-        <View style={styles.userInfoRow}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{user?.name?.charAt(0) || "T"}</Text>
-          </View>
-          <View style={styles.userTextCol}>
-            <View style={styles.badgeRow}>
-              <Award size={14} color={ZEEPREP_THEME.colors.primary} />
-              <Text style={styles.roleBadge}>FACULTY / TEACHER</Text>
+      {isDesktopWeb ? (
+        <View style={styles.desktopBannerHeader}>
+          <View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Text style={styles.desktopBannerTitle}>Teacher Overview Dashboard</Text>
+              <View style={styles.desktopSubjectBadge}>
+                <Text style={styles.desktopSubjectBadgeText}>{user?.subject || "General Science"} Faculty</Text>
+              </View>
             </View>
-            <Text style={styles.userName}>{user?.name || "Faculty Member"}</Text>
-            <Text style={styles.academicMeta}>
-              {user?.subject || "General Science"} • {user?.schoolName || "ZeePrep Faculty"}
+            <Text style={styles.desktopBannerSub}>
+              Live Firestore question repository, candidate submissions, and institutional diagnostics for {user?.schoolName || "ZeePrep Faculty"}
             </Text>
           </View>
+          <TouchableOpacity
+            style={styles.desktopUploadBtn}
+            onPress={() => router.push("/(teacher)/question-bank")}
+            activeOpacity={0.85}
+          >
+            <HelpCircle size={18} color="#FFFFFF" />
+            <Text style={styles.desktopUploadBtnText}>Upload Questions</Text>
+          </TouchableOpacity>
         </View>
-      </View>
+      ) : (
+        <View style={styles.welcomeCard}>
+          <View style={styles.userInfoRow}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>{user?.name?.charAt(0) || "T"}</Text>
+            </View>
+            <View style={styles.userTextCol}>
+              <View style={styles.badgeRow}>
+                <Award size={14} color={ZEEPREP_THEME.colors.primary} />
+                <Text style={styles.roleBadge}>FACULTY / TEACHER</Text>
+              </View>
+              <Text style={styles.userName}>{user?.name || "Faculty Member"}</Text>
+              <Text style={styles.academicMeta}>
+                {user?.subject || "General Science"} • {user?.schoolName || "ZeePrep Faculty"}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Teacher Overview Statistics Grid (Explicit 3-Column Horizontal Row) */}
       <View style={styles.gridSection}>
-        <View style={styles.gridRow}>
+        <View style={[styles.gridRow, isDesktopWeb && { gap: 14 }]}>
           <AdminStatTile
             icon={<FileCheck color={ZEEPREP_THEME.colors.primary} size={18} />}
             value={exams.length}
@@ -563,5 +592,56 @@ const styles = StyleSheet.create({
     color: ZEEPREP_THEME.colors.textSecondary,
     fontSize: 13,
     textAlign: "center",
+  },
+  desktopBannerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+    gap: 16,
+    flexWrap: "wrap",
+  },
+  desktopBannerTitle: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#0F172A",
+    letterSpacing: -0.5,
+  },
+  desktopSubjectBadge: {
+    backgroundColor: "#EEF2FF",
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  desktopSubjectBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#4F46E5",
+  },
+  desktopBannerSub: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
+    marginTop: 4,
+  },
+  desktopUploadBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#4F46E5",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowColor: "#4F46E5",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  desktopUploadBtnText: {
+    fontSize: 13.5,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
 });

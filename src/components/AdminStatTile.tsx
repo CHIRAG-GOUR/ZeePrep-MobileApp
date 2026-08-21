@@ -24,6 +24,8 @@ export function AdminStatTile({
       style={styles.metricTile}
       accessibilityLabel={accessibilityLabel || `${value} ${label}`}
       accessibilityRole="text"
+      // @ts-ignore - Web interactive elevation
+      className="figma-card-hover"
     >
       {/* Top Centered Icon Badge */}
       <View style={[styles.iconBadge, { backgroundColor: iconBgColor }]}>

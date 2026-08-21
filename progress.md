@@ -107,3 +107,19 @@
 ### 16. Native Build & Git Deployment Verification
 - **TypeScript Check**: `npx tsc --noEmit` -> **0 errors**.
 - **Git Repository**: Pushed commits to `https://github.com/CHIRAG-GOUR/ZeePrep-MobileApp.git` (`master` branch).
+
+### 17. AI Report Review Pointers, Resource Suggestions & Unified Web Build
+- **Structured AI Review Pointers (`src/services/ai.ts`)**:
+  - Transformed long-paragraph AI responses into 3–6 concise, actionable bullet points (`reviewPointers`) grounded strictly in the student's actual exam telemetry.
+  - Zero hallucination / score conflict: scores and metrics remain 100% computed by `report-engine.ts`.
+  - Robust deterministic fallback ensures review pointers always populate even if Gemini is unreachable.
+- **Faculty Diagnostic & Review Pointers Display (`src/app/results/[id].tsx`)**:
+  - Displays high-contrast, non-truncated Actionable Review Pointers at the top of the Faculty AI card.
+  - Teachers can edit and persist custom review pointers alongside weak topics, strong topics, conceptual gaps, and teaching recommendations with full Firebase persistence.
+- **Resource Deduplication & Resilience (`src/services/weak-topic-resource-engine.ts`)**:
+  - Added strict `resourceId` deduplication across AI matches and local fallback matching.
+  - Handled invalid/missing resources gracefully without app crashes.
+- **Single Unified Codebase for Mobile + Web (`E:\1. Skillizee\Zee Prep - Mobile App`)**:
+  - Enabled and validated Expo Web static export (`npx expo export -p web`) bundling all 63 routes to `dist/`.
+  - Shared authentication, Firestore database (`zeeprep01`), storage, report engine, AI services, and role-based routing between mobile and web.
+  - Existing web project (`E:\1. Skillizee\Zee Prep`) preserved 100% untouched as read-only reference.

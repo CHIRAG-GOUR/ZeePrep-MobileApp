@@ -22,6 +22,7 @@ export interface WrongAnswerAnalysisResult {
 }
 
 export interface ReportInsightResult {
+  reviewPointers?: string[];
   strongTopics: string[];
   weakTopics: string[];
   conceptualGaps: string[];
@@ -428,7 +429,7 @@ export async function generateTeacherAIReportAnalysis(report: Report): Promise<R
                 : q.isUnanswered
                 ? `Unanswered (0/${q.marks || 1})`
                 : `Incorrect (Lost ${q.marks || 1} marks)`
-            } (Time: ${q.timeSpentSeconds || 0}s, Chapter: ${q.chapter || "N/A"})`
+            } (Time: ${q.timeSpentSeconds || 0}s, Chapter: ${q.chapter || "N/A"}, Topic: ${q.topic || "General"})`
         )
         .join("\n")
     : "No telemetry available";
@@ -445,29 +446,102 @@ Time Spent: ${Math.round(report.timeSpentSeconds / 60)} minutes (${report.timeSp
 Question Telemetry & Weight Breakdown:
 ${questionBreakdown}
 
-Evaluate high-weight question losses vs low-weight losses to provide exact revision recommendations.
+Evaluate high-weight question losses vs low-weight losses to provide concise revision recommendations.
 
-Return ONLY JSON with keys:
+Return ONLY a valid JSON object with the following keys:
+"reviewPointers": array of 3 to 6 short, actionable bullet points (e.g. "Revise concepts related to quadratic equations.", "Review questions where calculation errors caused incorrect answers.", "Spend additional practice time on algebraic simplification."),
 "strongTopics": string array,
 "weakTopics": string array,
 "conceptualGaps": string array,
 "actionableAdvice": string array,
-"recommendation": string`;
+"recommendation": string (1-2 sentence overall summary)`;
+
+  // Deterministic fallback pointers helper
+  const deriveFallbackPointers = (weakList: string[], strongList: string[]): string[] => {
+    const pointers: string[] = [];
+    if (weakList.length > 0) {
+      weakList.slice(0, 2).forEach((wt) => {
+        pointers.push(`Revise the core concepts and formulas related to ${wt}.`);
+      });
+      pointers.push(`Review questions where errors occurred in ${weakList[0]} and reattempt them.`);
+    } else {
+      pointers.push("Review all completed questions to solidify conceptual accuracy.");
+    }
+
+    if (report.unattempted > 0) {
+      pointers.push(`Reattempt the ${report.unattempted} skipped question${report.unattempted > 1 ? "s" : ""} after reviewing the underlying concepts.`);
+      pointers.push(`Practice time management to ensure all ${report.totalQuestions} questions can be attempted.`);
+    }
+
+    if (report.accuracy < 70) {
+      pointers.push("Focus on solving accuracy before increasing problem-solving speed.");
+    }
+
+    if (strongList.length > 0) {
+      pointers.push(`Maintain strong performance in ${strongList.slice(0, 2).join(", ")} while practicing advanced level questions.`);
+    }
+
+    return pointers.slice(0, 5);
+  };
 
   const geminiText = await callGeminiAPI(prompt, "reportAnalysis");
   if (geminiText) {
     const parsed = parseGeminiJson<ReportInsightResult>(geminiText);
-    if (parsed && Array.isArray(parsed.strongTopics) && Array.isArray(parsed.weakTopics)) {
-      return parsed;
+    if (parsed && (Array.isArray(parsed.strongTopics) || Array.isArray(parsed.weakTopics) || Array.isArray(parsed.reviewPointers))) {
+      const strongTopics = Array.isArray(parsed.strongTopics) ? parsed.strongTopics : [];
+      const weakTopics = Array.isArray(parsed.weakTopics) ? parsed.weakTopics : [];
+      const conceptualGaps = Array.isArray(parsed.conceptualGaps) ? parsed.conceptualGaps : [];
+      const actionableAdvice = Array.isArray(parsed.actionableAdvice) ? parsed.actionableAdvice : [];
+      const reviewPointers = Array.isArray(parsed.reviewPointers) && parsed.reviewPointers.length > 0
+        ? parsed.reviewPointers
+        : deriveFallbackPointers(weakTopics, strongTopics);
+
+      return {
+        reviewPointers,
+        strongTopics,
+        weakTopics,
+        conceptualGaps,
+        actionableAdvice,
+        recommendation: parsed.recommendation || "Focus on targeted revision for identified weak areas.",
+      };
     }
   }
 
-  // Requirement 18: Never return generic fake fallback insights.
+  // Factual Topic Performance Fallback from Report Telemetry
+  const fallbackWeak: string[] = [];
+  const fallbackStrong: string[] = [];
+
+  if (report.detailedAnalysis && report.detailedAnalysis.length > 0) {
+    const topicAcc = new Map<string, { correct: number; total: number }>();
+    report.detailedAnalysis.forEach((q) => {
+      const t = q.topic || q.chapter || "General";
+      const curr = topicAcc.get(t) || { correct: 0, total: 0 };
+      if (q.isCorrect) curr.correct++;
+      curr.total++;
+      topicAcc.set(t, curr);
+    });
+
+    topicAcc.forEach((stat, topic) => {
+      const acc = (stat.correct / stat.total) * 100;
+      if (acc < 60) {
+        fallbackWeak.push(topic);
+      } else if (acc >= 75) {
+        fallbackStrong.push(topic);
+      }
+    });
+  }
+
   return {
-    strongTopics: [],
-    weakTopics: [],
-    conceptualGaps: [],
-    actionableAdvice: ["Review your itemized question scorecard for detailed feedback."],
-    recommendation: "AI diagnostic analysis unavailable for this assessment paper.",
+    reviewPointers: deriveFallbackPointers(fallbackWeak, fallbackStrong),
+    strongTopics: fallbackStrong,
+    weakTopics: fallbackWeak,
+    conceptualGaps: fallbackWeak.map((w) => `Conceptual ambiguity in ${w}`),
+    actionableAdvice: [
+      "Review your itemized question scorecard for step-by-step diagnostic feedback.",
+      "Work through the recommended study resources for identified weak topics.",
+    ],
+    recommendation: fallbackWeak.length > 0
+      ? `Allocate dedicated revision time for ${fallbackWeak.join(", ")} before the next assessment.`
+      : "Solid overall performance. Continue with advanced practice material.",
   };
 }

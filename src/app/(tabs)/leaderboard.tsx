@@ -6,6 +6,8 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
 import { getLeaderboardData } from "../../services/firestore";
 import type { Report } from "../../types";
@@ -13,6 +15,8 @@ import { ZEEPREP_THEME } from "../../constants/theme";
 import { Trophy, Award, Medal, Crown } from "lucide-react-native";
 
 export default function StudentLeaderboardScreen() {
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,7 +46,10 @@ export default function StudentLeaderboardScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[
+        styles.contentContainer,
+        isDesktopWeb && { maxWidth: 1000, alignSelf: "center", width: "100%", paddingHorizontal: 32, paddingTop: 24 },
+      ]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl

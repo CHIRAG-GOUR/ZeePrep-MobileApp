@@ -10,6 +10,8 @@ import {
   RefreshControl,
   Modal,
   Alert,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
 import { getAllUsers, updateUserAccountStatus, deleteUserAccountPermanently } from "../../services/firestore";
 import { useAuthStore } from "../../stores/auth-store";
@@ -21,6 +23,8 @@ import { AppHeader } from "../../components/AppHeader";
 
 export default function AdminUserManagementScreen() {
   const currentUser = useAuthStore((state) => state.user);
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole | "all">("all");
@@ -96,7 +100,7 @@ export default function AdminUserManagementScreen() {
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDesktopWeb && { maxWidth: 1280, alignSelf: "center", width: "100%", paddingHorizontal: 32, paddingTop: 24 }]}>
       <AppHeader
         title="User Directory & Governance"
         subtitle="Manage student, faculty, and admin accounts"

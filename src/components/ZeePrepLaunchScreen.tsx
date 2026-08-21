@@ -6,6 +6,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Platform,
 } from "react-native";
 import { createAudioPlayer } from "expo-audio";
 
@@ -37,8 +38,8 @@ export function ZeePrepLaunchScreen({ onComplete }: ZeePrepLaunchScreenProps) {
   const voicePlayerRef = useRef<any>(null);
 
   useEffect(() => {
-    // If warm launch (already played during this app session), skip immediately
-    if (hasPlayedColdLaunch) {
+    // If Web platform or warm launch, skip immediately
+    if (Platform.OS === "web" || hasPlayedColdLaunch) {
       onComplete();
       return;
     }

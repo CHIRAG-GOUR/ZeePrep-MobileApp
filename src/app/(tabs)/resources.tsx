@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Linking,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
@@ -24,6 +25,8 @@ import {
 export default function StudentResourcesScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
 
   const [resources, setResources] = useState<NormalizedResource[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -93,7 +96,7 @@ export default function StudentResourcesScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDesktopWeb && { maxWidth: 1280, alignSelf: "center", width: "100%", paddingHorizontal: 32, paddingTop: 24 }]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Study Material Library</Text>
         <Text style={styles.headerSubtitle}>
@@ -166,50 +169,52 @@ export default function StudentResourcesScreen() {
         {loading ? (
           <ActivityIndicator color={ZEEPREP_THEME.colors.primary} style={{ marginTop: 40 }} />
         ) : filteredResources.length > 0 ? (
-          filteredResources.map((rawRes, index) => {
-            const res = normalizeResource(rawRes);
-            const resFormat = (res.format || "").toString().toLowerCase();
-            const uniqueKey = res.id ? `res-${res.id}` : `res-${index}-${res.title}`;
-            const actionLabel =
-              resFormat === "video" ? "Watch" : resFormat === "audio" ? "Listen" : "Open";
+          <View style={[styles.resourceListWrapper, isDesktopWeb && styles.desktopCardGrid]}>
+            {filteredResources.map((rawRes, index) => {
+              const res = normalizeResource(rawRes);
+              const resFormat = (res.format || "").toString().toLowerCase();
+              const uniqueKey = res.id ? `res-${res.id}` : `res-${index}-${res.title}`;
+              const actionLabel =
+                resFormat === "video" ? "Watch" : resFormat === "audio" ? "Listen" : "Open";
 
-            return (
-              <TouchableOpacity
-                key={uniqueKey}
-                style={styles.card}
-                onPress={() => handleResourcePress(res)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.cardIconBox}>
-                  {resFormat === "video" ? (
-                    <Video color={ZEEPREP_THEME.colors.primary} size={20} />
-                  ) : resFormat === "audio" ? (
-                    <Music color="#D97706" size={20} />
-                  ) : resFormat === "image" ? (
-                    <ImageIcon color="#059669" size={20} />
-                  ) : resFormat === "pdf" ? (
-                    <FileText color={ZEEPREP_THEME.colors.primary} size={20} />
-                  ) : (
-                    <LinkIcon color="#4F46E5" size={20} />
-                  )}
-                </View>
+              return (
+                <TouchableOpacity
+                  key={uniqueKey}
+                  style={[styles.card, isDesktopWeb && styles.desktopCardItem]}
+                  onPress={() => handleResourcePress(res)}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.cardIconBox}>
+                    {resFormat === "video" ? (
+                      <Video color={ZEEPREP_THEME.colors.primary} size={20} />
+                    ) : resFormat === "audio" ? (
+                      <Music color="#D97706" size={20} />
+                    ) : resFormat === "image" ? (
+                      <ImageIcon color="#059669" size={20} />
+                    ) : resFormat === "pdf" ? (
+                      <FileText color={ZEEPREP_THEME.colors.primary} size={20} />
+                    ) : (
+                      <LinkIcon color="#4F46E5" size={20} />
+                    )}
+                  </View>
 
-                <View style={styles.cardContent}>
-                  <Text style={styles.resTitle} numberOfLines={1}>
-                    {res.title}
-                  </Text>
-                  <Text style={styles.resMeta}>
-                    {res.subject} • {res.displayType}
-                  </Text>
-                </View>
+                  <View style={styles.cardContent}>
+                    <Text style={styles.resTitle} numberOfLines={1}>
+                      {res.title}
+                    </Text>
+                    <Text style={styles.resMeta}>
+                      {res.subject} • {res.displayType}
+                    </Text>
+                  </View>
 
-                <View style={styles.openBtnBadge}>
-                  <Eye size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-                  <Text style={styles.openBtnText}>{actionLabel}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })
+                  <View style={styles.openBtnBadge}>
+                    <Eye size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <Text style={styles.openBtnText}>{actionLabel}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         ) : (
           <View style={styles.emptyCard}>
             <BookOpen size={40} color={ZEEPREP_THEME.colors.textMuted} />
@@ -385,5 +390,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: ZEEPREP_THEME.colors.textSecondary,
     textAlign: "center",
+  },
+  resourceListWrapper: {
+    gap: 12,
+  },
+  desktopCardGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 16,
+  },
+  desktopCardItem: {
+    flex: 1,
+    minWidth: 340,
+    maxWidth: "49%",
+    marginBottom: 0,
   },
 });

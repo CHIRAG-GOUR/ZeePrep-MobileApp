@@ -1,13 +1,13 @@
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { ref, getDownloadURL, uploadBytes } from "firebase/storage";
-import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import { collection, getDocs } from "firebase/firestore";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { Platform } from "react-native";
 import { db, storage } from "../lib/firebase";
 import type { User } from "../types";
 
 async function setStorageItem(key: string, value: string): Promise<void> {
   if (Platform.OS === "web") {
-    try { localStorage.setItem(key, value); } catch (e) {}
+    try { localStorage.setItem(key, value); } catch (e) { }
   } else {
     await SecureStore.setItemAsync(key, value);
   }
@@ -317,7 +317,7 @@ export async function getResourcesForUser(user: User | null): Promise<Normalized
 
     if (list.length > 0) {
       // Save to persistent storage
-      setStorageItem(CACHE_KEY, JSON.stringify(list)).catch(() => {});
+      setStorageItem(CACHE_KEY, JSON.stringify(list)).catch(() => { });
       return list;
     }
 

@@ -1,13 +1,15 @@
 import React from "react";
 import { Tabs } from "expo-router";
 import { LayoutDashboard, FileText, FileBarChart, BookOpen, User } from "lucide-react-native";
-import { Platform } from "react-native";
+import { Platform, useWindowDimensions } from "react-native";
 import { ZEEPREP_THEME } from "../../constants/theme";
 
 import { useResponsive } from "../../hooks/useResponsive";
 
 export default function TabsLayout() {
   const { isLandscape } = useResponsive();
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
 
   return (
     <Tabs
@@ -15,14 +17,16 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: ZEEPREP_THEME.colors.primary,
         tabBarInactiveTintColor: ZEEPREP_THEME.colors.textSecondary,
-        tabBarStyle: {
-          backgroundColor: ZEEPREP_THEME.colors.surface,
-          borderTopColor: ZEEPREP_THEME.colors.border,
-          borderTopWidth: 1,
-          height: isLandscape ? 52 : (Platform.OS === "ios" ? 88 : 68),
-          paddingBottom: isLandscape ? 4 : (Platform.OS === "ios" ? 28 : 10),
-          paddingTop: isLandscape ? 4 : 8,
-        },
+        tabBarStyle: isDesktopWeb
+          ? { display: "none" }
+          : {
+              backgroundColor: ZEEPREP_THEME.colors.surface,
+              borderTopColor: ZEEPREP_THEME.colors.border,
+              borderTopWidth: 1,
+              height: isLandscape ? 52 : (Platform.OS === "ios" ? 88 : 68),
+              paddingBottom: isLandscape ? 4 : (Platform.OS === "ios" ? 28 : 10),
+              paddingTop: isLandscape ? 4 : 8,
+            },
         tabBarLabelStyle: {
           fontSize: isLandscape ? 9 : 10,
           fontWeight: "700",

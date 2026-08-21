@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuthStore } from "../../stores/auth-store";
@@ -59,6 +61,8 @@ export default function ResultsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
 
   const [report, setReport] = useState<Report | null>(null);
   const [aiInsight, setAiInsight] = useState<ReportInsightResult | null>(null);
@@ -75,6 +79,7 @@ export default function ResultsScreen() {
   const [topicRemarks, setTopicRemarks] = useState<Record<string, string>>({});
   const [questionRemarks, setQuestionRemarks] = useState<Record<string, string>>({});
   const [isEditingAi, setIsEditingAi] = useState(false);
+  const [editedAiReviewPointers, setEditedAiReviewPointers] = useState("");
   const [editedAiWeakTopics, setEditedAiWeakTopics] = useState("");
   const [editedAiStrongTopics, setEditedAiStrongTopics] = useState("");
   const [editedAiGaps, setEditedAiGaps] = useState("");
@@ -170,6 +175,9 @@ export default function ResultsScreen() {
             const currentInsight = tr.aiInsights.current;
             setAiInsight(currentInsight);
             setIsAiEditedByTeacher(true);
+            setEditedAiReviewPointers(
+              Array.isArray(currentInsight.reviewPointers) ? currentInsight.reviewPointers.join("\n") : ""
+            );
             setEditedAiWeakTopics(
               Array.isArray(currentInsight.weakTopics) ? currentInsight.weakTopics.join(", ") : ""
             );
@@ -185,6 +193,9 @@ export default function ResultsScreen() {
           } else if ((data as any).aiInsight) {
             const insight = (data as any).aiInsight;
             setAiInsight(insight);
+            setEditedAiReviewPointers(
+              Array.isArray(insight.reviewPointers) ? insight.reviewPointers.join("\n") : ""
+            );
             setEditedAiWeakTopics(
               Array.isArray(insight.weakTopics) ? insight.weakTopics.join(", ") : ""
             );
@@ -203,6 +214,9 @@ export default function ResultsScreen() {
             try {
               const insight = await generateTeacherAIReportAnalysis(data);
               setAiInsight(insight);
+              setEditedAiReviewPointers(
+                Array.isArray(insight.reviewPointers) ? insight.reviewPointers.join("\n") : ""
+              );
               setEditedAiWeakTopics(
                 Array.isArray(insight.weakTopics) ? insight.weakTopics.join(", ") : ""
               );
@@ -229,14 +243,18 @@ export default function ResultsScreen() {
   }, [id, user, isTeacherOrAdmin]);
 
   const handleOpenResource = (res: any) => {
+    if (!res || (!res.url && !res.resourceId && !res.id)) {
+      Alert.alert("Resource Unavailable", "The requested study resource could not be found or has an invalid link.");
+      return;
+    }
     setSelectedResource({
       id: res.resourceId || res.id,
-      title: res.title,
-      url: res.url,
+      title: res.title || "Study Resource",
+      url: res.url || "",
       type: res.type || "pdf",
       format: res.type || "pdf",
       displayType: (res.type || "pdf").toUpperCase(),
-      subject: (report as any)?.subject || report?.examTitle || "Study Material",
+      subject: res.subject || (report as any)?.subject || report?.examTitle || "Study Material",
     });
     setViewerVisible(true);
   };
@@ -249,6 +267,10 @@ export default function ResultsScreen() {
     try {
       // Build structured current AI insights
       const currentAiStructure: ReportInsightResult = {
+        reviewPointers: editedAiReviewPointers
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
         strongTopics: editedAiStrongTopics
           .split(",")
           .map((s) => s.trim())
@@ -445,7 +467,13 @@ export default function ResultsScreen() {
         </View>
       )}
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          isDesktopWeb && { maxWidth: 1200, alignSelf: "center", width: "100%", paddingHorizontal: 32 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* ======================================================== */}
         {/* VIEW 1: CLEAN ACADEMIC STUDENT REPORT CARD              */}
         {/* ======================================================== */}
@@ -768,6 +796,20 @@ export default function ResultsScreen() {
               ) : isEditingAi ? (
                 /* Editable Form Mode */
                 <View style={styles.editableAiContainer}>
+                  <Text style={styles.inputFieldLabel}>REVIEW POINTERS (One per line)</Text>
+                  <TextInput
+                    style={[styles.fieldInput, styles.multilineInput]}
+                    value={editedAiReviewPointers}
+                    onChangeText={(t) => {
+                      setEditedAiReviewPointers(t);
+                      setHasUnsavedChanges(true);
+                    }}
+                    multiline
+                    numberOfLines={4}
+                    placeholder="e.g. Revise quadratic formula concepts&#10;Review multi-step calculation errors"
+                    placeholderTextColor="#94A3B8"
+                  />
+
                   <Text style={styles.inputFieldLabel}>WEAK TOPICS (Comma Separated)</Text>
                   <TextInput
                     style={styles.fieldInput}
@@ -822,7 +864,22 @@ export default function ResultsScreen() {
                 </View>
               ) : aiInsight ? (
                 /* Display View Mode */
-                <View style={{ gap: 12 }}>
+                <View style={{ gap: 14 }}>
+                  {/* Actionable Review Pointers */}
+                  {Array.isArray(aiInsight.reviewPointers) && aiInsight.reviewPointers.length > 0 && (
+                    <View style={styles.aiTagSection}>
+                      <Text style={styles.aiTagLabel}>ACTIONABLE REVIEW POINTERS</Text>
+                      <View style={styles.aiPointersList}>
+                        {aiInsight.reviewPointers.map((pointer: string, pIdx: number) => (
+                          <View key={pIdx} style={styles.aiPointerItem}>
+                            <CheckCircle2 size={15} color="#4F46E5" style={{ marginTop: 2 }} />
+                            <Text style={styles.aiPointerText}>{typeof pointer === "string" ? pointer : String(pointer)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
                   {Array.isArray(aiInsight.weakTopics) && aiInsight.weakTopics.length > 0 && (
                     <View style={styles.aiTagSection}>
                       <Text style={styles.aiTagLabel}>WEAK TOPICS & REVISION FOCUS</Text>
@@ -1736,6 +1793,27 @@ const styles = StyleSheet.create({
     color: "#64748B",
     letterSpacing: 0.5,
     marginBottom: 6,
+  },
+  aiPointersList: {
+    gap: 8,
+    marginTop: 2,
+  },
+  aiPointerItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#F8FAFC",
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  aiPointerText: {
+    fontSize: 13,
+    color: "#1E293B",
+    fontWeight: "600",
+    flex: 1,
+    lineHeight: 19,
   },
   aiTagRow: {
     flexDirection: "row",

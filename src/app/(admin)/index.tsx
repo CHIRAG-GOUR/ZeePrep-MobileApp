@@ -8,6 +8,7 @@ import {
   RefreshControl,
   useWindowDimensions,
   TouchableOpacity,
+  Platform,
 } from "react-native";
 import { useAuthStore } from "../../stores/auth-store";
 import { getPlatformMetrics } from "../../services/firestore";
@@ -63,10 +64,15 @@ export default function AdminDashboardScreen() {
     fetchMetrics();
   };
 
+  const isDesktopWeb = Platform.OS === "web" && width >= 860;
+
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[
+        styles.contentContainer,
+        isDesktopWeb && { maxWidth: 1280, alignSelf: "center", width: "100%", paddingHorizontal: 32, paddingTop: 24 },
+      ]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
