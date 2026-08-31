@@ -11,6 +11,7 @@
  */
 import type { Report } from "../types";
 import type { BoardForecastSnapshot, SubjectAssessmentProfile, SubjectForecastRecord } from "../types/forecast";
+import type { ReportPointers } from "./report-pointers-engine";
 
 function esc(s: any): string {
   return String(s == null ? "" : s)
@@ -107,11 +108,12 @@ export interface ReportHtmlInput {
   forecast?: BoardForecastSnapshot | null;
   profile?: SubjectAssessmentProfile | null;
   record?: SubjectForecastRecord | null;
+  pointers?: ReportPointers | null;
   variant?: "student" | "teacher";
 }
 
 export function buildReportHtml(input: ReportHtmlInput): string {
-  const { report, forecast, profile, record, variant = "student" } = input;
+  const { report, forecast, profile, record, pointers, variant = "student" } = input;
   const generated = new Date().toLocaleString(undefined, {
     day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
@@ -181,6 +183,41 @@ export function buildReportHtml(input: ReportHtmlInput): string {
   const remarks = report.teacherRemarks || report.teacherReview?.overallRemark || "";
   const remarksBlock = remarks
     ? `<div class="section"><h2>Teacher Remarks</h2><p>${esc(remarks)}</p></div>`
+    : "";
+
+  // AI Review (evidence-based one-line pointers)
+  const cat = (title: string, color: string, items?: string[]) =>
+    items && items.length ? `<div class="subsec"><h3 style="color:${color}">${title}</h3>${pointerList(items, color)}</div>` : "";
+  const hasPointers =
+    pointers && (pointers.doingWell.length || pointers.focusMore.length || pointers.watchOut.length || pointers.nextSteps.length);
+  const pointersBlock = hasPointers
+    ? `<div class="section"><h2>AI Review</h2><div class="cols">
+        ${cat("Doing Well", "#059669", pointers!.doingWell)}
+        ${cat("Focus More", "#B45309", pointers!.focusMore)}
+        ${cat("Watch Out", "#BE123C", pointers!.watchOut)}
+        ${cat("Next Step", "#4338CA", pointers!.nextSteps)}
+      </div></div>`
+    : "";
+
+  // Time analysis
+  const totalMin = Math.round((Number(report.timeSpentSeconds) || 0) / 60);
+  const avgSec = report.totalQuestions ? Math.round((Number(report.timeSpentSeconds) || 0) / report.totalQuestions) : 0;
+  const timeBlock = `<div class="section"><h2>Time Analysis</h2><div class="scorebar">
+      <div class="scorebox"><div class="v">${totalMin}m</div><div class="l">Total Time</div></div>
+      <div class="scorebox"><div class="v">${avgSec}s</div><div class="l">Avg / Question</div></div>
+      ${report.mostTimeSpentTopic ? `<div class="scorebox"><div class="v" style="font-size:13px">${esc(report.mostTimeSpentTopic)}</div><div class="l">Most Time On</div></div>` : ""}
+    </div></div>`;
+
+  // Recommended resources (real, resolved at submit time)
+  const resItems: string[] = [];
+  ((report.weakTopicInsights as any[]) || []).forEach((wi) => {
+    (wi?.recommendedResources || []).forEach((r: any) => {
+      if (r && r.title) resItems.push(`${r.title}${r.type ? " (" + String(r.type).toUpperCase() + ")" : ""}`);
+    });
+  });
+  const uniqueRes = Array.from(new Set(resItems)).slice(0, 8);
+  const resourcesBlock = uniqueRes.length
+    ? `<div class="section"><h2>Recommended Resources</h2>${pointerList(uniqueRes, "#4F46E5")}</div>`
     : "";
 
   return `<!DOCTYPE html>
@@ -264,6 +301,7 @@ export function buildReportHtml(input: ReportHtmlInput): string {
   </div>
 
   ${forecastBlock}
+  ${pointersBlock}
   ${topicBlock}
 
   <div class="section">
@@ -274,6 +312,8 @@ export function buildReportHtml(input: ReportHtmlInput): string {
     </table>
   </div>
 
+  ${timeBlock}
+  ${resourcesBlock}
   ${remarksBlock}
 
   <p class="note">ZeePrep · ${esc(subject)} · ${esc(report.studentName || "Student")} · Generated ${esc(generated)}</p>
