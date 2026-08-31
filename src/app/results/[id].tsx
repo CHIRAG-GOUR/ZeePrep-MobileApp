@@ -56,6 +56,14 @@ import {
   ResourceViewerModal,
   type ResourceItem,
 } from "../../components/ResourceViewerModal";
+import BoardForecastCard from "../../components/BoardForecastCard";
+import { getBoardForecastForSubject } from "../../services/firestore";
+import type {
+  SubjectAssessmentProfile,
+  BoardForecastSnapshot,
+  SubjectForecastRecord,
+} from "../../types/forecast";
+import ReportPdfButton from "../../components/ReportPdfButton";
 
 export default function ResultsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -98,6 +106,41 @@ export default function ResultsScreen() {
   const [presentationMode, setPresentationMode] = useState<"student" | "faculty">(
     user?.role === "student" ? "student" : "faculty"
   );
+
+  // ── Board Preparation Forecast (additive; report stays usable if this fails) ──
+  const [forecastSnap, setForecastSnap] = useState<BoardForecastSnapshot | null>(null);
+  const [forecastProfile, setForecastProfile] = useState<SubjectAssessmentProfile | null>(null);
+  const [forecastRecord, setForecastRecord] = useState<SubjectForecastRecord | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadForecast() {
+      if (!report || !report.studentId || !report.subject) return;
+      setForecastLoading(true);
+      try {
+        const res = await getBoardForecastForSubject(report.studentId, {
+          subject: report.subject as string,
+          grade: report.grade,
+          board: report.board,
+        });
+        if (!cancelled) {
+          setForecastSnap(res.snapshot);
+          setForecastProfile(res.profile);
+          setForecastRecord(res.record);
+        }
+      } catch (e) {
+        console.warn("[ZeePrep] Forecast load notice (report still usable):", e);
+      } finally {
+        if (!cancelled) setForecastLoading(false);
+      }
+    }
+    loadForecast();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report?.id, report?.studentId, report?.subject]);
 
   useEffect(() => {
     async function loadReport() {
@@ -406,6 +449,10 @@ export default function ResultsScreen() {
     : new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
   const subjectName = (report.subject || (report as any).examSubject || "Academic Assessment").toUpperCase();
+  const forecastWidth = Math.max(
+    260,
+    (isDesktopWeb ? Math.min(1200, width) - 64 : width - 24) - 32
+  );
   const examTitleName = report.examTitle || "Chapter Assessment";
   const gradeDisplay = report.grade
     ? report.grade.toLowerCase().includes("class") || report.grade.toLowerCase().includes("grade")
@@ -423,7 +470,14 @@ export default function ResultsScreen() {
         <Text style={styles.headerTitle}>
           {isFacultyViewActive ? "Faculty Detailed Report" : "Academic Report Card"}
         </Text>
-        <View style={{ width: 24 }} />
+        <ReportPdfButton
+          compact
+          report={report}
+          forecast={forecastSnap}
+          profile={forecastProfile}
+          record={forecastRecord}
+          variant={isFacultyViewActive ? "teacher" : "student"}
+        />
       </View>
 
       {/* SuperAdmin / Admin View Mode Switcher */}
@@ -518,6 +572,17 @@ export default function ResultsScreen() {
                 </Text>
               </View>
             </View>
+
+            {/* Board Preparation Forecast (student-facing) */}
+            <BoardForecastCard
+              variant="student"
+              snapshot={forecastSnap}
+              profile={forecastProfile}
+              record={forecastRecord}
+              loading={forecastLoading}
+              isDesktopWeb={isDesktopWeb}
+              width={forecastWidth}
+            />
 
             {/* 2. Question Summary Table */}
             <View style={styles.cardSection}>
@@ -757,6 +822,17 @@ export default function ResultsScreen() {
                 <Text style={styles.countLabel}>Unanswered</Text>
               </View>
             </View>
+
+            {/* Board Preparation Forecast (faculty diagnostics) */}
+            <BoardForecastCard
+              variant="teacher"
+              snapshot={forecastSnap}
+              profile={forecastProfile}
+              record={forecastRecord}
+              loading={forecastLoading}
+              isDesktopWeb={isDesktopWeb}
+              width={forecastWidth}
+            />
 
             {/* 1. Editable AI Faculty Insights Section */}
             <View style={styles.sectionHeaderRow}>
