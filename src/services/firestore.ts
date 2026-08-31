@@ -1656,3 +1656,226 @@ export async function saveTeacherReviewToReport(
   }
 }
 
+
+// ════════════════════════════════════════════════════════════════════════════
+//  BOARD PREPARATION FORECAST — persistence, caching & orchestration
+//  (Additive layer on top of the authoritative report engine. Never mutates
+//   factual reports. Tolerates permission/network errors like report storage.)
+// ════════════════════════════════════════════════════════════════════════════
+import {
+  buildSubjectAssessmentProfile,
+  generateBoardForecast,
+  buildDeterministicSnapshot,
+  FORECAST_MODEL_VERSION,
+} from "./board-forecast-engine";
+import { normalizeSubject } from "./weak-topic-resource-engine";
+import type {
+  SubjectForecastRecord,
+  SubjectAssessmentProfile,
+  BoardForecastSnapshot,
+  ForecastHistoryPoint,
+} from "../types/forecast";
+
+const FORECAST_COLLECTION = "subjectForecasts";
+const forecastCache = new Map<string, SubjectForecastRecord>();
+const forecastInflight = new Map<string, Promise<SubjectForecastRecord>>();
+
+function forecastDocId(studentId: string, subjectKey: string): string {
+  const s = (studentId || "student").replace(/[^a-zA-Z0-9_-]/g, "");
+  const sub = (subjectKey || "subject").replace(/[^a-zA-Z0-9_-]/g, "_");
+  return `${s}__${sub}`;
+}
+
+function stripUndefined<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+async function persistForecastToDisk(record: SubjectForecastRecord): Promise<void> {
+  try {
+    const key = `zp_fc_${record.id}`;
+    const serialized = JSON.stringify(record);
+    if (Platform.OS === "web") {
+      try { localStorage.setItem(key, serialized); } catch (e) {}
+    } else {
+      await SecureStore.setItemAsync(key, serialized);
+    }
+  } catch (e) {
+    console.warn("[ZeePrep] Notice saving forecast to disk:", e);
+  }
+}
+
+async function loadForecastFromDisk(id: string): Promise<SubjectForecastRecord | null> {
+  try {
+    const key = `zp_fc_${id}`;
+    const raw = Platform.OS === "web"
+      ? localStorage.getItem(key)
+      : await SecureStore.getItemAsync(key);
+    if (raw) return JSON.parse(raw) as SubjectForecastRecord;
+  } catch (e) {}
+  return null;
+}
+
+/** Read the persisted forecast (memory → disk → Firestore), newest wins. */
+export async function getSubjectForecast(
+  studentId: string,
+  subjectKey: string
+): Promise<SubjectForecastRecord | null> {
+  const id = forecastDocId(studentId, subjectKey);
+  if (forecastCache.has(id)) return forecastCache.get(id)!;
+
+  const disk = await loadForecastFromDisk(id);
+  if (disk) forecastCache.set(id, disk);
+
+  try {
+    const snap = await getDoc(doc(db, FORECAST_COLLECTION, id));
+    if (snap.exists()) {
+      const rec = snap.data() as SubjectForecastRecord;
+      const chosen =
+        !disk || (rec?.latest?.assessmentCount ?? 0) >= (disk.latest?.assessmentCount ?? 0)
+          ? rec
+          : disk;
+      forecastCache.set(id, chosen);
+      return chosen;
+    }
+  } catch (e) {
+    console.warn("[ZeePrep] Notice reading forecast doc:", e);
+  }
+  return forecastCache.get(id) || disk;
+}
+
+/** Persist a forecast record to memory + disk + Firestore (best-effort). */
+export async function saveSubjectForecast(record: SubjectForecastRecord): Promise<void> {
+  const clean = stripUndefined({ ...record, updatedAt: new Date().toISOString() });
+  forecastCache.set(clean.id, clean);
+  persistForecastToDisk(clean).catch(() => {});
+  try {
+    await setDoc(doc(db, FORECAST_COLLECTION, clean.id), clean as any, { merge: true });
+  } catch (e) {
+    console.warn("[ZeePrep] Notice writing forecast doc (kept locally):", e);
+  }
+}
+
+/**
+ * Resolve the board-preparation forecast for one subject.
+ * - Reuses a cached valid forecast when inputs are unchanged (no API spend).
+ * - Regenerates via Gemini only when a new/changed assessment appears.
+ * - Guards duplicate concurrent generation and stale-overwrite races.
+ * - Never throws: on any failure returns a deterministic snapshot.
+ */
+export async function getBoardForecastForSubject(
+  studentId: string,
+  context: { subject: string; grade?: string; board?: string },
+  opts?: { forceRegenerate?: boolean; reports?: Report[] }
+): Promise<{
+  profile: SubjectAssessmentProfile;
+  snapshot: BoardForecastSnapshot;
+  record: SubjectForecastRecord | null;
+}> {
+  const subjectKey = normalizeSubject(context.subject);
+  const rawSubject = (context.subject || "General").trim();
+  const subjectDisplay = rawSubject ? rawSubject.charAt(0).toUpperCase() + rawSubject.slice(1) : "General";
+  const id = forecastDocId(studentId, subjectKey);
+
+  const reports = opts?.reports || (await getStudentReportsList(studentId));
+  const profile = buildSubjectAssessmentProfile(reports, {
+    subjectKey,
+    subjectDisplay,
+    grade: context.grade,
+    board: context.board,
+  });
+  const latestExamId = profile.dataPoints.length
+    ? profile.dataPoints[profile.dataPoints.length - 1].examId
+    : "";
+
+  const cached = await getSubjectForecast(studentId, subjectKey);
+
+  // No usable evidence → deterministic "insufficient" snapshot, no API spend.
+  if (!profile.hasEnoughData) {
+    const snapshot = buildDeterministicSnapshot(profile, studentId);
+    snapshot.confidence = "insufficient";
+    snapshot.summaryPointers = ["Not enough assessment data yet to forecast board preparation."];
+    return { profile, snapshot, record: cached || null };
+  }
+
+  const stale =
+    !!opts?.forceRegenerate ||
+    !cached ||
+    cached.latest?.latestExamId !== latestExamId ||
+    (cached.latest?.assessmentCount ?? -1) !== profile.assessmentCount ||
+    !String(cached.latest?.modelVersion || "").startsWith(FORECAST_MODEL_VERSION);
+
+  if (!stale && cached) {
+    return { profile, snapshot: cached.latest, record: cached };
+  }
+
+  // Share a single in-flight generation across concurrent callers (race guard).
+  if (forecastInflight.has(id)) {
+    try {
+      const rec = await forecastInflight.get(id)!;
+      return { profile, snapshot: rec.latest, record: rec };
+    } catch {
+      /* fall through to fresh attempt */
+    }
+  }
+
+  const genPromise = (async (): Promise<SubjectForecastRecord> => {
+    const snapshot = await generateBoardForecast(profile, studentId);
+
+    // Stale-overwrite guard: never replace a newer forecast with fewer assessments.
+    if (cached && (cached.latest?.assessmentCount ?? 0) > snapshot.assessmentCount) {
+      return cached;
+    }
+
+    const history: ForecastHistoryPoint[] = Array.isArray(cached?.history) ? [...cached!.history] : [];
+    const latestActual = profile.dataPoints.length
+      ? profile.dataPoints[profile.dataPoints.length - 1].percentage
+      : snapshot.predictedPercentage;
+    const lastLogged = history.length > 0 ? history[history.length - 1] : null;
+
+    if (latestExamId && (!lastLogged || lastLogged.examId !== latestExamId)) {
+      history.push({
+        date: snapshot.generatedAt,
+        predictedPercentage: snapshot.predictedPercentage,
+        actualPercentage: latestActual,
+        confidence: snapshot.confidence,
+        examId: latestExamId,
+        assessmentCount: snapshot.assessmentCount,
+      });
+      if (history.length > 60) history.splice(0, history.length - 60);
+    } else if (lastLogged) {
+      history[history.length - 1] = {
+        ...lastLogged,
+        date: snapshot.generatedAt,
+        predictedPercentage: snapshot.predictedPercentage,
+        actualPercentage: latestActual,
+        confidence: snapshot.confidence,
+        assessmentCount: snapshot.assessmentCount,
+      };
+    }
+
+    const record: SubjectForecastRecord = {
+      id,
+      studentId,
+      subjectKey,
+      subjectDisplay,
+      grade: context.grade,
+      latest: snapshot,
+      history,
+      updatedAt: new Date().toISOString(),
+    };
+    await saveSubjectForecast(record);
+    return record;
+  })();
+
+  forecastInflight.set(id, genPromise);
+  try {
+    const record = await genPromise;
+    return { profile, snapshot: record.latest, record };
+  } catch (e) {
+    console.warn("[ZeePrep] Forecast generation failed; using deterministic snapshot:", e);
+    const snapshot = buildDeterministicSnapshot(profile, studentId);
+    return { profile, snapshot, record: cached || null };
+  } finally {
+    forecastInflight.delete(id);
+  }
+}
