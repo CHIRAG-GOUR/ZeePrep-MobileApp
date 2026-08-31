@@ -113,6 +113,12 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // ─── Subject Board Preparation Forecasts ──────────────────────────
+    match /subjectForecasts/{forecastId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
     // ─── Study Resources Rules ────────────────────────────────────────
     match /study_resources/{resourceId} {
       allow read: if true;
