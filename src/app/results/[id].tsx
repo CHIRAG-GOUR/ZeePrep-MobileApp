@@ -57,13 +57,15 @@ import {
   type ResourceItem,
 } from "../../components/ResourceViewerModal";
 import BoardForecastCard from "../../components/BoardForecastCard";
-import { getBoardForecastForSubject } from "../../services/firestore";
+import { getBoardForecastForSubject, getStudentReportsList } from "../../services/firestore";
 import type {
   SubjectAssessmentProfile,
   BoardForecastSnapshot,
   SubjectForecastRecord,
 } from "../../types/forecast";
 import ReportPdfButton from "../../components/ReportPdfButton";
+import AiReviewPointers from "../../components/AiReviewPointers";
+import { generateReportPointers, type ReportPointers } from "../../services/report-pointers-engine";
 
 export default function ResultsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -112,18 +114,23 @@ export default function ResultsScreen() {
   const [forecastProfile, setForecastProfile] = useState<SubjectAssessmentProfile | null>(null);
   const [forecastRecord, setForecastRecord] = useState<SubjectForecastRecord | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
+  const [reportPointers, setReportPointers] = useState<ReportPointers | null>(null);
+  const [pointersLoading, setPointersLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    async function loadForecast() {
+    async function loadForecastAndPointers() {
       if (!report || !report.studentId || !report.subject) return;
       setForecastLoading(true);
+      setPointersLoading(true);
+      let allReports: Report[] = [];
       try {
-        const res = await getBoardForecastForSubject(report.studentId, {
-          subject: report.subject as string,
-          grade: report.grade,
-          board: report.board,
-        });
+        allReports = await getStudentReportsList(report.studentId);
+        const res = await getBoardForecastForSubject(
+          report.studentId,
+          { subject: report.subject as string, grade: report.grade, board: report.board },
+          { reports: allReports }
+        );
         if (!cancelled) {
           setForecastSnap(res.snapshot);
           setForecastProfile(res.profile);
@@ -134,8 +141,17 @@ export default function ResultsScreen() {
       } finally {
         if (!cancelled) setForecastLoading(false);
       }
+      // Evidence-based AI pointers (separate; report stays usable if this fails)
+      try {
+        const pts = await generateReportPointers(report, allReports);
+        if (!cancelled) setReportPointers(pts);
+      } catch (e2) {
+        console.warn("[ZeePrep] Pointers load notice:", e2);
+      } finally {
+        if (!cancelled) setPointersLoading(false);
+      }
     }
-    loadForecast();
+    loadForecastAndPointers();
     return () => {
       cancelled = true;
     };
@@ -476,6 +492,7 @@ export default function ResultsScreen() {
           forecast={forecastSnap}
           profile={forecastProfile}
           record={forecastRecord}
+          pointers={reportPointers}
           variant={isFacultyViewActive ? "teacher" : "student"}
         />
       </View>
@@ -583,6 +600,9 @@ export default function ResultsScreen() {
               isDesktopWeb={isDesktopWeb}
               width={forecastWidth}
             />
+
+            {/* AI Review — evidence-based one-line pointers */}
+            <AiReviewPointers pointers={reportPointers} loading={pointersLoading} isDesktopWeb={isDesktopWeb} />
 
             {/* 2. Question Summary Table */}
             <View style={styles.cardSection}>
@@ -833,6 +853,9 @@ export default function ResultsScreen() {
               isDesktopWeb={isDesktopWeb}
               width={forecastWidth}
             />
+
+            {/* AI Review — evidence-based one-line pointers */}
+            <AiReviewPointers pointers={reportPointers} loading={pointersLoading} isDesktopWeb={isDesktopWeb} />
 
             {/* 1. Editable AI Faculty Insights Section */}
             <View style={styles.sectionHeaderRow}>
