@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
+  Pressable,
 } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useAuthStore, isSuperAdminUser } from "../stores/auth-store";
@@ -24,22 +25,17 @@ import {
   GraduationCap,
   LayoutDashboard,
   FileText,
-  FileBarChart,
   BookOpen,
   User,
   Trophy,
   Bot,
   Activity,
-  HelpCircle,
-  FileCheck,
   Users,
-  ShieldAlert,
   Layers,
   TrendingUp,
   Settings,
   LogOut,
   Search,
-  ChevronRight,
   Shield,
   Menu,
   X,
@@ -48,6 +44,12 @@ import {
   ChevronDown,
   FileSpreadsheet,
   Brain,
+  Check,
+  UserCheck,
+  CheckCircle2,
+  Clock,
+  Sparkles,
+  Trash2,
 } from "lucide-react-native";
 import { AICopilotModal } from "./AICopilotModal";
 
@@ -73,7 +75,7 @@ function ZeePrepLogoSvg({ size = 32 }: { size?: number }) {
           </LinearGradient>
           <LinearGradient id="zpGoldWeb" x1="0%" y1="0%" x2="100%" y2="100%">
             <Stop offset="0%" stopColor="#FBBF24" />
-            <Stop offset="100%" stopColor="#F59E0B" />
+            <Stop offset="50%" stopColor="#F59E0B" />
           </LinearGradient>
           <LinearGradient id="zpSparkleWeb" x1="0%" y1="0%" x2="100%" y2="100%">
             <Stop offset="0%" stopColor="#FFFFFF" />
@@ -121,7 +123,7 @@ const studentNavItems: NavItem[] = [
   { label: "Study Resources", href: "/(tabs)/resources", icon: Layers },
   { label: "Leaderboard", href: "/(tabs)/leaderboard", icon: Trophy },
   { label: "Reports", href: "/(tabs)/reports", icon: FileText },
-  { label: "AI Study Tutor", href: "/(tabs)/ai-tutor", icon: Bot },
+  { label: "Global Report", href: "/(tabs)/reports", icon: Award },
   { label: "Profile", href: "/(tabs)/profile", icon: User },
 ];
 
@@ -132,6 +134,7 @@ const teacherNavItems: NavItem[] = [
   { label: "Active Exams", href: "/(teacher)/exams", icon: Brain },
   { label: "Study Resources", href: "/(teacher)/resources", icon: Layers },
   { label: "Student Roster", href: "/(teacher)/roster", icon: Users },
+  { label: "Leaderboard", href: "/(tabs)/leaderboard", icon: Trophy },
   { label: "Reports", href: "/(teacher)/reports", icon: FileText },
   { label: "Profile", href: "/(teacher)/profile", icon: User },
 ];
@@ -169,9 +172,37 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
   const { user, isAuthenticated, viewMode, setViewMode } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [viewModeMenuOpen, setViewModeMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Only apply desktop web layout on Web platform
+  const [notifications, setNotifications] = useState([
+    {
+      id: "1",
+      title: "Physics Mock Exam Ready",
+      description: "Speed & Motion chapter test is live. 25 questions available.",
+      time: "25m ago",
+      type: "exam",
+      read: false,
+    },
+    {
+      id: "2",
+      title: "AI Weak Area Insight",
+      description: "Recommended practice: Wave Optics & Thermodynamics.",
+      time: "2h ago",
+      type: "ai",
+      read: false,
+    },
+    {
+      id: "3",
+      title: "Study Material Updated",
+      description: "Teacher uploaded Chapter 4 formula sheets & notes.",
+      time: "1d ago",
+      type: "resource",
+      read: true,
+    },
+  ]);
+
   if (Platform.OS !== "web") {
     return <View style={{ flex: 1 }}>{children}</View>;
   }
@@ -180,7 +211,6 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
   const isExamScreen = pathname.startsWith("/exam/");
   const isDesktop = width >= 860;
 
-  // If in auth screen, render full-viewport web page without sidebar
   if (isAuthScreen || !isAuthenticated || !user) {
     return (
       <View style={styles.webRoot}>
@@ -189,7 +219,6 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
     );
   }
 
-  // Determine navigation items based on active role/viewMode
   const activeRole = isSuperAdminUser(user) ? (viewMode || "superadmin") : user.role;
   let navItems = studentNavItems;
   if (activeRole === "superadmin") {
@@ -207,10 +236,21 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
 
   const handleSwitchViewMode = (newMode: "superadmin" | "teacher" | "student") => {
     setViewMode(newMode);
+    setViewModeMenuOpen(false);
     if (newMode === "superadmin") router.replace("/(superadmin)" as any);
     else if (newMode === "teacher") router.replace("/(teacher)" as any);
     else router.replace("/(tabs)" as any);
   };
+
+  const markAllNotificationsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+  };
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const userInitials =
     user.name
@@ -219,6 +259,50 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
       .join("")
       .toUpperCase()
       .slice(0, 2) || "SA";
+
+  const getRoleDisplayTitle = (role: string) => {
+    switch (role) {
+      case "superadmin":
+        return "Super Admin";
+      case "teacher":
+        return "Teacher";
+      case "student":
+        return "Student";
+      default:
+        return "Admin";
+    }
+  };
+
+  const isItemActive = (href: string) => {
+    if (href === "/(tabs)") {
+      return pathname === "/" || pathname === "/(tabs)";
+    }
+    if (href === "/(tabs)/exams") {
+      return pathname === "/exams" || pathname === "/(tabs)/exams" || pathname.startsWith("/exam/");
+    }
+    if (href === "/(tabs)/resources") {
+      return pathname === "/resources" || pathname === "/(tabs)/resources" || pathname.startsWith("/resource/");
+    }
+    if (href === "/(tabs)/reports") {
+      return pathname === "/reports" || pathname === "/(tabs)/reports" || pathname.startsWith("/results/");
+    }
+    if (href === "/(tabs)/leaderboard") {
+      return pathname === "/leaderboard" || pathname === "/(tabs)/leaderboard";
+    }
+    if (href === "/(tabs)/profile") {
+      return pathname === "/profile" || pathname === "/(tabs)/profile";
+    }
+    if (href === "/(teacher)") {
+      return pathname === "/(teacher)" || pathname === "/teacher";
+    }
+    if (href === "/(superadmin)") {
+      return pathname === "/(superadmin)" || pathname === "/superadmin" || pathname === "/admin";
+    }
+    if (href === "/(admin)") {
+      return pathname === "/(admin)" || pathname === "/admin";
+    }
+    return pathname === href || pathname.startsWith(href);
+  };
 
   return (
     <View style={styles.webRoot}>
@@ -282,34 +366,155 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
             <Text style={styles.aiTutorBtnText}>AI Copilot</Text>
           </TouchableOpacity>
 
-          {/* Notifications Bell */}
-          <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
+          {/* Notifications Bell with Slide-Over Drawer Trigger */}
+          <TouchableOpacity
+            style={styles.bellBtn}
+            onPress={() => setNotificationsOpen(true)}
+            activeOpacity={0.7}
+          >
             <Bell size={16} color="#64748B" />
+            {unreadCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
-          {/* Super Admin View Mode Switcher */}
+          {/* Custom Themed Super Admin View Mode Switcher Dropdown */}
           {isSuperAdminUser(user) && (
             <View style={styles.viewModeContainer}>
               <Text style={styles.viewModeLabel}>VIEW MODE:</Text>
-              <View style={styles.viewModeSelectBox}>
-                <select
-                  value={activeRole}
-                  onChange={(e) => handleSwitchViewMode(e.target.value as any)}
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    color: "#0F172A",
-                    fontWeight: 700,
-                    fontSize: 12,
-                    cursor: "pointer",
-                    outline: "none",
-                    fontFamily: "inherit",
-                  }}
+              <View style={{ position: "relative" }}>
+                <TouchableOpacity
+                  style={styles.customDropdownBtn}
+                  onPress={() => setViewModeMenuOpen(!viewModeMenuOpen)}
+                  activeOpacity={0.85}
                 >
-                  <option value="superadmin">Super Admin</option>
-                  <option value="teacher">Teacher</option>
-                  <option value="student">Student</option>
-                </select>
+                  <Text style={styles.customDropdownBtnText}>
+                    {getRoleDisplayTitle(activeRole)}
+                  </Text>
+                  <ChevronDown
+                    size={13}
+                    color="#4F46E5"
+                    style={{
+                      transform: [{ rotate: viewModeMenuOpen ? "180deg" : "0deg" }],
+                    }}
+                  />
+                </TouchableOpacity>
+
+                {/* Themed Dropdown Popover */}
+                {viewModeMenuOpen && (
+                  <>
+                    <Pressable
+                      style={styles.dropdownBackdrop}
+                      onPress={() => setViewModeMenuOpen(false)}
+                    />
+                    <View style={styles.customDropdownMenu}>
+                      <View style={styles.dropdownHeaderBox}>
+                        <Text style={styles.dropdownHeaderLabel}>SWITCH ROLE VIEW</Text>
+                      </View>
+
+                      {/* Super Admin Option */}
+                      <TouchableOpacity
+                        style={[
+                          styles.dropdownMenuItem,
+                          activeRole === "superadmin" && styles.dropdownMenuItemActive,
+                        ]}
+                        onPress={() => handleSwitchViewMode("superadmin")}
+                        activeOpacity={0.85}
+                      >
+                        <View style={styles.dropdownItemLeft}>
+                          <View
+                            style={[
+                              styles.dropdownItemIconCircle,
+                              { backgroundColor: "#EEF2FF" },
+                            ]}
+                          >
+                            <Shield size={14} color="#4F46E5" />
+                          </View>
+                          <View>
+                            <Text
+                              style={[
+                                styles.dropdownItemTitle,
+                                activeRole === "superadmin" && styles.dropdownItemTitleActive,
+                              ]}
+                            >
+                              Super Admin
+                            </Text>
+                            <Text style={styles.dropdownItemSubtitle}>Platform Command Center</Text>
+                          </View>
+                        </View>
+                        {activeRole === "superadmin" && <Check size={16} color="#4F46E5" />}
+                      </TouchableOpacity>
+
+                      {/* Teacher Option */}
+                      <TouchableOpacity
+                        style={[
+                          styles.dropdownMenuItem,
+                          activeRole === "teacher" && styles.dropdownMenuItemActive,
+                        ]}
+                        onPress={() => handleSwitchViewMode("teacher")}
+                        activeOpacity={0.85}
+                      >
+                        <View style={styles.dropdownItemLeft}>
+                          <View
+                            style={[
+                              styles.dropdownItemIconCircle,
+                              { backgroundColor: "#ECFDF5" },
+                            ]}
+                          >
+                            <UserCheck size={14} color="#059669" />
+                          </View>
+                          <View>
+                            <Text
+                              style={[
+                                styles.dropdownItemTitle,
+                                activeRole === "teacher" && styles.dropdownItemTitleActive,
+                              ]}
+                            >
+                              Teacher
+                            </Text>
+                            <Text style={styles.dropdownItemSubtitle}>Exam & Question Authoring</Text>
+                          </View>
+                        </View>
+                        {activeRole === "teacher" && <Check size={16} color="#059669" />}
+                      </TouchableOpacity>
+
+                      {/* Student Option */}
+                      <TouchableOpacity
+                        style={[
+                          styles.dropdownMenuItem,
+                          activeRole === "student" && styles.dropdownMenuItemActive,
+                        ]}
+                        onPress={() => handleSwitchViewMode("student")}
+                        activeOpacity={0.85}
+                      >
+                        <View style={styles.dropdownItemLeft}>
+                          <View
+                            style={[
+                              styles.dropdownItemIconCircle,
+                              { backgroundColor: "#EFF6FF" },
+                            ]}
+                          >
+                            <GraduationCap size={14} color="#2563EB" />
+                          </View>
+                          <View>
+                            <Text
+                              style={[
+                                styles.dropdownItemTitle,
+                                activeRole === "student" && styles.dropdownItemTitleActive,
+                              ]}
+                            >
+                              Student
+                            </Text>
+                            <Text style={styles.dropdownItemSubtitle}>Tests, Practice & Resources</Text>
+                          </View>
+                        </View>
+                        {activeRole === "student" && <Check size={16} color="#2563EB" />}
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
               </View>
             </View>
           )}
@@ -360,32 +565,26 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
                 <View style={styles.navList}>
                   {navItems.map((item, idx) => {
                     const IconComp = item.icon;
-                    const isActive =
-                      pathname === item.href ||
-                      (item.href !== "/(tabs)" &&
-                        item.href !== "/(teacher)" &&
-                        item.href !== "/(superadmin)" &&
-                        item.href !== "/(admin)" &&
-                        pathname.startsWith(item.href));
+                    const active = isItemActive(item.href);
 
                     return (
                       <TouchableOpacity
                         key={idx}
                         style={[
                           styles.navItem,
-                          isActive ? styles.navItemActive : styles.navItemInactive,
+                          active ? styles.navItemActive : styles.navItemInactive,
                         ]}
                         onPress={() => router.push(item.href as any)}
                         activeOpacity={0.85}
                       >
                         <IconComp
                           size={18}
-                          color={isActive ? "#FFFFFF" : "#64748B"}
+                          color={active ? "#FFFFFF" : "#64748B"}
                         />
                         <Text
                           style={[
                             styles.navItemLabel,
-                            isActive ? styles.navItemLabelActive : styles.navItemLabelInactive,
+                            active ? styles.navItemLabelActive : styles.navItemLabelInactive,
                           ]}
                           numberOfLines={1}
                         >
@@ -418,19 +617,19 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
               <View style={styles.navList}>
                 {navItems.map((item, idx) => {
                   const IconComp = item.icon;
-                  const isActive = pathname === item.href;
+                  const active = isItemActive(item.href);
                   return (
                     <TouchableOpacity
                       key={idx}
-                      style={[styles.navItem, isActive && styles.navItemActive]}
+                      style={[styles.navItem, active && styles.navItemActive]}
                       onPress={() => {
                         setMobileMenuOpen(false);
                         router.push(item.href as any);
                       }}
                       activeOpacity={0.8}
                     >
-                      <IconComp size={18} color={isActive ? "#FFFFFF" : "#64748B"} />
-                      <Text style={[styles.navItemLabel, isActive && styles.navItemLabelActive]}>
+                      <IconComp size={18} color={active ? "#FFFFFF" : "#64748B"} />
+                      <Text style={[styles.navItemLabel, active && styles.navItemLabelActive]}>
                         {item.label}
                       </Text>
                     </TouchableOpacity>
@@ -450,6 +649,114 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
           </div>
         </View>
       </View>
+
+      {/* 3. RIGHT SLIDE-OVER NOTIFICATION DRAWER PANEL */}
+      {notificationsOpen && (
+        <View style={styles.drawerOverlay}>
+          <Pressable style={styles.drawerBackdrop} onPress={() => setNotificationsOpen(false)} />
+          <View style={styles.drawerCard}>
+            {/* Drawer Header */}
+            <View style={styles.drawerHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <View style={styles.drawerHeaderIcon}>
+                  <Bell size={18} color="#4F46E5" />
+                </View>
+                <View>
+                  <Text style={styles.drawerTitle}>Notifications</Text>
+                  <Text style={styles.drawerSubtitle}>
+                    {unreadCount > 0 ? `${unreadCount} unread updates` : "All notifications read"}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {notifications.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.drawerActionBtn}
+                    onPress={markAllNotificationsRead}
+                    accessibilityLabel="Mark all as read"
+                  >
+                    <CheckCircle2 size={16} color="#4F46E5" />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={styles.drawerCloseBtn}
+                  onPress={() => setNotificationsOpen(false)}
+                >
+                  <X size={18} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Notifications Content */}
+            <ScrollView style={styles.drawerBody} showsVerticalScrollIndicator={false}>
+              {notifications.length > 0 ? (
+                <View style={{ gap: 10, paddingVertical: 12 }}>
+                  {notifications.map((item) => (
+                    <View
+                      key={item.id}
+                      style={[
+                        styles.notificationItemCard,
+                        !item.read && styles.notificationItemUnread,
+                      ]}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+                        <View
+                          style={[
+                            styles.notifTypeIcon,
+                            item.type === "exam" && { backgroundColor: "#EFF6FF" },
+                            item.type === "ai" && { backgroundColor: "#FAF5FF" },
+                            item.type === "resource" && { backgroundColor: "#ECFDF5" },
+                          ]}
+                        >
+                          {item.type === "exam" && <Brain size={16} color="#2563EB" />}
+                          {item.type === "ai" && <Sparkles size={16} color="#9333EA" />}
+                          {item.type === "resource" && <BookOpen size={16} color="#059669" />}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                            <Text style={styles.notifTitle}>{item.title}</Text>
+                            {!item.read && <View style={styles.unreadDot} />}
+                          </View>
+                          <Text style={styles.notifDesc}>{item.description}</Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 }}>
+                            <Clock size={11} color="#94A3B8" />
+                            <Text style={styles.notifTime}>{item.time}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.drawerEmptyState}>
+                  <View style={styles.emptyBellIconBox}>
+                    <Bell size={32} color="#94A3B8" />
+                  </View>
+                  <Text style={styles.emptyStateTitle}>All caught up!</Text>
+                  <Text style={styles.emptyStateSub}>
+                    You have no unread notifications or announcements right now.
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Drawer Footer */}
+            {notifications.length > 0 && (
+              <View style={styles.drawerFooter}>
+                <TouchableOpacity
+                  style={styles.clearAllBtn}
+                  onPress={clearAllNotifications}
+                  activeOpacity={0.8}
+                >
+                  <Trash2 size={14} color="#EF4444" />
+                  <Text style={styles.clearAllBtnText}>Clear All</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* AI Copilot Interactive Modal */}
       <AICopilotModal isOpen={copilotOpen} onClose={() => setCopilotOpen(false)} />
@@ -552,11 +859,31 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   bellBtn: {
+    position: "relative",
     padding: 7,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#E2E8F0",
     backgroundColor: "#FFFFFF",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#EF4444",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+  },
+  bellBadgeText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: "#FFFFFF",
   },
   viewModeContainer: {
     flexDirection: "row",
@@ -568,6 +895,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 10,
     gap: 6,
+    position: "relative",
   },
   viewModeLabel: {
     fontSize: 9.5,
@@ -575,13 +903,95 @@ const styles = StyleSheet.create({
     color: "#4F46E5",
     letterSpacing: 0.4,
   },
-  viewModeSelectBox: {
+  customDropdownBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: "#FFFFFF",
     borderRadius: 6,
     borderWidth: 1,
     borderColor: "#CBD5E1",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  customDropdownBtnText: {
+    fontSize: 11.5,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  dropdownBackdrop: {
+    position: "fixed" as any,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9998,
+  },
+  customDropdownMenu: {
+    position: "absolute",
+    top: 32,
+    right: 0,
+    minWidth: 220,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 6,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    zIndex: 9999,
+  },
+  dropdownHeaderBox: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    marginBottom: 4,
+  },
+  dropdownHeaderLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#94A3B8",
+    letterSpacing: 0.6,
+  },
+  dropdownMenuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  dropdownMenuItemActive: {
+    backgroundColor: "#F8FAFC",
+  },
+  dropdownItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  dropdownItemIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dropdownItemTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#334155",
+  },
+  dropdownItemTitleActive: {
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  dropdownItemSubtitle: {
+    fontSize: 9.5,
+    color: "#94A3B8",
+    fontWeight: "500",
   },
   userProfileCapsule: {
     flexDirection: "row",
@@ -633,44 +1043,44 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   sidebarWrapper: {
-    width: 220,
+    width: 230,
     backgroundColor: "#FFFFFF",
     borderRightWidth: 1,
-    borderRightColor: "#E2E8F0",
+    borderRightColor: "#F1F5F9",
     flexDirection: "column",
     flexShrink: 0,
     minHeight: "100%" as any,
   },
   sidebarInner: {
     flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 14,
     justifyContent: "space-between",
   },
   sidebarLogoHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
     paddingHorizontal: 8,
-    paddingBottom: 20,
+    paddingBottom: 22,
     borderBottomWidth: 1,
     borderBottomColor: "#F8FAFC",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   sidebarLogoIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: "#4F46E5",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#4F46E5",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   sidebarLogoTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: "900",
     color: "#0F172A",
     letterSpacing: -0.5,
@@ -684,29 +1094,28 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   navList: {
-    gap: 4,
+    gap: 5,
   },
   navItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
   },
   navItemActive: {
     backgroundColor: "#4F46E5",
     shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
   },
   navItemInactive: {
     backgroundColor: "transparent",
   },
   navItemLabel: {
-    fontSize: 12.5,
-    fontWeight: "700",
+    fontSize: 13,
   },
   navItemLabelActive: {
     color: "#FFFFFF",
@@ -714,19 +1123,20 @@ const styles = StyleSheet.create({
   },
   navItemLabelInactive: {
     color: "#475569",
+    fontWeight: "700",
   },
   sidebarFooter: {
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: "#F1F5F9",
+    borderTopColor: "#F8FAFC",
     alignItems: "center",
     justifyContent: "center",
   },
   sidebarVersionText: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: "800",
     color: "#94A3B8",
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
   },
   mobileNavOverlay: {
     position: "absolute",
@@ -756,5 +1166,171 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     width: "100%",
+    // ZeePrep web proportions: cap content like the original site's max-w-7xl,
+    // centered with desktop gutters, so pages don't stretch edge-to-edge on
+    // wide screens. Native bypasses this shell entirely (Platform.OS check above).
+    maxWidth: 1280,
+    alignSelf: "center",
+    paddingHorizontal: 28,
+  },
+
+  // SLIDE-OVER DRAWER STYLES
+  drawerOverlay: {
+    position: "fixed" as any,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10000,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  },
+  drawerBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(15, 23, 42, 0.3)",
+  },
+  drawerCard: {
+    width: 360,
+    maxWidth: "85vw" as any,
+    height: "100%",
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: -4, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    display: "flex",
+    flexDirection: "column",
+    zIndex: 10001,
+  },
+  drawerHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  drawerHeaderIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  drawerTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+  drawerSubtitle: {
+    fontSize: 11,
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  drawerActionBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: "#F8FAFC",
+  },
+  drawerCloseBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: "#F8FAFC",
+  },
+  drawerBody: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  notificationItemCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+  },
+  notificationItemUnread: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+  },
+  notifTypeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notifTitle: {
+    fontSize: 12.5,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  unreadDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#4F46E5",
+  },
+  notifDesc: {
+    fontSize: 11.5,
+    color: "#475569",
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  notifTime: {
+    fontSize: 10,
+    color: "#94A3B8",
+    fontWeight: "600",
+  },
+  drawerEmptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyBellIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 4,
+  },
+  emptyStateSub: {
+    fontSize: 12,
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  drawerFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+  },
+  clearAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: "#FEF2F2",
+  },
+  clearAllBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#EF4444",
   },
 });
