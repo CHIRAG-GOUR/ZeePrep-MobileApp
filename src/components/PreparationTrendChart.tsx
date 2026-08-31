@@ -187,6 +187,15 @@ export default function PreparationTrendChart(props: PreparationTrendChartProps)
         {predPts.map((p, i) => (
           <Circle key={`pd${i}`} cx={p.x} cy={p.y} r={isWeb ? 4.5 : 3.5} fill={C.surface} stroke={C.predicted} strokeWidth={2} />
         ))}
+        {/* latest-point emphasis halo */}
+        {actualPts.length > 0 && (
+          <Circle
+            cx={actualPts[actualPts.length - 1].x}
+            cy={actualPts[actualPts.length - 1].y}
+            r={isWeb ? 11 : 9}
+            fill="rgba(79,70,229,0.14)"
+          />
+        )}
         {/* actual dots (filled) */}
         {actualPts.map((p, i) => (
           <Circle
