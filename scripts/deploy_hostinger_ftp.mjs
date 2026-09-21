@@ -48,12 +48,12 @@ async function deploy() {
   console.log('✓ Injected SPA .htaccess routing rules into dist/.htaccess');
 
   // 3. Read FTP Config from env or process arguments
-  const host = process.env.HOSTINGER_FTP_HOST || process.argv[2];
-  const user = process.env.HOSTINGER_FTP_USER || process.argv[3];
-  const password = process.env.HOSTINGER_FTP_PASSWORD || process.argv[4];
-  const remoteDir = process.env.HOSTINGER_FTP_TARGET_DIR || process.argv[5] || '/public_html';
-  const port = parseInt(process.env.HOSTINGER_FTP_PORT || '21', 10);
-  const secure = process.env.HOSTINGER_FTP_SECURE === 'true' || false;
+  const host = process.env.FTP_HOST || process.env.HOSTINGER_FTP_HOST || process.argv[2];
+  const user = process.env.FTP_USERNAME || process.env.FTP_USER || process.env.HOSTINGER_FTP_USER || process.argv[3];
+  const password = process.env.FTP_PASSWORD || process.env.HOSTINGER_FTP_PASSWORD || process.argv[4];
+  const remoteDir = process.env.FTP_TARGET_DIR || process.env.HOSTINGER_FTP_TARGET_DIR || process.argv[5] || '/public_html';
+  const port = parseInt(process.env.FTP_PORT || process.env.HOSTINGER_FTP_PORT || '21', 10);
+  const secure = process.env.FTP_SECURE === 'true' || process.env.HOSTINGER_FTP_SECURE === 'true' || false;
 
   if (!host || !user || !password) {
     console.error('\n⚠️ Missing FTP Credentials!');
