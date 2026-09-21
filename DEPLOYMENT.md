@@ -1,9 +1,10 @@
 # ZeePrep — Two-Branch Release & Production Deployment Guide
-> **Repository:** `CHIRAG-GOUR/ZeePrep-MobileApp` | **Package ID:** `com.skillizee.zeeprep` | **Firebase:** `zeeprep01`
+> **Repository:** `CHIRAG-GOUR/ZeePrep-MobileApp` | **Package ID:** `com.skillizee.zeeprep` | **Firebase:** `zeeprep01` | **Version:** `1.0.1` (Build 2)
+> **Live Web (Hostinger):** `http://skillizee.io` | **Live Web (Firebase):** `https://zeeprep-app.web.app`
 
 This document defines the **Two-Branch Intentional Release Architecture** for ZeePrep:
-1. **Web Branch (`master`):** Dedicated to the ZeePrep Web App (Hostinger FTPS).
-2. **Play Console Branch (`play-console`):** Dedicated to Android Google Play Store (Internal Testing).
+1. **Web Branch (`master`):** Dedicated to the ZeePrep Web App (Hostinger FTPS & Firebase).
+2. **Play Console Branch (`play-console`):** Dedicated to Android Google Play Store (Internal & Production Releases).
 
 ---
 
