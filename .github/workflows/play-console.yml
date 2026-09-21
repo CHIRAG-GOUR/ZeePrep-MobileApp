@@ -1,14 +1,25 @@
-name: Android — Build AAB & Deploy to Google Play (Internal Testing)
+name: Android — Build AAB & Deploy to Google Play Console
 
 on:
   push:
     branches:
       - play-console
   workflow_dispatch:
+    inputs:
+      track:
+        description: 'Google Play Release Track'
+        required: true
+        default: 'internal'
+        type: choice
+        options:
+          - 'internal'
+          - 'production'
+          - 'beta'
+          - 'alpha'
 
 jobs:
   build-and-deploy-play-console:
-    name: 📱 Build AAB & Deploy to Play Console (Internal Track)
+    name: 📱 Build AAB & Deploy to Google Play
     runs-on: ubuntu-latest
 
     steps:
@@ -47,7 +58,7 @@ jobs:
             const vCode = app.expo.android.versionCode;
             
             console.log('====================================================');
-            console.log('🚀 ZEEPREP ANDROID RELEASE PIPELINE');
+            console.log('🚀 ZEEPREP ANDROID PLAY STORE PIPELINE');
             console.log('====================================================');
             console.log('Branch:       ${{ github.ref_name }}');
             console.log('Commit:       ${{ github.sha }}');
@@ -107,36 +118,46 @@ jobs:
           path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
 
-      - name: 🚀 Upload AAB to Google Play Console (Internal Testing Track)
-        if: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON != '' }}
+      - name: 🔐 Prepare Google Play Service Account Credentials
+        id: play-creds
+        env:
+          GOOGLE_PLAY_KEY_RAW: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON || secrets.PLAY_CONFIG_JSON || secrets.SERVICE_ACCOUNT_JSON || secrets.GOOGLE_PLAY_KEY || secrets.PLAY_SERVICE_ACCOUNT_JSON || secrets.ANDROID_SERVICE_ACCOUNT || secrets.GOOGLE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -n "$GOOGLE_PLAY_KEY_RAW" ]; then
+            node -e "
+              const fs = require('fs');
+              const raw = process.env.GOOGLE_PLAY_KEY_RAW.trim();
+              let jsonStr = raw;
+              if (!raw.startsWith('{')) {
+                jsonStr = Buffer.from(raw, 'base64').toString('utf8');
+              }
+              const parsed = JSON.parse(jsonStr);
+              fs.writeFileSync('google-play-key.json', JSON.stringify(parsed, null, 2));
+              console.log('✓ Google Play Service Account JSON successfully configured for client_email: ' + parsed.client_email);
+            "
+            echo "has_creds=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ NOTICE: No Google Play Service Account secret found in GitHub Secrets."
+            echo "has_creds=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🚀 Upload AAB to Google Play Console
+        if: steps.play-creds.outputs.has_creds == 'true'
         uses: r0adkll/upload-google-play@v1
         with:
-          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          serviceAccountJson: google-play-key.json
           packageName: com.skillizee.zeeprep
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
-          track: internal
+          track: ${{ github.event.inputs.track || 'internal' }}
           status: completed
-
-      - name: ⚠️ Notice if Google Play Secret is Missing
-        if: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON == '' }}
-        run: |
-          echo "===================================================="
-          echo "⚠️ NOTICE: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is not set in GitHub Secrets."
-          echo "The signed production AAB has been built and saved as a GitHub Actions artifact."
-          echo "You can download it directly from this run and upload to Google Play Console."
-          echo "To enable automatic upload, add GOOGLE_PLAY_SERVICE_ACCOUNT_JSON to GitHub Repository Secrets."
-          echo "===================================================="
 
       - name: 📋 Play Console Deployment Summary
         run: |
           echo "===================================================="
           echo "🎉 PLAY CONSOLE RELEASE PIPELINE FINISHED"
-          echo "Target Track: Google Play Internal Testing"
+          echo "Target Track: ${{ github.event.inputs.track || 'internal' }}"
           echo "Package ID:   com.skillizee.zeeprep"
           echo "Commit SHA:   ${{ github.sha }}"
           echo "Timestamp:    $(date -u)"
           echo "===================================================="
-          echo "Next Step:"
-          echo "1. Internal testers can install and verify the build via Google Play Store."
-          echo "2. Once verified, promote the release to Production inside Google Play Console."
-          echo "===================================================="
+
