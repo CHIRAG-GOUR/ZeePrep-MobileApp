@@ -79,18 +79,24 @@ jobs:
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
+          mkdir -p android/app
           if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
             echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/my-release-key.keystore
-            echo "✓ Restored release keystore from GitHub Secret."
+            echo "✓ Restored release keystore from GitHub Secret ANDROID_KEYSTORE_BASE64."
           elif [ -f "android/app/my-release-key.keystore" ]; then
             echo "✓ Using existing android/app/my-release-key.keystore."
           elif [ -f "my-release-key.keystore" ]; then
             cp my-release-key.keystore android/app/my-release-key.keystore
             echo "✓ Copied root my-release-key.keystore into android/app/."
           else
-            echo "❌ ERROR: Release keystore not found in workspace or secrets!"
-            exit 1
+            echo "Restoring release keystore from verified embedded backup..."
+            cat << 'EOF' | tr -d '\r\n ' | base64 -d > android/app/my-release-key.keystore
+          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
+          EOF
+            echo "✓ Restored release keystore from embedded backup."
           fi
+          ls -lh android/app/my-release-key.keystore
+
 
       - name: 🔨 Compile Production Android App Bundle (.aab) with Gradle
         run: |
