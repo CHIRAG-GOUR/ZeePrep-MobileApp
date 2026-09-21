@@ -219,13 +219,12 @@ export function AICopilotModal({ isOpen, onClose }: AICopilotModalProps) {
 
 const styles = StyleSheet.create({
   modalOverlay: {
-    position: "fixed" as any,
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(15, 23, 42, 0.65)",
-    backdropFilter: "blur(6px)" as any,
+    backgroundColor: "rgba(15, 23, 42, 0.75)",
     zIndex: 9999,
     alignItems: "center",
     justifyContent: "center",
