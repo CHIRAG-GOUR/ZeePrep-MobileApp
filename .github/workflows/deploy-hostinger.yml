@@ -65,6 +65,7 @@ jobs:
           EOF
 
       - name: 🚀 Upload to Hostinger via FTP
+        if: ${{ secrets.FTP_HOST != '' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -88,3 +89,12 @@ jobs:
             .ftp-deploy-sync-state-*.json
             **/*.php
             **/cgi-bin/**
+
+      - name: ⚠️ Notice if FTP Secrets are Not Configured
+        if: ${{ secrets.FTP_HOST == '' }}
+        run: |
+          echo "===================================================="
+          echo "ℹ️ INFO: Hostinger FTP secrets (FTP_HOST, FTP_USERNAME, FTP_PASSWORD) are not set in GitHub Secrets."
+          echo "The web build succeeded and exported to dist/."
+          echo "To enable automatic FTP deployment to Hostinger, add FTP_HOST, FTP_USERNAME, FTP_PASSWORD, FTP_TARGET_DIR in GitHub Repository Secrets."
+          echo "===================================================="
