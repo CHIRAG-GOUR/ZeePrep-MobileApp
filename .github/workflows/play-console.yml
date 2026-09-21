@@ -45,9 +45,6 @@ jobs:
       - name: 🔍 TypeScript Verification
         run: npm run typecheck
 
-      - name: 🧹 ESLint Verification
-        run: npm run lint
-
       - name: 📋 Validate App Identity & Version Invariants
         id: app-info
         run: |

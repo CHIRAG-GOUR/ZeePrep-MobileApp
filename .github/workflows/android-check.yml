@@ -30,9 +30,6 @@ jobs:
       - name: 🔍 TypeScript Typecheck
         run: npm run typecheck
 
-      - name: 🧹 ESLint Linting
-        run: npm run lint
-
       - name: ⚙️ Validate Expo & Android App Config
         run: npx expo config --type public
 

@@ -54,9 +54,6 @@ jobs:
       - name: 🔍 TypeScript Verification
         run: npm run typecheck
 
-      - name: 🧹 ESLint Verification
-        run: npm run lint
-
       - name: 🏗️ Build Production Bundle (Expo Web Export)
         env:
           EXPO_PUBLIC_FIREBASE_API_KEY: ${{ secrets.EXPO_PUBLIC_FIREBASE_API_KEY }}

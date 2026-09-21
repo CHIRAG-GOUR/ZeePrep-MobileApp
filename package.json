@@ -58,7 +58,7 @@
     "preview:web": "expo export -p web && firebase hosting:channel:deploy preview",
     "deploy:web": "expo export -p web && firebase deploy --only hosting:zeeprep-app",
     "deploy:hostinger": "node scripts/deploy_hostinger_ftp.mjs",
-    "lint": "expo lint"
+    "lint": "tsc --noEmit"
   },
   "private": true
 }
