@@ -124,7 +124,7 @@ jobs:
       - name: 🔐 Prepare Google Play Service Account Credentials
         id: play-creds
         env:
-          GOOGLE_PLAY_KEY_RAW: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON || secrets.PLAY_CONFIG_JSON || secrets.SERVICE_ACCOUNT_JSON || secrets.GOOGLE_PLAY_KEY || secrets.PLAY_SERVICE_ACCOUNT_JSON || secrets.ANDROID_SERVICE_ACCOUNT || secrets.GOOGLE_SERVICE_ACCOUNT }}
+          GOOGLE_PLAY_KEY_RAW: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON || secrets.PLAY_CONFIG_JSON || secrets.SERVICE_ACCOUNT_JSON || secrets.GOOGLE_PLAY_KEY || secrets.PLAY_SERVICE_ACCOUNT_JSON || secrets.ANDROID_SERVICE_ACCOUNT || secrets.GOOGLE_SERVICE_ACCOUNT || secrets.PLAYSTORE_JSON || secrets.PLAY_STORE_JSON || secrets.GOOGLE_PLAY_JSON || secrets.GOOGLE_APPLICATION_CREDENTIALS || secrets.GCP_SA_KEY || secrets.PLAYSTORE_SERVICE_ACCOUNT || secrets.PLAY_CREDENTIALS || secrets.SERVICE_ACCOUNT || secrets.PLAY_JSON || secrets.PLAY_STORE_CREDENTIALS || secrets.PLAYSTORE_KEY }}
         run: |
           if [ -n "$GOOGLE_PLAY_KEY_RAW" ]; then
             node -e "
