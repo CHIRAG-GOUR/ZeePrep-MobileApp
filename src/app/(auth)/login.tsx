@@ -225,7 +225,7 @@ export default function LoginScreen() {
           activeOpacity={0.85}
         >
           <UserCheck
-            size={16}
+            size={18}
             color={activeTab === "teacher" ? "#4F46E5" : "#64748B"}
           />
           <Text
@@ -250,7 +250,7 @@ export default function LoginScreen() {
           activeOpacity={0.85}
         >
           <GraduationCap
-            size={16}
+            size={18}
             color={activeTab === "student" ? "#7C3AED" : "#64748B"}
           />
           <Text
@@ -265,17 +265,17 @@ export default function LoginScreen() {
       </View>
 
       {/* Demo Credentials Quick Switcher */}
-      <View style={{ marginBottom: 14, backgroundColor: "#F8FAFC", padding: 10, borderRadius: 10, borderWidth: 1, borderColor: "#E2E8F0" }}>
-        <Text style={{ fontSize: 10.5, fontWeight: "800", color: "#475569", letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 6 }}>
+      <View style={{ marginBottom: 16, backgroundColor: "#F8FAFC", padding: 10, borderRadius: 12, borderWidth: 1, borderColor: "#E2E8F0" }}>
+        <Text style={{ fontSize: 11, fontWeight: "800", color: "#475569", letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 6 }}>
           ⚡ 1-Tap Demo Credentials (Class 11 Math & Faculty)
         </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={{ flexDirection: "row", gap: 6 }}>
             {[
-              { label: "Class 11 - 1", id: "ZP-STU-1101", pass: "Password@123", role: "student" as const },
-              { label: "Class 11 - 2", id: "ZP-STU-1102", pass: "Password@123", role: "student" as const },
-              { label: "Class 11 - 3", id: "ZP-STU-1103", pass: "Password@123", role: "student" as const },
-              { label: "Class 11 - 4", id: "ZP-STU-1104", pass: "Password@123", role: "student" as const },
+              { label: "CCWS 1", id: "ZP-STU-1101", pass: "Password@123", role: "student" as const },
+              { label: "CCWS 2", id: "ZP-STU-1102", pass: "Password@123", role: "student" as const },
+              { label: "CCWS 3", id: "ZP-STU-1103", pass: "Password@123", role: "student" as const },
+              { label: "CCWS 4", id: "ZP-STU-1104", pass: "Password@123", role: "student" as const },
               { label: "PA1 SuperAdmin & Faculty", id: "pa1@skillizee.io", pass: "787700", role: "teacher" as const },
             ].map((acc) => (
               <TouchableOpacity
@@ -348,7 +348,7 @@ export default function LoginScreen() {
           ]}
           onPress={() => identifierInputRef.current?.focus()}
         >
-          <Mail size={16} color={isIdentifierFocused ? "#4F46E5" : "#94A3B8"} style={{ marginRight: 10 }} />
+          <Mail size={18} color={isIdentifierFocused ? "#4F46E5" : "#94A3B8"} style={{ marginRight: 12 }} />
           <TextInput
             ref={identifierInputRef}
             style={[
@@ -385,7 +385,7 @@ export default function LoginScreen() {
           ]}
           onPress={() => passwordInputRef.current?.focus()}
         >
-          <Lock size={16} color={isPasswordFocused ? "#4F46E5" : "#94A3B8"} style={{ marginRight: 10 }} />
+          <Lock size={18} color={isPasswordFocused ? "#4F46E5" : "#94A3B8"} style={{ marginRight: 12 }} />
           <TextInput
             ref={passwordInputRef}
             style={[
@@ -412,9 +412,9 @@ export default function LoginScreen() {
             activeOpacity={0.7}
           >
             {showPassword ? (
-              <EyeOff size={18} color="#94A3B8" />
+              <EyeOff size={19} color="#94A3B8" />
             ) : (
-              <Eye size={18} color="#94A3B8" />
+              <Eye size={19} color="#94A3B8" />
             )}
           </TouchableOpacity>
         </Pressable>
@@ -428,7 +428,7 @@ export default function LoginScreen() {
           activeOpacity={0.8}
         >
           <View style={[styles.customCheckbox, rememberMe && styles.customCheckboxChecked]}>
-            {rememberMe && <Check size={12} color="#FFFFFF" strokeWidth={3} />}
+            {rememberMe && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
           </View>
           <Text style={styles.rememberMeText}>Remember me for 30 days</Text>
         </TouchableOpacity>
@@ -503,7 +503,7 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
             <View
-              style={{ width: "100%", maxWidth: 440, display: "flex", flexDirection: "column" } as any}
+              style={{ width: "100%", maxWidth: 580, display: "flex", flexDirection: "column" } as any}
               {...(Platform.OS === "web" ? {
                 onMouseEnter: () => setIsFormActive(true),
                 onMouseLeave: () => setIsFormActive(false),
@@ -512,7 +512,7 @@ export default function LoginScreen() {
             {/* Top Brand Logo Header */}
             <View style={styles.desktopBrandHeader}>
               <View style={styles.brandTitleRow}>
-                <ZeePrepLogoSvg size={44} />
+                <ZeePrepLogoSvg size={64} />
                 <View style={styles.brandTextGroup}>
                   <View style={styles.brandNameRow}>
                     <Text style={styles.brandZee}>Zee</Text>
@@ -731,17 +731,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   desktopLeftCol: {
-    flex: 1,
+    flex: 1.15,
     backgroundColor: "#F8FAFC",
     borderRightWidth: 1,
     borderRightColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "center",
-    padding: 40,
+    padding: 24,
   },
   illustrationWrapper: {
     width: "100%",
-    maxWidth: 580,
+    maxWidth: 880,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -753,19 +753,19 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 48,
-    paddingHorizontal: 24,
+    paddingVertical: 40,
+    paddingHorizontal: 32,
   },
 
   // Brand Logo Header Elements
   desktopBrandHeader: {
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
   },
   brandTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
   },
   brandTextGroup: {
     justifyContent: "center",
@@ -775,65 +775,65 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   brandZee: {
-    fontSize: 26,
+    fontSize: 34,
     fontWeight: "900",
     color: "#4F46E5",
     letterSpacing: -0.5,
   },
   brandPrep: {
-    fontSize: 26,
+    fontSize: 34,
     fontWeight: "900",
     color: "#0F172A",
     letterSpacing: -0.5,
   },
   brandTagline: {
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: "800",
     color: "#64748B",
-    letterSpacing: 1.5,
+    letterSpacing: 2,
     textTransform: "uppercase",
     marginTop: -2,
   },
   brandPortalSub: {
-    fontSize: 13,
+    fontSize: 15.5,
     fontWeight: "500",
     color: "#64748B",
-    marginTop: 6,
+    marginTop: 8,
     textAlign: "center",
   },
 
   // Card Container
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 24,
+    borderRadius: 28,
+    paddingHorizontal: 38,
+    paddingVertical: 38,
     borderWidth: 1,
     borderColor: "#E2E8F0",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 4,
   },
 
   // Role Tab Selector
   roleTabGrid: {
     flexDirection: "row",
     backgroundColor: "#F1F5F9",
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 20,
-    gap: 4,
+    borderRadius: 18,
+    padding: 6,
+    marginBottom: 24,
+    gap: 6,
   },
   roleTab: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 8,
+    paddingVertical: 15,
+    borderRadius: 14,
+    gap: 10,
   },
   roleTabActiveTeacher: {
     backgroundColor: "#FFFFFF",
@@ -852,7 +852,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   roleTabText: {
-    fontSize: 12.5,
+    fontSize: 15.5,
     fontWeight: "700",
     color: "#64748B",
   },
@@ -868,21 +868,21 @@ const styles = StyleSheet.create({
   // Card Header Area
   cardHeaderArea: {
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
   },
   cardTitle: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: "900",
     color: "#0F172A",
     letterSpacing: -0.5,
     textAlign: "center",
   },
   cardSub: {
-    fontSize: 12,
+    fontSize: 14.5,
     fontWeight: "500",
     color: "#64748B",
     textAlign: "center",
-    marginTop: 4,
+    marginTop: 6,
   },
 
   // Error Banner
@@ -890,39 +890,39 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEF2F2",
     borderWidth: 1,
     borderColor: "rgba(239, 68, 68, 0.2)",
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 18,
   },
   errorText: {
     color: "#DC2626",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
     textAlign: "center",
   },
 
   // Inputs
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 11,
+    fontSize: 12.5,
     fontWeight: "800",
     color: "#475569",
-    letterSpacing: 0.5,
-    marginBottom: 6,
+    letterSpacing: 0.6,
+    marginBottom: 8,
     textTransform: "uppercase",
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F8FAFC",
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: "#E2E8F0",
-    paddingHorizontal: 12,
-    minHeight: 52,
-    height: 52,
+    paddingHorizontal: 18,
+    minHeight: 58,
+    height: 58,
   },
   inputWrapperFocused: {
     borderColor: "#4F46E5",
@@ -934,16 +934,16 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 14.5,
+    fontSize: 16,
     color: "#0F172A",
     fontWeight: "600",
     paddingVertical: 0,
-    height: 48,
+    height: 54,
     textAlignVertical: "center",
     ...(Platform.OS === "android" ? { includeFontPadding: false } : {}),
   },
   eyeBtn: {
-    padding: 6,
+    padding: 10,
   },
 
   // Options Row: Checkbox & Forgot Password
@@ -951,18 +951,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
-    marginTop: 2,
+    marginBottom: 24,
+    marginTop: 4,
   },
   rememberMeGroup: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
   customCheckbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 6,
     borderWidth: 1.5,
     borderColor: "#CBD5E1",
     alignItems: "center",
@@ -974,20 +974,20 @@ const styles = StyleSheet.create({
     borderColor: "#4F46E5",
   },
   rememberMeText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "600",
     color: "#475569",
   },
   forgotLink: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "700",
     color: "#4F46E5",
   },
 
   // Submit Buttons
   submitButton: {
-    height: 48,
-    borderRadius: 12,
+    height: 56,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#4F46E5",
@@ -995,7 +995,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 3,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   submitBtnTeacher: {
     backgroundColor: "#4F46E5",
@@ -1007,8 +1007,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitButtonText: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 16.5,
+    fontWeight: "900",
     color: "#FFFFFF",
     letterSpacing: -0.2,
   },
@@ -1018,18 +1018,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "#F1F5F9",
-    paddingTop: 16,
-    gap: 8,
+    paddingTop: 22,
+    gap: 12,
   },
   registerPrompt: {
-    fontSize: 12,
+    fontSize: 14,
     color: "#64748B",
-    fontWeight: "500",
+    fontWeight: "600",
   },
   registerOutlineBtn: {
-    paddingVertical: 9,
-    paddingHorizontal: 16,
-    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: "#E2E8F0",
     backgroundColor: "#FFFFFF",
@@ -1037,7 +1037,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   registerOutlineBtnText: {
-    fontSize: 12.5,
+    fontSize: 14.5,
     fontWeight: "800",
     color: "#0F172A",
   },

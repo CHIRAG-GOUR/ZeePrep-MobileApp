@@ -2,7 +2,7 @@
   "expo": {
     "name": "ZeePrep",
     "slug": "zeeprep-mobile",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "zeeprep",
@@ -14,6 +14,7 @@
     },
     "android": {
       "package": "com.skillizee.zeeprep",
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#F8FAFC",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

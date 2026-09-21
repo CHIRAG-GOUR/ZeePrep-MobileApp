@@ -117,11 +117,11 @@ export default function StudentHomeScreen() {
       contentContainerStyle={[
         styles.contentContainer,
         isDesktopWeb && {
-          maxWidth: 1140,
+          maxWidth: 1540,
           alignSelf: "center",
           width: "100%",
-          paddingHorizontal: 32,
-          paddingTop: 28,
+          paddingHorizontal: 8,
+          paddingTop: 12,
         },
       ]}
       showsVerticalScrollIndicator={false}

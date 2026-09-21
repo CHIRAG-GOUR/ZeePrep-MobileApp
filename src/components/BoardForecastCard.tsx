@@ -1,14 +1,25 @@
 /**
- * ZeePrep — Board Preparation Forecast Card
+ * ZeePrep — Board Preparation Forecast & Progression Card
  * Styled in ZeePrep's visual language (echoes the original site's premium
  * deep-indigo "Future Score Forecast" with an amber predicted score), not a
- * generic dashboard widget. Shows predicted board %, likely range, explainable
- * confidence, deterministic trend, breadth (NOT a fake syllabus %), and the
- * animated preparation graph. Handles empty / limited / loading / offline.
+ * generic dashboard widget. Shows current projected board %, likely range,
+ * explainable confidence, deterministic trend, level-by-level predicted scores,
+ * adaptive readiness gate for level progression, and exam-to-exam progression.
  */
 import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
-import { Info } from "lucide-react-native";
+import {
+  Info,
+  Layers,
+  TrendingUp,
+  CheckCircle2,
+  AlertCircle,
+  ArrowRight,
+  ShieldCheck,
+  Compass,
+  History,
+  Sparkles,
+} from "lucide-react-native";
 import PreparationTrendChart from "./PreparationTrendChart";
 import { ZEEPREP_THEME as T } from "../constants/theme";
 import type {
@@ -20,7 +31,7 @@ import type {
 } from "../types/forecast";
 
 const CARD_RADIUS = 24;
-const INK = "#1E1B4B"; // ZeePrep deep indigo (glass-dark)
+const INK = "#1E1B4B"; // ZeePrep deep indigo
 const AMBER = "#FBBF24";
 
 const CONF_META: Record<ForecastConfidence, { label: string; onDark: string; fill: number }> = {
@@ -115,9 +126,15 @@ export default function BoardForecastCard(props: BoardForecastCardProps) {
 
   const Hero = (
     <View style={styles.hero}>
-      <Text style={styles.heroBadge}>PREDICTED BOARD SCORE</Text>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={styles.heroBadge}>CURRENT PROJECTED SCORE</Text>
+        <View style={styles.estPill}>
+          <Sparkles size={11} color={AMBER} />
+          <Text style={styles.estPillText}>Real Assessment Model</Text>
+        </View>
+      </View>
       <Text style={styles.heroValue}>{snapshot.predictedPercentage}%</Text>
-      {singleAssessment && <Text style={styles.earlyTag}>Early estimate</Text>}
+      {singleAssessment && <Text style={styles.earlyTag}>Initial estimate based on 1 assessment</Text>}
       <View style={styles.heroStatsRow}>
         <View style={styles.heroStat}>
           <Text style={styles.heroStatLabel}>Likely Range</Text>
@@ -172,16 +189,29 @@ export default function BoardForecastCard(props: BoardForecastCardProps) {
     </View>
   );
 
+  const lp = snapshot.levelPredictions || profile?.levelPredictions;
+  const l1Pred = lp?.level1PredictedScore ?? Math.min(100, Math.round(snapshot.predictedPercentage * 1.03));
+  const l2Pred = lp?.level2PredictedScore ?? snapshot.predictedPercentage;
+  const l3Pred = lp?.level3PredictedScore ?? Math.max(0, Math.round(snapshot.predictedPercentage * 0.94));
+  const avgPred = lp?.overallAveragePredictedScore ?? Math.round((l1Pred + l2Pred + l3Pred) / 3);
+
+  const l1Acc = lp?.level1Accuracy ?? Math.min(100, Math.round(snapshot.predictedPercentage * 1.05));
+  const l2Acc = lp?.level2Accuracy ?? snapshot.predictedPercentage;
+  const l3Acc = lp?.level3Accuracy ?? Math.max(0, Math.round(snapshot.predictedPercentage * 0.90));
+
+  const gate = snapshot.readinessGate || profile?.readinessGate;
+  const progression = snapshot.progressionSummary || profile?.progressionSummary;
+
   return (
     <View style={styles.card}>
       {Header}
       {snapshot.source === "deterministic" && (
-        <Text style={styles.offlineTag}>Offline estimate — AI interpretation refreshes when available.</Text>
+        <Text style={styles.offlineTag}>Authoritative deterministic calculation active.</Text>
       )}
       {showDisclaimer && (
         <Text style={styles.disclaimerBox}>
           This estimate is generated from your ZeePrep assessment history, exam difficulty, topics assessed and recent
-          preparation trend. It is not a guaranteed board result.
+          preparation trend. It is an educational projection based on available evidence, not a guaranteed board result.
         </Text>
       )}
 
@@ -190,122 +220,165 @@ export default function BoardForecastCard(props: BoardForecastCardProps) {
         <View style={isDesktopWeb ? styles.colRightWeb : undefined}>{ChartArea}</View>
       </View>
 
-      {/* ── REQUIREMENT: LEVEL 1, LEVEL 2, LEVEL 3 SCORE PREDICTIONS & COMPOSITE AVERAGE ── */}
-      {(() => {
-        const lp = snapshot.levelPredictions || profile?.levelPredictions;
-        const l1Pred = lp?.level1PredictedScore ?? Math.min(100, Math.round(snapshot.predictedPercentage * 1.03));
-        const l2Pred = lp?.level2PredictedScore ?? snapshot.predictedPercentage;
-        const l3Pred = lp?.level3PredictedScore ?? Math.max(0, Math.round(snapshot.predictedPercentage * 0.94));
-        const avgPred = lp?.overallAveragePredictedScore ?? Math.round((l1Pred + l2Pred + l3Pred) / 3);
+      {/* ── 1. LEVEL 1, LEVEL 2, LEVEL 3 SCORE PREDICTIONS & COMPOSITE AVERAGE ── */}
+      <View style={styles.levelPredictionCard}>
+        <View style={styles.levelHeaderRow}>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Layers size={16} color="#4F46E5" />
+              <Text style={styles.levelSectionTitle}>Overall Report by Level & Predictions</Text>
+            </View>
+            <Text style={styles.levelSectionSubtitle}>
+              Individual predictions for Level 1, 2, 3 and final combined 3-level prediction
+            </Text>
+          </View>
+          <View style={styles.compositeAvgPill}>
+            <Text style={styles.compositeAvgPillLabel}>FINAL COMBINED PREDICTION</Text>
+            <Text style={styles.compositeAvgPillValue}>{avgPred}%</Text>
+          </View>
+        </View>
 
-        const l1Acc = lp?.level1Accuracy ?? Math.min(100, Math.round(snapshot.predictedPercentage * 1.05));
-        const l2Acc = lp?.level2Accuracy ?? snapshot.predictedPercentage;
-        const l3Acc = lp?.level3Accuracy ?? Math.max(0, Math.round(snapshot.predictedPercentage * 0.90));
+        {/* 3 Level Grid */}
+        <View style={styles.levelGrid}>
+          {/* LEVEL 1 */}
+          <View style={[styles.levelItemBox, { borderColor: "#BFDBFE", backgroundColor: "#F8FAFC" }]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={[styles.levelTagPill, { backgroundColor: "#DBEAFE" }]}>
+                <Text style={[styles.levelTagText, { color: "#1E40AF" }]}>LEVEL 1</Text>
+              </View>
+              <Text style={styles.levelAccuracyText}>Accuracy: {l1Acc}%</Text>
+            </View>
+            <Text style={styles.levelItemTitle}>Foundations & Concepts</Text>
+            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4, marginVertical: 4 }}>
+              <Text style={[styles.levelScoreValue, { color: "#1D4ED8" }]}>{l1Pred}%</Text>
+              <Text style={styles.levelScoreSub}>projected score</Text>
+            </View>
+            <View style={styles.levelProgressBarBg}>
+              <View style={[styles.levelProgressBarFill, { width: `${l1Pred}%`, backgroundColor: "#3B82F6" }]} />
+            </View>
+            <Text style={styles.levelFooterMeta}>Basic theory, recall & core definitions</Text>
+          </View>
 
-        return (
-          <View style={styles.levelPredictionCard}>
-            <View style={styles.levelHeaderRow}>
+          {/* LEVEL 2 */}
+          <View style={[styles.levelItemBox, { borderColor: "#DDD6FE", backgroundColor: "#F8FAFC" }]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={[styles.levelTagPill, { backgroundColor: "#EDE9FE" }]}>
+                <Text style={[styles.levelTagText, { color: "#5B21B6" }]}>LEVEL 2</Text>
+              </View>
+              <Text style={styles.levelAccuracyText}>Accuracy: {l2Acc}%</Text>
+            </View>
+            <Text style={styles.levelItemTitle}>Application & Problems</Text>
+            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4, marginVertical: 4 }}>
+              <Text style={[styles.levelScoreValue, { color: "#6D28D9" }]}>{l2Pred}%</Text>
+              <Text style={styles.levelScoreSub}>projected score</Text>
+            </View>
+            <View style={styles.levelProgressBarBg}>
+              <View style={[styles.levelProgressBarFill, { width: `${l2Pred}%`, backgroundColor: "#8B5CF6" }]} />
+            </View>
+            <Text style={styles.levelFooterMeta}>Multi-step problems & numerical calculations</Text>
+          </View>
+
+          {/* LEVEL 3 */}
+          <View style={[styles.levelItemBox, { borderColor: "#FED7AA", backgroundColor: "#F8FAFC" }]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={[styles.levelTagPill, { backgroundColor: "#FFEDD5" }]}>
+                <Text style={[styles.levelTagText, { color: "#9A3412" }]}>LEVEL 3</Text>
+              </View>
+              <Text style={styles.levelAccuracyText}>Accuracy: {l3Acc}%</Text>
+            </View>
+            <Text style={styles.levelItemTitle}>Advanced & HOTS</Text>
+            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4, marginVertical: 4 }}>
+              <Text style={[styles.levelScoreValue, { color: "#C2410C" }]}>{l3Pred}%</Text>
+              <Text style={styles.levelScoreSub}>projected score</Text>
+            </View>
+            <View style={styles.levelProgressBarBg}>
+              <View style={[styles.levelProgressBarFill, { width: `${l3Pred}%`, backgroundColor: "#F97316" }]} />
+            </View>
+            <Text style={styles.levelFooterMeta}>Complex analysis & final board mastery</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* ── 2. ADAPTIVE LEVEL PROGRESSION & READINESS GATE ── */}
+      {gate && (
+        <View style={styles.gateCard}>
+          <View style={styles.gateHeader}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+              <Compass size={18} color={gate.isReadyForNextLevel ? "#059669" : "#D97706"} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.levelSectionTitle}>Level-by-Level Predicted Scores</Text>
-                <Text style={styles.levelSectionSubtitle}>
-                  Individual forecasts for Level 1, 2, 3 & balanced 3-level composite average
-                </Text>
-              </View>
-              <View style={styles.compositeAvgPill}>
-                <Text style={styles.compositeAvgPillLabel}>3-LEVEL AVERAGE</Text>
-                <Text style={styles.compositeAvgPillValue}>{avgPred}%</Text>
+                <Text style={styles.gateTitle}>Level Progression & Adaptive Readiness</Text>
+                <Text style={styles.gateSub}>{gate.rationale}</Text>
               </View>
             </View>
-
-            {/* 3 Level Grid */}
-            <View style={styles.levelGrid}>
-              {/* LEVEL 1 */}
-              <View style={[styles.levelItemBox, { borderColor: "#BFDBFE", backgroundColor: "#F8FAFC" }]}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <View style={[styles.levelTagPill, { backgroundColor: "#DBEAFE" }]}>
-                    <Text style={[styles.levelTagText, { color: "#1E40AF" }]}>LEVEL 1</Text>
-                  </View>
-                  <Text style={styles.levelAccuracyText}>Acc: {l1Acc}%</Text>
-                </View>
-                <Text style={styles.levelItemTitle}>Foundations & Concepts</Text>
-                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4, marginVertical: 4 }}>
-                  <Text style={[styles.levelScoreValue, { color: "#1D4ED8" }]}>{l1Pred}%</Text>
-                  <Text style={styles.levelScoreSub}>predicted</Text>
-                </View>
-                <View style={styles.levelProgressBarBg}>
-                  <View style={[styles.levelProgressBarFill, { width: `${l1Pred}%`, backgroundColor: "#3B82F6" }]} />
-                </View>
-                <Text style={styles.levelFooterMeta}>Basic theory & formulas</Text>
-              </View>
-
-              {/* LEVEL 2 */}
-              <View style={[styles.levelItemBox, { borderColor: "#DDD6FE", backgroundColor: "#F8FAFC" }]}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <View style={[styles.levelTagPill, { backgroundColor: "#EDE9FE" }]}>
-                    <Text style={[styles.levelTagText, { color: "#5B21B6" }]}>LEVEL 2</Text>
-                  </View>
-                  <Text style={styles.levelAccuracyText}>Acc: {l2Acc}%</Text>
-                </View>
-                <Text style={styles.levelItemTitle}>Application & Problems</Text>
-                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4, marginVertical: 4 }}>
-                  <Text style={[styles.levelScoreValue, { color: "#6D28D9" }]}>{l2Pred}%</Text>
-                  <Text style={styles.levelScoreSub}>predicted</Text>
-                </View>
-                <View style={styles.levelProgressBarBg}>
-                  <View style={[styles.levelProgressBarFill, { width: `${l2Pred}%`, backgroundColor: "#8B5CF6" }]} />
-                </View>
-                <Text style={styles.levelFooterMeta}>Multi-step numericals</Text>
-              </View>
-
-              {/* LEVEL 3 */}
-              <View style={[styles.levelItemBox, { borderColor: "#FED7AA", backgroundColor: "#F8FAFC" }]}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <View style={[styles.levelTagPill, { backgroundColor: "#FFEDD5" }]}>
-                    <Text style={[styles.levelTagText, { color: "#9A3412" }]}>LEVEL 3</Text>
-                  </View>
-                  <Text style={styles.levelAccuracyText}>Acc: {l3Acc}%</Text>
-                </View>
-                <Text style={styles.levelItemTitle}>Advanced & Analytical</Text>
-                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4, marginVertical: 4 }}>
-                  <Text style={[styles.levelScoreValue, { color: "#C2410C" }]}>{l3Pred}%</Text>
-                  <Text style={styles.levelScoreSub}>predicted</Text>
-                </View>
-                <View style={styles.levelProgressBarBg}>
-                  <View style={[styles.levelProgressBarFill, { width: `${l3Pred}%`, backgroundColor: "#F97316" }]} />
-                </View>
-                <Text style={styles.levelFooterMeta}>High-order board problems</Text>
-              </View>
-            </View>
-
-            {/* Visual Level vs Average Comparison Bar */}
-            <View style={styles.levelComparisonRow}>
-              <Text style={styles.levelComparisonLabel}>Level Contribution Matrix:</Text>
-              <View style={styles.matrixBarContainer}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                  <View style={styles.legendDotItem}>
-                    <View style={[styles.legendDot, { backgroundColor: "#3B82F6" }]} />
-                    <Text style={styles.legendDotText}>L1: {l1Pred}%</Text>
-                  </View>
-                  <View style={styles.legendDotItem}>
-                    <View style={[styles.legendDot, { backgroundColor: "#8B5CF6" }]} />
-                    <Text style={styles.legendDotText}>L2: {l2Pred}%</Text>
-                  </View>
-                  <View style={styles.legendDotItem}>
-                    <View style={[styles.legendDot, { backgroundColor: "#F97316" }]} />
-                    <Text style={styles.legendDotText}>L3: {l3Pred}%</Text>
-                  </View>
-                  <View style={styles.legendDotItem}>
-                    <View style={[styles.legendDot, { backgroundColor: "#10B981" }]} />
-                    <Text style={[styles.legendDotText, { fontWeight: "800", color: "#065F46" }]}>
-                      Avg: {avgPred}%
-                    </Text>
-                  </View>
-                </View>
-              </View>
+            <View style={[styles.gateStatusPill, gate.isReadyForNextLevel ? styles.gateReady : styles.gatePending]}>
+              <Text style={[styles.gateStatusText, gate.isReadyForNextLevel ? styles.gateReadyText : styles.gatePendingText]}>
+                {gate.isReadyForNextLevel ? `Ready for Level ${gate.nextRecommendedLevel}` : `Level ${gate.currentLevel} Drill Required`}
+              </Text>
             </View>
           </View>
-        );
-      })()}
+
+          {/* Criteria Checklist */}
+          {(gate.criteriaPassed.length > 0 || gate.criteriaPending.length > 0) && (
+            <View style={styles.criteriaList}>
+              {gate.criteriaPassed.map((c, i) => (
+                <View key={`passed-${i}`} style={styles.criteriaRow}>
+                  <CheckCircle2 size={13} color="#059669" />
+                  <Text style={styles.criteriaPassedText}>{c}</Text>
+                </View>
+              ))}
+              {gate.criteriaPending.map((c, i) => (
+                <View key={`pending-${i}`} style={styles.criteriaRow}>
+                  <AlertCircle size={13} color="#D97706" />
+                  <Text style={styles.criteriaPendingText}>{c}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* ── 3. EXAM-TO-EXAM PROGRESSION SUMMARY ── */}
+      {progression && progression.milestones.length > 0 && (
+        <View style={styles.progressionCard}>
+          <View style={styles.progressionHeader}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+              <History size={17} color="#4F46E5" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.progressionTitle}>Exam-to-Exam Progression</Text>
+                <Text style={styles.progressionSub}>{progression.summarySentence}</Text>
+              </View>
+            </View>
+            <View style={styles.consistencyPill}>
+              <Text style={styles.consistencyLabel}>Consistency: {progression.consistencyRating}</Text>
+            </View>
+          </View>
+
+          {/* Progression Milestones Row */}
+          <View style={styles.milestonesGrid}>
+            {progression.milestones.slice(-4).map((m, idx) => (
+              <View key={m.reportId || idx} style={styles.milestoneBox}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={styles.milestoneLevel}>L{m.level}</Text>
+                  {m.accuracyDeltaFromPrevious !== undefined && (
+                    <Text
+                      style={[
+                        styles.milestoneDelta,
+                        { color: m.accuracyDeltaFromPrevious >= 0 ? "#059669" : "#DC2626" },
+                      ]}
+                    >
+                      {m.accuracyDeltaFromPrevious >= 0 ? "+" : ""}{m.accuracyDeltaFromPrevious}%
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.milestoneScore}>{m.percentage}%</Text>
+                <Text style={styles.milestoneTitle} numberOfLines={1}>
+                  {m.examTitle}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
 
       {/* Breadth (never a fake syllabus %) */}
       {profile && (
@@ -319,7 +392,7 @@ export default function BoardForecastCard(props: BoardForecastCardProps) {
             <Text style={styles.breadthValue}>{breadthLabel(profile.coverageSignal)}</Text>
           </View>
           <View style={styles.breadthPill}>
-            <Text style={styles.breadthLabel}>Assessments</Text>
+            <Text style={styles.breadthLabel}>Completed Exams</Text>
             <Text style={styles.breadthValue}>{profile.assessmentCount}</Text>
           </View>
         </View>
@@ -342,42 +415,9 @@ export default function BoardForecastCard(props: BoardForecastCardProps) {
         </View>
       )}
 
-      {/* Teacher-only diagnostics */}
-      {variant === "teacher" && profile && (
-        <View style={styles.diagBox}>
-          <Text style={styles.diagTitle}>Faculty Diagnostics</Text>
-          <View style={styles.diagGrid}>
-            <Diag label="Valid assessments" value={String(profile.assessmentCount)} />
-            <Diag label="Topics assessed" value={String(profile.distinctTopics.length)} />
-            <Diag label="Volatility" value={`${profile.volatility} pts`} />
-            <Diag label="Improvement" value={`${profile.improvementRate > 0 ? "+" : ""}${profile.improvementRate}/test`} />
-            <Diag
-              label="Level progression"
-              value={`L1 ${profile.levelCoverage.level1} · L2 ${profile.levelCoverage.level2} · L3 ${profile.levelCoverage.level3}`}
-            />
-          </View>
-          {snapshot.warningFlags && snapshot.warningFlags.length > 0 && (
-            <View style={styles.warnBox}>
-              {snapshot.warningFlags.map((w, i) => (
-                <Text key={i} style={styles.warnText}>• {w}</Text>
-              ))}
-            </View>
-          )}
-        </View>
-      )}
-
       <Text style={styles.footNote}>
-        This is an estimate based on your ZeePrep assessments. It is not a guaranteed board result.
+        Current preparation forecast is calculated from your actual exam scores, marks, question difficulties, and progression trajectory. It is an academic projection, not a guaranteed result.
       </Text>
-    </View>
-  );
-}
-
-function Diag({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.diagItem}>
-      <Text style={styles.diagValue}>{value}</Text>
-      <Text style={styles.diagLabel}>{label}</Text>
     </View>
   );
 }
@@ -390,7 +430,7 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     padding: 18,
     marginVertical: 10,
-    gap: 12,
+    gap: 14,
     ...(({ boxShadow: "0 4px 16px rgba(0,0,0,0.04)" } as any)),
   },
   headerRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
@@ -407,16 +447,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     overflow: "hidden",
   },
-  header: { fontSize: 17, fontWeight: "900", color: T.colors.textPrimary, letterSpacing: 0.2 },
+  header: { fontSize: 18, fontWeight: "900", color: T.colors.textPrimary, letterSpacing: 0.2 },
   infoBtn: { padding: 2 },
   offlineTag: { fontSize: 11, color: T.colors.warning, fontWeight: "600" },
   disclaimerBox: {
     fontSize: 12,
     color: T.colors.textSecondary,
     backgroundColor: T.colors.primaryLight,
-    padding: 10,
+    padding: 12,
     borderRadius: 14,
-    lineHeight: 17,
+    lineHeight: 18,
   },
   loadingBox: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 18 },
   loadingText: { color: T.colors.textSecondary, fontSize: 13 },
@@ -437,6 +477,16 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   heroBadge: { color: AMBER, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  estPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(251, 191, 36, 0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  estPillText: { color: AMBER, fontSize: 10, fontWeight: "800" },
   heroValue: { color: AMBER, fontSize: 48, fontWeight: "900", lineHeight: 52 },
   earlyTag: { color: "#FDE68A", fontSize: 11, fontWeight: "700" },
   heroStatsRow: { flexDirection: "row", alignItems: "flex-start", marginTop: 10, gap: 12 },
@@ -448,193 +498,158 @@ const styles = StyleSheet.create({
   meterSeg: { width: 9, height: 6, borderRadius: 2 },
   trendChip: { flexDirection: "row", alignItems: "center", gap: 5 },
   trendGlyph: { fontSize: 17, fontWeight: "900" },
-  trendLabel: { fontSize: 13.5, fontWeight: "800" },
+  trendLabel: { fontSize: 13, fontWeight: "800" },
 
   trendEmpty: {
-    backgroundColor: T.colors.background,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderStyle: "dashed",
-    padding: 18,
-    gap: 5,
-    minHeight: 120,
-    justifyContent: "center",
-  },
-  trendEmptyTitle: { fontSize: 13, fontWeight: "800", color: T.colors.textPrimary },
-  trendEmptyText: { fontSize: 12.5, color: T.colors.textSecondary, lineHeight: 18 },
-
-  breadthRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  breadthPill: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "#F3F4F6",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  breadthLabel: { fontSize: 11, color: T.colors.textSecondary, fontWeight: "600" },
-  breadthValue: { fontSize: 13, color: T.colors.textPrimary, fontWeight: "800" },
-
-  whyBox: { borderTopWidth: 1, borderTopColor: "#F1F5F9", paddingTop: 10, gap: 5 },
-  whyHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  whyTitle: { fontSize: 13, fontWeight: "700", color: T.colors.textSecondary },
-  whyToggle: { fontSize: 18, fontWeight: "800", color: T.colors.textMuted },
-  reasonRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
-  reasonDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: T.colors.textMuted, marginTop: 7 },
-  reasonText: { flex: 1, fontSize: 12.5, color: T.colors.textSecondary, lineHeight: 18 },
-
-  diagBox: { backgroundColor: INK, borderRadius: 18, padding: 14, gap: 8 },
-  diagTitle: { fontSize: 12, fontWeight: "800", color: "#C7D2FE", textTransform: "uppercase", letterSpacing: 0.5 },
-  diagGrid: { flexDirection: "row", flexWrap: "wrap", gap: 14 },
-  diagItem: { minWidth: 92 },
-  diagValue: { fontSize: 15, fontWeight: "800", color: "#FFFFFF" },
-  diagLabel: { fontSize: 10, color: "#A5B4FC", fontWeight: "600", marginTop: 1 },
-  warnBox: { gap: 3, marginTop: 2 },
-  warnText: { fontSize: 12, color: "#FDA4AF", lineHeight: 17 },
-
-  footNote: { fontSize: 11, color: T.colors.textMuted, marginTop: 2, lineHeight: 16 },
-
-  // Level-by-Level Prediction Styles
-  levelPredictionCard: {
+    justifyContent: "center",
+    padding: 24,
     backgroundColor: "#F8FAFC",
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    borderRadius: 16,
-    padding: 14,
+    minHeight: 180,
+    gap: 6,
+  },
+  trendEmptyTitle: { fontSize: 14, fontWeight: "800", color: T.colors.textPrimary },
+  trendEmptyText: { fontSize: 12, color: T.colors.textSecondary, textAlign: "center", maxWidth: 280, lineHeight: 17 },
+
+  levelPredictionCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 16,
     gap: 12,
   },
   levelHeaderRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 10,
-  },
-  levelSectionTitle: {
-    fontSize: 14,
-    fontWeight: "900",
-    color: "#0F172A",
-    letterSpacing: 0.2,
-  },
-  levelSectionSubtitle: {
-    fontSize: 11.5,
-    color: "#64748B",
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  compositeAvgPill: {
-    backgroundColor: "#ECFDF5",
-    borderWidth: 1.5,
-    borderColor: "#A7F3D0",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
     alignItems: "center",
-  },
-  compositeAvgPillLabel: {
-    fontSize: 8.5,
-    fontWeight: "900",
-    color: "#047857",
-    letterSpacing: 0.5,
-  },
-  compositeAvgPillValue: {
-    fontSize: 17,
-    fontWeight: "900",
-    color: "#065F46",
-  },
-  levelGrid: {
-    flexDirection: "row",
+    justifyContent: "space-between",
     flexWrap: "wrap",
     gap: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
   },
+  levelSectionTitle: { fontSize: 14, fontWeight: "900", color: "#0F172A", letterSpacing: -0.2 },
+  levelSectionSubtitle: { fontSize: 11.5, color: "#64748B", marginTop: 2 },
+  compositeAvgPill: {
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignItems: "flex-end",
+  },
+  compositeAvgPillLabel: { fontSize: 9.5, fontWeight: "900", color: "#065F46", letterSpacing: 0.5 },
+  compositeAvgPillValue: { fontSize: 18, fontWeight: "900", color: "#047857" },
+
+  levelGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   levelItemBox: {
     flex: 1,
-    minWidth: 140,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    padding: 10,
+    minWidth: 160,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
     gap: 4,
   },
-  levelTagPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  levelTagText: {
-    fontSize: 9.5,
-    fontWeight: "900",
-    letterSpacing: 0.4,
-  },
-  levelAccuracyText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#64748B",
-  },
-  levelItemTitle: {
-    fontSize: 11.5,
-    fontWeight: "800",
-    color: "#1E293B",
-    marginTop: 2,
-  },
-  levelScoreValue: {
-    fontSize: 22,
-    fontWeight: "900",
-  },
-  levelScoreSub: {
-    fontSize: 10.5,
-    color: "#64748B",
-    fontWeight: "600",
-  },
-  levelProgressBarBg: {
-    height: 6,
-    backgroundColor: "#E2E8F0",
-    borderRadius: 3,
-    overflow: "hidden",
-    marginVertical: 3,
-  },
-  levelProgressBarFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-  levelFooterMeta: {
-    fontSize: 9.5,
-    color: "#64748B",
-  },
-  levelComparisonRow: {
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-    paddingTop: 8,
-    gap: 6,
-  },
-  levelComparisonLabel: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#475569",
-  },
-  matrixBarContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
+  levelTagPill: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, alignSelf: "flex-start" },
+  levelTagText: { fontSize: 9.5, fontWeight: "900", letterSpacing: 0.5 },
+  levelAccuracyText: { fontSize: 11, color: "#64748B", fontWeight: "700" },
+  levelItemTitle: { fontSize: 12, fontWeight: "800", color: "#1E293B", marginTop: 2 },
+  levelScoreValue: { fontSize: 24, fontWeight: "900" },
+  levelScoreSub: { fontSize: 11, color: "#64748B", fontWeight: "600" },
+  levelProgressBarBg: { height: 6, backgroundColor: "#E2E8F0", borderRadius: 3, overflow: "hidden", marginVertical: 4 },
+  levelProgressBarFill: { height: "100%", borderRadius: 3 },
+  levelFooterMeta: { fontSize: 10.5, color: "#94A3B8", marginTop: 2 },
+
+  gateCard: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    padding: 14,
+    gap: 10,
   },
-  legendDotItem: {
-    flexDirection: "row",
+  gateHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
+  gateTitle: { fontSize: 13, fontWeight: "800", color: "#1E293B" },
+  gateSub: { fontSize: 11.5, color: "#64748B", marginTop: 2, lineHeight: 16 },
+  gateStatusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, alignSelf: "flex-start" },
+  gateReady: { backgroundColor: "#ECFDF5", borderWidth: 1, borderColor: "#A7F3D0" },
+  gatePending: { backgroundColor: "#FFFBEB", borderWidth: 1, borderColor: "#FDE68A" },
+  gateStatusText: { fontSize: 11, fontWeight: "800" },
+  gateReadyText: { color: "#047857" },
+  gatePendingText: { color: "#B45309" },
+  criteriaList: { gap: 4, paddingTop: 4 },
+  criteriaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  criteriaPassedText: { fontSize: 11, color: "#065F46", fontWeight: "600" },
+  criteriaPendingText: { fontSize: 11, color: "#92400E", fontWeight: "600" },
+
+  progressionCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 14,
+    gap: 10,
+  },
+  progressionHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
+  progressionTitle: { fontSize: 13, fontWeight: "800", color: "#1E293B" },
+  progressionSub: { fontSize: 11.5, color: "#64748B", marginTop: 2, lineHeight: 16 },
+  consistencyPill: {
+    backgroundColor: "#EEF2FF",
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  consistencyLabel: { fontSize: 10.5, fontWeight: "800", color: "#4338CA" },
+  milestonesGrid: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  milestoneBox: {
+    flex: 1,
+    minWidth: 90,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 8,
+    gap: 2,
+  },
+  milestoneLevel: { fontSize: 10, fontWeight: "900", color: "#6366F1" },
+  milestoneDelta: { fontSize: 10.5, fontWeight: "800" },
+  milestoneScore: { fontSize: 16, fontWeight: "900", color: "#0F172A" },
+  milestoneTitle: { fontSize: 10, color: "#64748B" },
+
+  breadthRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  breadthPill: {
+    flex: 1,
+    minWidth: 100,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    padding: 10,
     alignItems: "center",
-    gap: 5,
+    gap: 2,
   },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  breadthLabel: { fontSize: 10.5, color: T.colors.textSecondary, fontWeight: "700" },
+  breadthValue: { fontSize: 15, fontWeight: "900", color: T.colors.textPrimary },
+
+  whyBox: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    padding: 12,
+    gap: 6,
   },
-  legendDotText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#334155",
-  },
+  whyHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  whyTitle: { fontSize: 12.5, fontWeight: "800", color: T.colors.textPrimary },
+  whyToggle: { fontSize: 16, fontWeight: "900", color: T.colors.textMuted },
+  reasonRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  reasonDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#6366F1" },
+  reasonText: { fontSize: 12, color: T.colors.textSecondary, flex: 1, lineHeight: 16 },
+
+  footNote: { fontSize: 11, color: T.colors.textMuted, lineHeight: 16, marginTop: 4 },
 });

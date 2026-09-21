@@ -4,7 +4,8 @@
  * A FORECAST layer that sits ON TOP of the authoritative deterministic report
  * engine (report-engine.ts). It NEVER changes factual scores. It turns a
  * student's history of valid assessments (per subject) into a board-preparation
- * estimate: predicted %, likely range, confidence, trend, coverage.
+ * estimate: predicted %, likely range, confidence, trend, coverage, level-by-level
+ * score predictions, adaptive level readiness gates, and exam-to-exam progression.
  *
  * Design principles enforced here:
  *  - NOT a simple average. Recency-weighted + difficulty(level)-weighted.
@@ -27,11 +28,15 @@ import type {
   ForecastConfidence,
   ForecastTrend,
   BoardPredictionResult,
+  LevelScorePrediction,
+  AdaptiveReadinessGate,
+  ExamProgressionMilestone,
+  ExamProgressionSummary,
 } from "../types/forecast";
-import { normalizeSubject, normalizeGrade } from "./weak-topic-resource-engine";
+import { normalizeSubject, normalizeGrade, deriveFactualTopicBreakdown } from "./weak-topic-resource-engine";
 import { callGeminiAPI } from "./ai";
 
-export const FORECAST_MODEL_VERSION = "forecast-v1";
+export const FORECAST_MODEL_VERSION = "forecast-v2";
 const AI_MODEL_TAG = "gemini-2.5-flash";
 
 const LEVEL_VALUE: Record<string, number> = { level1: 1, level2: 2, level3: 3 };
@@ -193,8 +198,7 @@ export function buildSubjectAssessmentProfile(
 ): SubjectAssessmentProfile {
   const gradeNorm = opts.grade ? normalizeGrade(opts.grade) : "";
 
-  // Scope by normalized subject (+ grade when known) → prevents cross-subject /
-  // cross-grade contamination even though subjects are string-based.
+  // Scope by normalized subject (+ grade when known)
   const scoped = allReports.filter((r) => {
     if (subjectKeyForReport(r) !== opts.subjectKey) return false;
     if (gradeNorm && normalizeGrade(r.grade) && normalizeGrade(r.grade) !== gradeNorm) return false;
@@ -213,13 +217,19 @@ export function buildSubjectAssessmentProfile(
           .filter((t) => t && t.toLowerCase() !== "general")
       )
     );
+    const avgDiff = reportAvgDifficulty(r);
+    const assignedLevel: 1 | 2 | 3 = avgDiff >= 2.5 ? 3 : avgDiff >= 1.5 ? 2 : 1;
     return {
       reportId: r.id,
       examId: r.examId || r.id,
       examTitle: r.examTitle || "Assessment",
       percentage: clamp(round(Number(r.percentage) || 0), 0, 100),
-      weightedDifficulty: reportAvgDifficulty(r),
+      score: Number(r.obtainedMarks) || 0,
+      totalMarks: Number(r.totalMarks) || 100,
+      weightedDifficulty: avgDiff,
+      level: assignedLevel,
       totalQuestions: Number(r.totalQuestions) || 0,
+      timeSpentSeconds: Number(r.timeSpentSeconds) || 0,
       date: new Date(r.createdAt || Date.now()).toISOString(),
       topics,
       attemptNumber: Number(r.attemptNumber || 1),
@@ -233,7 +243,7 @@ export function buildSubjectAssessmentProfile(
   const levelCoverage = { level1: 0, level2: 0, level3: 0 };
   for (const r of deduped) {
     for (const q of r.detailedAnalysis || []) {
-      const lv = String(q.level || "level1");
+      const lv = String(q.level || "level1").toLowerCase();
       if (lv === "level1") levelCoverage.level1++;
       else if (lv === "level2") levelCoverage.level2++;
       else if (lv === "level3") levelCoverage.level3++;
@@ -293,7 +303,7 @@ export function buildSubjectAssessmentProfile(
   const trendDirection = classifyTrend(pcts, improvementRate, volatility);
   const { strong, weak } = aggregateTopics(deduped);
 
-  // ── Requirement: Calculate Level 1, Level 2, Level 3 score predictions + overall average ──
+  // ── 1. Level 1, Level 2, Level 3 Score Predictions + 3-Level Composite ──
   let l1Correct = 0, l1Total = 0, l1Attempts = 0;
   let l2Correct = 0, l2Total = 0, l2Attempts = 0;
   let l3Correct = 0, l3Total = 0, l3Attempts = 0;
@@ -321,25 +331,22 @@ export function buildSubjectAssessmentProfile(
     if (rHasL3) l3Attempts++;
   }
 
-  // Base accuracies or calibrated estimates
   const baseScore = count > 0 ? recencyWeightedScore : 70;
   const level1Accuracy = l1Total > 0 ? round((l1Correct / l1Total) * 100) : clamp(round(baseScore * 1.05), 0, 100);
   const level2Accuracy = l2Total > 0 ? round((l2Correct / l2Total) * 100) : clamp(round(baseScore * 0.95), 0, 100);
   const level3Accuracy = l3Total > 0 ? round((l3Correct / l3Total) * 100) : clamp(round(baseScore * 0.85), 0, 100);
 
-  // Score predictions: Level 1 (Foundational), Level 2 (Application), Level 3 (Advanced/HOTS)
   const level1PredictedScore = clamp(round(level1Accuracy * 0.98), 0, 100);
   const level2PredictedScore = clamp(round(level2Accuracy * 1.00), 0, 100);
   const level3PredictedScore = clamp(round(level3Accuracy * 1.05), 0, 100);
 
-  // Averaged composite prediction across all 3 levels
   const overallAveragePredictedScore = clamp(
     round((level1PredictedScore + level2PredictedScore + level3PredictedScore) / 3),
     0,
     100
   );
 
-  const levelPredictions = {
+  const levelPredictions: LevelScorePrediction = {
     level1PredictedScore,
     level2PredictedScore,
     level3PredictedScore,
@@ -352,6 +359,142 @@ export function buildSubjectAssessmentProfile(
     level3Attempts: l3Attempts,
   };
 
+  // ── 2. Adaptive Readiness Gate & Level Progression ──
+  const dominantLevel: 1 | 2 | 3 = dataPoints.length
+    ? dataPoints[dataPoints.length - 1].level || 1
+    : 1;
+
+  const currentLevelAccuracy = dominantLevel === 1 ? level1Accuracy : dominantLevel === 2 ? level2Accuracy : level3Accuracy;
+  const thresholdRequired = 75;
+  const isReadyForNextLevel = currentLevelAccuracy >= thresholdRequired;
+  const nextRecommendedLevel: 1 | 2 | 3 = isReadyForNextLevel
+    ? (Math.min(3, dominantLevel + 1) as 1 | 2 | 3)
+    : dominantLevel;
+
+  const readinessScore = clamp(round(level1Accuracy * 0.3 + level2Accuracy * 0.4 + level3Accuracy * 0.3), 0, 100);
+
+  const criteriaPassed: string[] = [];
+  const criteriaPending: string[] = [];
+
+  if (level1Accuracy >= thresholdRequired) criteriaPassed.push(`Level 1 Concept Accuracy ${level1Accuracy}% >= ${thresholdRequired}% threshold`);
+  else criteriaPending.push(`Level 1 Concept Accuracy ${level1Accuracy}% < ${thresholdRequired}% required threshold`);
+
+  if (dominantLevel >= 2) {
+    if (level2Accuracy >= thresholdRequired) criteriaPassed.push(`Level 2 Application Accuracy ${level2Accuracy}% >= ${thresholdRequired}% threshold`);
+    else criteriaPending.push(`Level 2 Application Accuracy ${level2Accuracy}% < ${thresholdRequired}% required threshold`);
+  }
+
+  if (dominantLevel === 3) {
+    if (level3Accuracy >= thresholdRequired) criteriaPassed.push(`Level 3 HOTS / Board Mastery ${level3Accuracy}% >= ${thresholdRequired}% threshold`);
+    else criteriaPending.push(`Level 3 HOTS / Board Mastery ${level3Accuracy}% < ${thresholdRequired}% required threshold`);
+  }
+
+  const readinessRationale = isReadyForNextLevel
+    ? dominantLevel === 3
+      ? `Board Level 3 Readiness Achieved! Current performance meets high-mastery standards with ${currentLevelAccuracy}% accuracy.`
+      : `Level ${dominantLevel} benchmark met (${currentLevelAccuracy}% >= ${thresholdRequired}%). Candidate is ready to advance to Level ${nextRecommendedLevel} assessments.`
+    : `Level ${dominantLevel} benchmark pending (${currentLevelAccuracy}% < ${thresholdRequired}%). Recommend targeted practice drills on weak concepts before attempting Level ${Math.min(3, dominantLevel + 1)}.`;
+
+  const readinessGate: AdaptiveReadinessGate = {
+    isReadyForNextLevel,
+    currentLevel: dominantLevel,
+    nextRecommendedLevel,
+    readinessScore,
+    thresholdRequired,
+    rationale: readinessRationale,
+    criteriaPassed,
+    criteriaPending,
+  };
+
+  // ── 3. Exam-to-Exam Progression Engine ──
+  const milestones: ExamProgressionMilestone[] = [];
+  for (let i = 0; i < deduped.length; i++) {
+    const r = deduped[i];
+    const prev = i > 0 ? deduped[i - 1] : null;
+    const currPct = clamp(round(Number(r.percentage) || 0), 0, 100);
+    const prevPct = prev ? clamp(round(Number(prev.percentage) || 0), 0, 100) : null;
+    const accDelta = prevPct != null ? currPct - prevPct : undefined;
+    const scoreDelta = prev ? (Number(r.obtainedMarks) || 0) - (Number(prev.obtainedMarks) || 0) : undefined;
+    const timeDelta = prev ? (Number(r.timeSpentSeconds) || 0) - (Number(prev.timeSpentSeconds) || 0) : undefined;
+
+    let status: ExamProgressionMilestone["status"] = "initial";
+    if (accDelta !== undefined) {
+      if (accDelta >= 3) status = "improved";
+      else if (accDelta <= -3) status = "declined";
+      else status = "steady";
+    }
+
+    const avgDiff = reportAvgDifficulty(r);
+    const assignedLvl: 1 | 2 | 3 = avgDiff >= 2.5 ? 3 : avgDiff >= 1.5 ? 2 : 1;
+
+    milestones.push({
+      reportId: r.id,
+      examId: r.examId || r.id,
+      examTitle: r.examTitle || `Assessment ${i + 1}`,
+      score: Number(r.obtainedMarks) || 0,
+      totalMarks: Number(r.totalMarks) || 100,
+      percentage: currPct,
+      level: assignedLvl,
+      date: new Date(r.createdAt || Date.now()).toISOString(),
+      accuracyDeltaFromPrevious: accDelta,
+      scoreDeltaFromPrevious: scoreDelta,
+      timeDeltaFromPrevious: timeDelta,
+      status,
+    });
+  }
+
+  // Identify resolved weak topics across exam history
+  const historicalWeakTopics = new Set<string>();
+  const latestWeakTopics = new Set<string>();
+
+  if (deduped.length > 1) {
+    const firstRepBreakdown = deriveFactualTopicBreakdown(deduped[0]);
+    firstRepBreakdown.filter((t) => t.isWeak).forEach((t) => historicalWeakTopics.add(t.topic));
+
+    const latestRepBreakdown = deriveFactualTopicBreakdown(deduped[deduped.length - 1]);
+    latestRepBreakdown.filter((t) => t.isWeak).forEach((t) => latestWeakTopics.add(t.topic));
+  }
+
+  const weakTopicsResolved: string[] = [];
+  historicalWeakTopics.forEach((wt) => {
+    if (!latestWeakTopics.has(wt)) {
+      weakTopicsResolved.push(wt);
+    }
+  });
+
+  const newWeakTopics = Array.from(latestWeakTopics).filter((wt) => !historicalWeakTopics.has(wt));
+
+  const initialScore = pcts.length ? pcts[0] : 0;
+  const latestScore = pcts.length ? pcts[pcts.length - 1] : 0;
+  const overallGrowth = pcts.length >= 2 ? latestScore - initialScore : 0;
+
+  let consistencyRating: ExamProgressionSummary["consistencyRating"] = "Initial";
+  if (pcts.length >= 2) {
+    if (overallGrowth >= 15 && volatility < 12) consistencyRating = "Excellent";
+    else if (overallGrowth >= 0 && volatility < 18) consistencyRating = "Good";
+    else consistencyRating = "Needs Effort";
+  }
+
+  const sign = overallGrowth >= 0 ? "+" : "";
+  const summarySentence = count === 0
+    ? "No assessment history available yet."
+    : count === 1
+    ? `Initial diagnostic baseline established at ${initialScore}%. Complete subsequent exams to track growth trajectory.`
+    : `Candidate has demonstrated a ${sign}${overallGrowth}% score progression across ${count} assessments (${initialScore}% ⟶ ${latestScore}%), resolving ${weakTopicsResolved.length} weak topics.`;
+
+  const progressionSummary: ExamProgressionSummary = {
+    milestones,
+    initialScore,
+    latestScore,
+    overallGrowth,
+    growthRate: improvementRate,
+    consistencyRating,
+    weakTopicsResolvedCount: weakTopicsResolved.length,
+    weakTopicsResolved,
+    newWeakTopics,
+    summarySentence,
+  };
+
   return {
     subjectKey: opts.subjectKey,
     subjectDisplay: opts.subjectDisplay,
@@ -362,6 +505,8 @@ export function buildSubjectAssessmentProfile(
     distinctTopics,
     levelCoverage,
     levelPredictions,
+    readinessGate,
+    progressionSummary,
     coverageSignal,
     recencyWeightedScore,
     volatility,
@@ -375,7 +520,7 @@ export function buildSubjectAssessmentProfile(
   };
 }
 
-/** Deterministic trend — must not contradict the data (PART 39). */
+/** Deterministic trend — must not contradict the data. */
 function classifyTrend(pcts: number[], slp: number, volatility: number): ForecastTrend {
   const n = pcts.length;
   if (n < 2) return "stable";
@@ -422,13 +567,13 @@ function confidenceReasons(profile: SubjectAssessmentProfile, conf: ForecastConf
   );
   reasons.push(`${profile.distinctTopics.length} distinct topic${profile.distinctTopics.length === 1 ? "" : "s"} assessed so far.`);
   const lvls: string[] = [];
-  if (profile.levelCoverage.level1 > 0) lvls.push("Level 1");
-  if (profile.levelCoverage.level2 > 0) lvls.push("Level 2");
-  if (profile.levelCoverage.level3 > 0) lvls.push("Level 3");
-  if (lvls.length) reasons.push(`Difficulty coverage: ${lvls.join(", ")}.`);
-  if (n >= 2) reasons.push(`Recent results vary by about ${profile.volatility} percentage point${profile.volatility === 1 ? "" : "s"}.`);
+  if (profile.levelCoverage.level1 > 0) lvls.push("Level 1 (Concepts)");
+  if (profile.levelCoverage.level2 > 0) lvls.push("Level 2 (Applications)");
+  if (profile.levelCoverage.level3 > 0) lvls.push("Level 3 (Advanced/HOTS)");
+  if (lvls.length) reasons.push(`Difficulty spread: ${lvls.join(", ")}.`);
+  if (n >= 2) reasons.push(`Recent scores vary by about ±${profile.volatility} percentage points.`);
   if (conf === "low" || conf === "insufficient") {
-    reasons.push("More assessments across additional chapters and difficulty levels will raise confidence.");
+    reasons.push("Completing additional assessments across topics and higher difficulty levels will increase confidence.");
   }
   return reasons.slice(0, 5);
 }
@@ -457,27 +602,27 @@ export function buildDeterministicSnapshot(
   const summaryPointers: string[] = [TREND_PHRASE[profile.trendDirection]];
   if (profile.assessmentCount > 0) {
     summaryPointers.push(
-      `Estimated board readiness is around ${profile.deterministicPrediction}% (likely ${profile.deterministicRange.min}%-${profile.deterministicRange.max}%).`
+      `Current projected board score is ${profile.deterministicPrediction}% (likely range ${profile.deterministicRange.min}% – ${profile.deterministicRange.max}%).`
     );
   }
   if (profile.coverageSignal < 45) {
-    summaryPointers.push("Only part of the subject has been assessed so far, so treat this as an early estimate.");
+    summaryPointers.push("Early forecast based on initial assessment volume. Will sharpen as more topics are covered.");
   }
 
-  const strengths = profile.strongTopics.map((t) => `Consistent accuracy in ${t}.`);
-  const improvementAreas = profile.weakTopics.map((t) => `Accuracy is low in ${t}.`);
+  const strengths = profile.strongTopics.map((t) => `Consistent high accuracy in ${t}.`);
+  const improvementAreas = profile.weakTopics.map((t) => `Focus required in ${t}.`);
 
   const nextActions: string[] = [];
-  if (profile.weakTopics[0]) nextActions.push(`Revise ${profile.weakTopics[0]} before your next assessment.`);
-  if (profile.weakTopics[1]) nextActions.push(`Practise more questions on ${profile.weakTopics[1]}.`);
+  if (profile.weakTopics[0]) nextActions.push(`Revise ${profile.weakTopics[0]} formula definitions before your next exam.`);
+  if (profile.weakTopics[1]) nextActions.push(`Practise 5 multi-step application questions on ${profile.weakTopics[1]}.`);
   if (profile.levelCoverage.level3 === 0) {
-    nextActions.push("Attempt a Level 3 assessment to test board-level readiness.");
+    nextActions.push("Attempt a Level 3 advanced assessment to benchmark final examination readiness.");
   }
   if (profile.assessmentCount < 3) {
-    nextActions.push("Complete more assessments to sharpen this forecast.");
+    nextActions.push("Complete more assessments across remaining chapters to sharpen this forecast.");
   }
   if (nextActions.length === 0) {
-    nextActions.push("Keep practising advanced questions to maintain your preparation.");
+    nextActions.push("Maintain problem-solving speed with mixed-topic revision sets.");
   }
 
   return {
@@ -499,9 +644,11 @@ export function buildDeterministicSnapshot(
       profile.assessmentCount === 1
         ? ["Early estimate based on a single assessment."]
         : profile.trendDirection === "inconsistent"
-        ? ["Scores vary a lot between assessments."]
+        ? ["Scores vary significantly between assessments."]
         : [],
     levelPredictions: profile.levelPredictions,
+    readinessGate: profile.readinessGate,
+    progressionSummary: profile.progressionSummary,
     assessmentCount: profile.assessmentCount,
     coverageSignal: profile.coverageSignal,
     latestExamId,
@@ -537,7 +684,7 @@ function buildForecastPrompt(profile: SubjectAssessmentProfile): string {
 
 STRICT RULES:
 - Use ONLY the evidence below. Do NOT invent exams, topics, syllabus coverage, grades, board rules or resources.
-- This is an educational estimate, NOT a guaranteed board result. Never claim certainty.
+- This is an educational estimate ("Current projected score" / "Current preparation forecast"), NOT a guaranteed board result. Never claim certainty.
 - Do NOT return any private reasoning or chain-of-thought. Return conclusions only.
 - Return ONE valid JSON object and nothing else.
 
@@ -655,6 +802,8 @@ export async function generateBoardForecast(
     confidenceReasons: confidenceReasons(profile, confidence),
     warningFlags: sanitizeList(parsed.warningFlags, 3),
     levelPredictions: profile.levelPredictions,
+    readinessGate: profile.readinessGate,
+    progressionSummary: profile.progressionSummary,
     assessmentCount: profile.assessmentCount,
     coverageSignal: profile.coverageSignal,
     latestExamId: det.latestExamId,

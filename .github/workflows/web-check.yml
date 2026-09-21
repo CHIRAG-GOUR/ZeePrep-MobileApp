@@ -1,0 +1,59 @@
+name: Web CI & Build Verification
+
+on:
+  pull_request:
+    branches:
+      - master
+      - main
+    paths-ignore:
+      - 'android/**'
+      - 'ios/**'
+      - '*.md'
+  push:
+    branches-ignore:
+      - master
+      - main
+    paths-ignore:
+      - 'android/**'
+      - 'ios/**'
+      - '*.md'
+
+jobs:
+  validate-web:
+    name: 🧪 Validate TypeScript, Lint & Web Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: 🔍 TypeScript Typecheck
+        run: npm run typecheck
+
+      - name: 🧹 ESLint Linting
+        run: npm run lint
+
+      - name: 🏗️ Verify Expo Web Export Build
+        env:
+          EXPO_PUBLIC_FIREBASE_API_KEY: ${{ secrets.EXPO_PUBLIC_FIREBASE_API_KEY || 'mock_firebase_key' }}
+          EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || 'zeeprep01.firebaseapp.com' }}
+          EXPO_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'zeeprep01' }}
+          EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || 'zeeprep01.firebasestorage.app' }}
+          EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '123456789' }}
+          EXPO_PUBLIC_FIREBASE_APP_ID: ${{ secrets.EXPO_PUBLIC_FIREBASE_APP_ID || '1:123456789:web:abcdef' }}
+          EXPO_PUBLIC_GEMINI_API_KEY: ${{ secrets.EXPO_PUBLIC_GEMINI_API_KEY || 'mock_gemini_key' }}
+        run: npm run build:web
+
+      - name: ✅ Build Verification Complete
+        run: |
+          echo "Web build verification passed with 0 errors!"
+          ls -la dist/

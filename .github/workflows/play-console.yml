@@ -1,0 +1,142 @@
+name: Android — Build AAB & Deploy to Google Play (Internal Testing)
+
+on:
+  push:
+    branches:
+      - play-console
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy-play-console:
+    name: 📱 Build AAB & Deploy to Play Console (Internal Track)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: ☕ Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: 📦 Install Dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: 🔍 TypeScript Verification
+        run: npm run typecheck
+
+      - name: 🧹 ESLint Verification
+        run: npm run lint
+
+      - name: 📋 Validate App Identity & Version Invariants
+        id: app-info
+        run: |
+          node -e "
+            const app = require('./app.json');
+            const pkg = app.expo.android.package;
+            const version = app.expo.version;
+            const vCode = app.expo.android.versionCode;
+            
+            console.log('====================================================');
+            console.log('🚀 ZEEPREP ANDROID RELEASE PIPELINE');
+            console.log('====================================================');
+            console.log('Branch:       ${{ github.ref_name }}');
+            console.log('Commit:       ${{ github.sha }}');
+            console.log('Package ID:   ' + pkg);
+            console.log('Version:      ' + version);
+            console.log('Version Code: ' + vCode);
+            console.log('Timestamp:    ' + new Date().toISOString());
+            console.log('====================================================\n');
+
+            if (pkg !== 'com.skillizee.zeeprep') {
+              console.error('❌ ERROR: Android package ID mismatch! Expected com.skillizee.zeeprep, found ' + pkg);
+              process.exit(1);
+            }
+            if (!vCode || vCode < 1) {
+              console.error('❌ ERROR: Invalid versionCode in app.json!');
+              process.exit(1);
+            }
+          "
+
+      - name: 🔑 Configure Android Release Keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/my-release-key.keystore
+            echo "✓ Restored release keystore from GitHub Secret."
+          elif [ -f "android/app/my-release-key.keystore" ]; then
+            echo "✓ Using existing android/app/my-release-key.keystore."
+          elif [ -f "my-release-key.keystore" ]; then
+            cp my-release-key.keystore android/app/my-release-key.keystore
+            echo "✓ Copied root my-release-key.keystore into android/app/."
+          else
+            echo "❌ ERROR: Release keystore not found in workspace or secrets!"
+            exit 1
+          fi
+
+      - name: 🔨 Compile Production Android App Bundle (.aab) with Gradle
+        run: |
+          cd android
+          chmod +x gradlew
+          echo "Building production AAB via Gradle..."
+          ./gradlew bundleRelease -x lint -x test
+
+      - name: 🔍 Verify AAB Artifact Output
+        run: |
+          AAB_FILE="android/app/build/outputs/bundle/release/app-release.aab"
+          if [ ! -f "$AAB_FILE" ]; then
+            echo "❌ ERROR: Production AAB artifact not found at $AAB_FILE!"
+            exit 1
+          fi
+          echo "✓ Verified AAB artifact exists: $AAB_FILE ($(ls -lh $AAB_FILE | awk '{print $5}'))"
+
+      - name: 📦 Save AAB Artifact in GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: zeeprep-play-bundle-${{ github.sha }}
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      - name: 🚀 Upload AAB to Google Play Console (Internal Testing Track)
+        if: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON != '' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.skillizee.zeeprep
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+
+      - name: ⚠️ Notice if Google Play Secret is Missing
+        if: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON == '' }}
+        run: |
+          echo "===================================================="
+          echo "⚠️ NOTICE: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is not set in GitHub Secrets."
+          echo "The signed production AAB has been built and saved as a GitHub Actions artifact."
+          echo "You can download it directly from this run and upload to Google Play Console."
+          echo "To enable automatic upload, add GOOGLE_PLAY_SERVICE_ACCOUNT_JSON to GitHub Repository Secrets."
+          echo "===================================================="
+
+      - name: 📋 Play Console Deployment Summary
+        run: |
+          echo "===================================================="
+          echo "🎉 PLAY CONSOLE RELEASE PIPELINE FINISHED"
+          echo "Target Track: Google Play Internal Testing"
+          echo "Package ID:   com.skillizee.zeeprep"
+          echo "Commit SHA:   ${{ github.sha }}"
+          echo "Timestamp:    $(date -u)"
+          echo "===================================================="
+          echo "Next Step:"
+          echo "1. Internal testers can install and verify the build via Google Play Store."
+          echo "2. Once verified, promote the release to Production inside Google Play Console."
+          echo "===================================================="

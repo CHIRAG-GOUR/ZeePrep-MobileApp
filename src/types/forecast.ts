@@ -1,9 +1,10 @@
 /**
- * ZeePrep — Board Examination Preparation Forecast Types
- * ------------------------------------------------------
+ * ZeePrep — Board Examination Preparation Forecast & Progression Types
+ * ---------------------------------------------------------------------
  * Additive, backward-compatible layer that sits ON TOP of the authoritative
  * deterministic report engine (report-engine.ts). Nothing here alters factual
- * assessment scores; these types describe the *forecast* (interpretation) layer.
+ * assessment scores; these types describe the forecast, level progression,
+ * exam-to-exam progression, and problem-type diagnostic analytics.
  */
 
 export type ForecastConfidence = "insufficient" | "low" | "medium" | "high";
@@ -23,9 +24,13 @@ export interface AssessmentDataPoint {
   examTitle: string;
   /** Deterministic actual score percentage from report-engine (0-100). */
   percentage: number;
+  score?: number;
+  totalMarks?: number;
   /** Effective difficulty of the exam on a 1..3 scale (level1..level3). */
   weightedDifficulty: number;
+  level?: 1 | 2 | 3;
   totalQuestions: number;
+  timeSpentSeconds?: number;
   /** ISO timestamp of the attempt. */
   date: string;
   topics: string[];
@@ -45,6 +50,59 @@ export interface LevelScorePrediction {
   level3Attempts: number;
 }
 
+export interface AdaptiveReadinessGate {
+  isReadyForNextLevel: boolean;
+  currentLevel: 1 | 2 | 3;
+  nextRecommendedLevel: 1 | 2 | 3;
+  readinessScore: number; // 0-100
+  thresholdRequired: number; // e.g. 75%
+  rationale: string;
+  criteriaPassed: string[];
+  criteriaPending: string[];
+}
+
+export interface ExamProgressionMilestone {
+  reportId: string;
+  examId: string;
+  examTitle: string;
+  score: number;
+  totalMarks: number;
+  percentage: number;
+  level: 1 | 2 | 3;
+  date: string;
+  accuracyDeltaFromPrevious?: number;
+  scoreDeltaFromPrevious?: number;
+  timeDeltaFromPrevious?: number;
+  status: "improved" | "declined" | "steady" | "initial";
+}
+
+export interface ExamProgressionSummary {
+  milestones: ExamProgressionMilestone[];
+  initialScore: number;
+  latestScore: number;
+  overallGrowth: number;
+  growthRate: number; // points per assessment
+  consistencyRating: "Excellent" | "Good" | "Needs Effort" | "Initial";
+  weakTopicsResolvedCount: number;
+  weakTopicsResolved: string[];
+  newWeakTopics: string[];
+  summarySentence: string;
+}
+
+export interface AcademicProblemDiagnosis {
+  questionId: string;
+  questionNumber: number;
+  subject: string;
+  chapter: string;
+  topic: string;
+  problemType: string;
+  formulaStruggledWith: string;
+  conceptStruggledWith: string;
+  studentMistakeAnalysis: string;
+  exactRemedy: string;
+  severity: "high" | "medium" | "low";
+}
+
 /** Deterministic, AI-free normalized profile for one subject. */
 export interface SubjectAssessmentProfile {
   subjectKey: string;        // normalized (e.g. "mathematics")
@@ -56,6 +114,8 @@ export interface SubjectAssessmentProfile {
   distinctTopics: string[];
   levelCoverage: { level1: number; level2: number; level3: number };
   levelPredictions?: LevelScorePrediction;
+  readinessGate?: AdaptiveReadinessGate;
+  progressionSummary?: ExamProgressionSummary;
   /** 0-100 breadth heuristic (topics assessed + level spread + volume). NOT a true syllabus %. */
   coverageSignal: number;
   recencyWeightedScore: number;   // 0-100
@@ -69,7 +129,7 @@ export interface SubjectAssessmentProfile {
   hasEnoughData: boolean;
 }
 
-/** Compact forecast snapshot (what Gemini produces, after validation). */
+/** Compact forecast snapshot (what Gemini produces or deterministic engine generates). */
 export interface BoardForecastSnapshot {
   studentId: string;
   subjectKey: string;
@@ -87,11 +147,13 @@ export interface BoardForecastSnapshot {
   confidenceReasons: string[];
   warningFlags?: string[];
   levelPredictions?: LevelScorePrediction;
+  readinessGate?: AdaptiveReadinessGate;
+  progressionSummary?: ExamProgressionSummary;
   assessmentCount: number;
   coverageSignal: number;
   latestExamId: string;
   generatedAt: string;       // ISO
-  modelVersion: string;      // e.g. "forecast-v1/gemini-2.5-flash"
+  modelVersion: string;      // e.g. "forecast-v2/gemini-2.5-flash"
   source: "ai" | "deterministic";
 }
 

@@ -179,6 +179,7 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
   const pathname = usePathname();
   const { user, isAuthenticated, viewMode, setViewMode } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [viewModeMenuOpen, setViewModeMenuOpen] = useState(false);
@@ -395,8 +396,8 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
             }}
             activeOpacity={0.85}
           >
-            <ZeePrepLogoSvg size={30} />
-            <View style={{ marginLeft: 6 }}>
+            <ZeePrepLogoSvg size={40} />
+            <View style={{ marginLeft: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Text style={styles.brandZee}>Zee</Text>
                 <Text style={styles.brandPrep}>Prep</Text>
@@ -409,7 +410,7 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
         {/* Center: Global Search Bar (Desktop Only) */}
         {isDesktop && !isExamScreen && (
           <View style={styles.searchBarContainer}>
-            <Search size={14} color="#94A3B8" style={{ marginRight: 8 }} />
+            <Search size={18} color="#94A3B8" style={{ marginRight: 12 }} />
             <TextInput
               style={styles.searchInput}
               placeholder="Global search across exams, questions, topics, candidates..."
@@ -428,7 +429,7 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
             onPress={() => setCopilotOpen(true)}
             activeOpacity={0.8}
           >
-            <Bot size={15} color="#FFFFFF" />
+            <Bot size={18} color="#FFFFFF" />
             <Text style={styles.aiTutorBtnText}>AI Copilot</Text>
           </TouchableOpacity>
 
@@ -438,7 +439,7 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
             onPress={() => setNotificationsOpen(true)}
             activeOpacity={0.7}
           >
-            <Bell size={16} color="#64748B" />
+            <Bell size={18} color="#64748B" />
             {unreadCount > 0 && (
               <View style={styles.bellBadge}>
                 <Text style={styles.bellBadgeText}>{unreadCount}</Text>
@@ -616,19 +617,32 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
       <View style={styles.bodyLayout}>
         {/* Desktop Fixed Left Sidebar */}
         {isDesktop && !isExamScreen && (
-          <View style={styles.sidebarWrapper}>
-            <View style={styles.sidebarInner}>
+          <View
+            style={[
+              styles.sidebarWrapper,
+              sidebarHovered ? styles.sidebarWrapperExpanded : styles.sidebarWrapperCollapsed,
+            ]}
+            {...(Platform.OS === "web"
+              ? {
+                  onMouseEnter: () => setSidebarHovered(true),
+                  onMouseLeave: () => setSidebarHovered(false),
+                }
+              : {})}
+          >
+            <View style={[styles.sidebarInner, !sidebarHovered && { paddingHorizontal: 10, alignItems: "center" }]}>
               {/* Header Logo Badge matching original website */}
-              <View style={styles.sidebarLogoHeader}>
+              <View style={[styles.sidebarLogoHeader, !sidebarHovered && { justifyContent: "center", paddingHorizontal: 0 }]}>
                 <View style={styles.sidebarLogoIconCircle}>
-                  <GraduationCap size={20} color="#FFFFFF" />
+                  <GraduationCap size={24} color="#FFFFFF" />
                 </View>
-                <Text style={styles.sidebarLogoTitle}>ZeePrep</Text>
+                {sidebarHovered && (
+                  <Text style={styles.sidebarLogoTitle}>ZeePrep</Text>
+                )}
               </View>
 
               {/* Navigation Items List */}
-              <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-                <View style={styles.navList}>
+              <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, width: "100%" }}>
+                <View style={[styles.navList, !sidebarHovered && { alignItems: "center" }]}>
                   {navItems.map((item, idx) => {
                     const IconComp = item.icon;
                     const active = isItemActive(item.href);
@@ -638,24 +652,28 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
                         key={idx}
                         style={[
                           styles.navItem,
+                          !sidebarHovered ? styles.navItemCollapsed : styles.navItemExpanded,
                           active ? styles.navItemActive : styles.navItemInactive,
                         ]}
                         onPress={() => router.push(item.href as any)}
                         activeOpacity={0.85}
+                        {...(Platform.OS === "web" ? { title: !sidebarHovered ? item.label : undefined } : {})}
                       >
                         <IconComp
-                          size={18}
+                          size={22}
                           color={active ? "#FFFFFF" : "#64748B"}
                         />
-                        <Text
-                          style={[
-                            styles.navItemLabel,
-                            active ? styles.navItemLabelActive : styles.navItemLabelInactive,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.label}
-                        </Text>
+                        {sidebarHovered && (
+                          <Text
+                            style={[
+                              styles.navItemLabel,
+                              active ? styles.navItemLabelActive : styles.navItemLabelInactive,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {item.label}
+                          </Text>
+                        )}
                       </TouchableOpacity>
                     );
                   })}
@@ -663,9 +681,11 @@ export function WebDesktopShell({ children }: WebDesktopShellProps) {
               </ScrollView>
 
               {/* Footer */}
-              <View style={styles.sidebarFooter}>
-                <Text style={styles.sidebarVersionText}>ZEEPREP PLATFORM V2.5</Text>
-              </View>
+              {sidebarHovered && (
+                <View style={styles.sidebarFooter}>
+                  <Text style={styles.sidebarVersionText}>ZEEPREP PLATFORM V2.5</Text>
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -863,58 +883,58 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4F5F9",
   },
   topbar: {
-    height: 60,
+    height: 72,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
+    paddingHorizontal: 28,
     zIndex: 100,
   },
   topbarLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 16,
   },
   menuToggleBtn: {
-    padding: 6,
-    borderRadius: 8,
+    padding: 10,
+    borderRadius: 10,
     backgroundColor: "#F1F5F9",
   },
   brandLogoBox: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
   },
   brandZee: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: "900",
     color: "#4F46E5",
     letterSpacing: -0.5,
   },
   brandPrep: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: "900",
     color: "#0F172A",
     letterSpacing: -0.5,
   },
   brandSub: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: "800",
     color: "#64748B",
     textTransform: "uppercase",
-    letterSpacing: 0.8,
+    letterSpacing: 1,
   },
   searchBarContainer: {
     flex: 1,
-    maxWidth: 420,
-    marginHorizontal: 20,
+    maxWidth: 580,
+    marginHorizontal: 28,
     backgroundColor: "#F1F5F9",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    height: 36,
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    height: 44,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
@@ -922,22 +942,22 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 11.5,
+    fontSize: 14,
     color: "#0F172A",
     fontWeight: "500",
   },
   topbarRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 14,
   },
   aiTutorBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     backgroundColor: "#4F46E5",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderRadius: 12,
     shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 2 },
@@ -945,14 +965,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   aiTutorBtnText: {
-    fontSize: 11.5,
+    fontSize: 13.5,
     fontWeight: "800",
     color: "#FFFFFF",
   },
   bellBtn: {
     position: "relative",
-    padding: 7,
-    borderRadius: 10,
+    padding: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#E2E8F0",
     backgroundColor: "#FFFFFF",
@@ -963,8 +983,8 @@ const styles = StyleSheet.create({
     right: -4,
     backgroundColor: "#EF4444",
     borderRadius: 8,
-    minWidth: 16,
-    height: 16,
+    minWidth: 18,
+    height: 18,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 3,
@@ -972,7 +992,7 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   bellBadgeText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "900",
     color: "#FFFFFF",
   },
@@ -982,31 +1002,31 @@ const styles = StyleSheet.create({
     backgroundColor: "#EEF2FF",
     borderWidth: 1,
     borderColor: "#E0E7FF",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    gap: 8,
     position: "relative",
   },
   viewModeLabel: {
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: "800",
     color: "#4F46E5",
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
   },
   customDropdownBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     backgroundColor: "#FFFFFF",
-    borderRadius: 6,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#CBD5E1",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
   },
   customDropdownBtnText: {
-    fontSize: 11.5,
+    fontSize: 13,
     fontWeight: "800",
     color: "#0F172A",
   },
@@ -1020,14 +1040,14 @@ const styles = StyleSheet.create({
   },
   customDropdownMenu: {
     position: "absolute",
-    top: 32,
+    top: 40,
     right: 0,
-    minWidth: 220,
+    minWidth: 250,
     backgroundColor: "#FFFFFF",
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    padding: 6,
+    padding: 8,
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.12,
@@ -1035,14 +1055,14 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   dropdownHeaderBox: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
     marginBottom: 4,
   },
   dropdownHeaderLabel: {
-    fontSize: 9,
+    fontSize: 10.5,
     fontWeight: "800",
     color: "#94A3B8",
     letterSpacing: 0.6,
@@ -1051,8 +1071,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 8,
   },
   dropdownMenuItemActive: {
@@ -1061,17 +1081,17 @@ const styles = StyleSheet.create({
   dropdownItemLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
   dropdownItemIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
   },
   dropdownItemTitle: {
-    fontSize: 12,
+    fontSize: 13.5,
     fontWeight: "700",
     color: "#334155",
   },
@@ -1080,26 +1100,26 @@ const styles = StyleSheet.create({
     color: "#0F172A",
   },
   dropdownItemSubtitle: {
-    fontSize: 9.5,
+    fontSize: 11,
     color: "#94A3B8",
     fontWeight: "500",
   },
   userProfileCapsule: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingLeft: 4,
+    gap: 12,
+    paddingLeft: 6,
   },
   userAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: "#4F46E5",
     alignItems: "center",
     justifyContent: "center",
   },
   userAvatarText: {
-    fontSize: 12,
+    fontSize: 14.5,
     fontWeight: "900",
     color: "#FFFFFF",
   },
@@ -1107,26 +1127,26 @@ const styles = StyleSheet.create({
     display: "flex",
   },
   userName: {
-    fontSize: 11.5,
+    fontSize: 14,
     fontWeight: "800",
     color: "#0F172A",
   },
   userRoleBadgeWrapper: {
     backgroundColor: "#EEF2FF",
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     alignSelf: "flex-start",
-    marginTop: 1,
+    marginTop: 2,
   },
   userRoleBadge: {
-    fontSize: 8,
+    fontSize: 9.5,
     fontWeight: "800",
     color: "#4F46E5",
     letterSpacing: 0.5,
   },
   logoutBtn: {
-    padding: 6,
+    padding: 10,
     borderRadius: 20,
   },
   bodyLayout: {
@@ -1134,17 +1154,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   sidebarWrapper: {
-    width: 230,
     backgroundColor: "#FFFFFF",
     borderRightWidth: 1,
-    borderRightColor: "#F1F5F9",
+    borderRightColor: "#E2E8F0",
     flexDirection: "column",
     flexShrink: 0,
     minHeight: "100%" as any,
+    zIndex: 40,
+    ...(Platform.OS === "web" ? {
+      transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05)",
+    } : {}),
+  },
+  sidebarWrapperCollapsed: {
+    width: 78,
+  },
+  sidebarWrapperExpanded: {
+    width: 280,
   },
   sidebarInner: {
     flex: 1,
-    paddingVertical: 20,
+    paddingVertical: 22,
     paddingHorizontal: 14,
     justifyContent: "space-between",
   },
@@ -1152,16 +1182,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingHorizontal: 8,
-    paddingBottom: 22,
+    paddingHorizontal: 4,
+    paddingBottom: 18,
     borderBottomWidth: 1,
-    borderBottomColor: "#F8FAFC",
-    marginBottom: 12,
+    borderBottomColor: "#F1F5F9",
+    marginBottom: 16,
   },
   sidebarLogoIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 16,
     backgroundColor: "#4F46E5",
     alignItems: "center",
     justifyContent: "center",
@@ -1171,42 +1201,53 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   sidebarLogoTitle: {
-    fontSize: 19,
+    fontSize: 22,
     fontWeight: "900",
     color: "#0F172A",
     letterSpacing: -0.5,
   },
   sidebarSectionHeading: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "800",
     color: "#94A3B8",
     letterSpacing: 1,
     paddingHorizontal: 10,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   navList: {
-    gap: 5,
+    gap: 8,
   },
   navItem: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    borderRadius: 16,
+  },
+  navItemCollapsed: {
+    width: 50,
+    height: 50,
+    justifyContent: "center",
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
+  navItemExpanded: {
+    width: "100%",
+    flexDirection: "row",
+    gap: 14,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 16,
   },
   navItemActive: {
     backgroundColor: "#4F46E5",
     shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
   },
   navItemInactive: {
     backgroundColor: "transparent",
   },
   navItemLabel: {
-    fontSize: 13,
+    fontSize: 14.5,
+    fontWeight: "700",
   },
   navItemLabelActive: {
     color: "#FFFFFF",
@@ -1219,12 +1260,12 @@ const styles = StyleSheet.create({
   sidebarFooter: {
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: "#F8FAFC",
+    borderTopColor: "#F1F5F9",
     alignItems: "center",
     justifyContent: "center",
   },
   sidebarVersionText: {
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: "800",
     color: "#94A3B8",
     letterSpacing: 0.8,
@@ -1257,12 +1298,10 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     width: "100%",
-    // ZeePrep web proportions: cap content like the original site's max-w-7xl,
-    // centered with desktop gutters, so pages don't stretch edge-to-edge on
-    // wide screens. Native bypasses this shell entirely (Platform.OS check above).
-    maxWidth: 1280,
+    maxWidth: 1440,
     alignSelf: "center",
-    paddingHorizontal: 28,
+    paddingHorizontal: 36,
+    paddingVertical: 28,
   },
 
   // SLIDE-OVER DRAWER STYLES
@@ -1285,7 +1324,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15, 23, 42, 0.3)",
   },
   drawerCard: {
-    width: 360,
+    width: 380,
     maxWidth: "85vw" as any,
     height: "100%",
     backgroundColor: "#FFFFFF",
@@ -1298,8 +1337,8 @@ const styles = StyleSheet.create({
     zIndex: 10001,
   },
   drawerHeader: {
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingHorizontal: 22,
+    paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
     flexDirection: "row",
@@ -1307,41 +1346,41 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   drawerHeaderIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     backgroundColor: "#EEF2FF",
     alignItems: "center",
     justifyContent: "center",
   },
   drawerTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "900",
     color: "#0F172A",
   },
   drawerSubtitle: {
-    fontSize: 11,
+    fontSize: 12,
     color: "#64748B",
     fontWeight: "500",
   },
   drawerActionBtn: {
-    padding: 6,
+    padding: 7,
     borderRadius: 8,
     backgroundColor: "#F8FAFC",
   },
   drawerCloseBtn: {
-    padding: 6,
+    padding: 7,
     borderRadius: 8,
     backgroundColor: "#F8FAFC",
   },
   drawerBody: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
   },
   notificationItemCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 14,
-    padding: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: "#F1F5F9",
   },
@@ -1350,14 +1389,14 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
   },
   notifTypeIcon: {
-    width: 32,
-    height: 32,
+    width: 34,
+    height: 34,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
   notifTitle: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: "800",
     color: "#0F172A",
   },
@@ -1368,13 +1407,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#4F46E5",
   },
   notifDesc: {
-    fontSize: 11.5,
+    fontSize: 12,
     color: "#475569",
     marginTop: 2,
-    lineHeight: 16,
+    lineHeight: 17,
   },
   notifTime: {
-    fontSize: 10,
+    fontSize: 10.5,
     color: "#94A3B8",
     fontWeight: "600",
   },
@@ -1385,28 +1424,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   emptyBellIconBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: "#F1F5F9",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
   },
   emptyStateTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "800",
     color: "#0F172A",
     marginBottom: 4,
   },
   emptyStateSub: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: "#64748B",
     textAlign: "center",
     lineHeight: 18,
   },
   drawerFooter: {
-    padding: 16,
+    padding: 18,
     borderTopWidth: 1,
     borderTopColor: "#F1F5F9",
   },
@@ -1415,12 +1454,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 11,
     borderRadius: 10,
     backgroundColor: "#FEF2F2",
   },
   clearAllBtnText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: "800",
     color: "#EF4444",
   },

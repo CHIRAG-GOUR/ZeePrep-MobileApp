@@ -51,6 +51,11 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "build:web": "expo export -p web",
+    "typecheck": "tsc --noEmit",
+    "build:aab": "eas build -p android --profile production",
+    "build:aab:local": "cd android && gradlew bundleRelease",
+    "submit:android": "eas submit -p android --profile production",
+    "preview:web": "expo export -p web && firebase hosting:channel:deploy preview",
     "deploy:web": "expo export -p web && firebase deploy --only hosting:zeeprep-app",
     "deploy:hostinger": "node scripts/deploy_hostinger_ftp.mjs",
     "lint": "expo lint"

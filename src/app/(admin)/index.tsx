@@ -71,7 +71,7 @@ export default function AdminDashboardScreen() {
       style={styles.container}
       contentContainerStyle={[
         styles.contentContainer,
-        isDesktopWeb && { maxWidth: 1280, alignSelf: "center", width: "100%", paddingHorizontal: 32, paddingTop: 24 },
+        isDesktopWeb && { maxWidth: 1540, alignSelf: "center", width: "100%", paddingHorizontal: 8, paddingTop: 12 },
       ]}
       showsVerticalScrollIndicator={false}
       refreshControl={

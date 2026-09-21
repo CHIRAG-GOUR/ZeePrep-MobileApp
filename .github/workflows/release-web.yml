@@ -1,27 +1,54 @@
-name: Build and Deploy to Hostinger via FTP
+name: Release Web App (Controlled Deployment)
 
 on:
-  push:
-    branches:
-      - master
-      - main
   workflow_dispatch:
+    inputs:
+      target:
+        description: 'Hosting Target'
+        required: true
+        default: 'hostinger'
+        type: choice
+        options:
+          - 'hostinger'
+          - 'firebase'
+          - 'both'
+      environment:
+        description: 'Deployment Environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - 'production'
+          - 'preview'
+      confirm_deploy:
+        description: 'Type "DEPLOY" to confirm release'
+        required: true
+        default: 'DEPLOY'
 
 jobs:
-  build-and-deploy:
+  release-web:
+    name: 🚀 Build & Deploy Web Application
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 Checkout code
+      - name: 🛡️ Safety Confirmation Check
+        run: |
+          if [ "${{ github.event.inputs.confirm_deploy }}" != "DEPLOY" ]; then
+            echo "❌ Deployment aborted: Confirmation token does not match 'DEPLOY'."
+            exit 1
+          fi
+          echo "✓ Manual release confirmation accepted."
+
+      - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: ⚙️ Setup Node.js
+      - name: ⚙️ Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
 
-      - name: 📦 Install dependencies
+      - name: 📦 Install Dependencies
         run: npm ci --no-audit --no-fund
 
       - name: 🔍 TypeScript Verification
@@ -30,7 +57,7 @@ jobs:
       - name: 🧹 ESLint Verification
         run: npm run lint
 
-      - name: 🏗️ Build project (Expo Web Export)
+      - name: 🏗️ Build Production Bundle (Expo Web Export)
         env:
           EXPO_PUBLIC_FIREBASE_API_KEY: ${{ secrets.EXPO_PUBLIC_FIREBASE_API_KEY }}
           EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN }}
@@ -41,7 +68,7 @@ jobs:
           EXPO_PUBLIC_GEMINI_API_KEY: ${{ secrets.EXPO_PUBLIC_GEMINI_API_KEY }}
         run: npm run build:web
 
-      - name: 📄 Inject SPA .htaccess Routing
+      - name: 📄 Inject SPA .htaccess Routing & Cache Headers
         run: |
           cat << 'EOF' > dist/.htaccess
           <IfModule mod_rewrite.c>
@@ -64,7 +91,9 @@ jobs:
           </IfModule>
           EOF
 
-      - name: 🚀 Upload to Hostinger via FTP
+      # Target: Hostinger via FTPS
+      - name: 🌐 Upload to Hostinger via Secure FTPS
+        if: ${{ github.event.inputs.target == 'hostinger' || github.event.inputs.target == 'both' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -75,7 +104,7 @@ jobs:
           security: loose
           log-level: verbose
           local-dir: ./dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR }}/
+          server-dir: ${{ secrets.FTP_TARGET_DIR || 'public_html/' }}/
           dangerous-clean-slate: false
           state-name: .ftp-deploy-sync-state-zeeprep.json
           timeout: 600000
@@ -88,3 +117,24 @@ jobs:
             .ftp-deploy-sync-state-*.json
             **/*.php
             **/cgi-bin/**
+
+      # Target: Firebase Hosting
+      - name: 🔥 Deploy to Firebase Hosting (${{ github.event.inputs.environment }})
+        if: github.event.inputs.target == 'firebase' || github.event.inputs.target == 'both'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_ZEEPREP01 }}'
+          channelId: ${{ github.event.inputs.environment == 'production' && 'live' || 'preview' }}
+          projectId: zeeprep01
+          target: zeeprep-app
+
+      - name: 📋 Deployment Summary
+        run: |
+          echo "===================================================="
+          echo "🎉 ZEEPREP WEB DEPLOYMENT SUCCESSFUL"
+          echo "Target: ${{ github.event.inputs.target }}"
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Timestamp: $(date -u)"
+          echo "===================================================="

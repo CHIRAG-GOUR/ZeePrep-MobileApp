@@ -19,17 +19,17 @@ export function AnimatedExamIllustration({ isFormActive = false }: AnimatedExamI
   const { width } = useWindowDimensions();
 
   // Dynamic responsive maxHeight scaling
-  const maxIllustrationHeight = width < 360 ? 150 : width > 600 ? 340 : 220;
+  const maxIllustrationHeight = width < 360 ? 150 : width > 860 ? 760 : width > 600 ? 450 : 260;
 
   // On Web, we can render pure SVG with CSS animation classes for butter-smooth 60fps movement
   if (Platform.OS === "web") {
     return (
-      <View style={[styles.container, { maxHeight: maxIllustrationHeight }]}>
+      <View style={[styles.container, { maxHeight: maxIllustrationHeight, width: "100%", maxWidth: 880 }]}>
         <svg
           viewBox="0 0 800 600"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          style={{ width: "100%", height: "100%", overflow: "visible", userSelect: "none" }}
+          style={{ width: "100%", height: "100%", maxWidth: "100%", maxHeight: "100%", overflow: "visible", userSelect: "none" }}
         >
           <defs>
             <linearGradient id="sandGradientWeb" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -427,8 +427,8 @@ export function AnimatedExamIllustration({ isFormActive = false }: AnimatedExamI
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    maxWidth: 340,
-    aspectRatio: 740 / 530,
+    maxWidth: 780,
+    aspectRatio: 800 / 600,
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",

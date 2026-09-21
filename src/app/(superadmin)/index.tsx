@@ -124,7 +124,7 @@ export default function SuperAdminDashboardScreen() {
         <View style={styles.heroBanner}>
           <Text style={styles.heroBannerBadgeText}>SUPER ADMIN PLATFORM COMMAND CENTER</Text>
           <View style={styles.heroTitleRow}>
-            <Shield size={24} color="#FDE047" />
+            <Shield size={32} color="#FDE047" />
             <Text style={styles.heroBannerTitle}>Platform Overview & Telemetry</Text>
           </View>
           <Text style={styles.heroBannerSub}>
@@ -141,7 +141,7 @@ export default function SuperAdminDashboardScreen() {
               return (
                 <View key={i} style={styles.statCard}>
                   <View style={[styles.statIconBox, { backgroundColor: c.bg, borderColor: c.border }]}>
-                    <IconComp size={20} color={c.color} />
+                    <IconComp size={26} color={c.color} />
                   </View>
                   <View style={styles.statTextCol}>
                     <Text style={styles.statValue}>{c.value}</Text>
@@ -159,7 +159,7 @@ export default function SuperAdminDashboardScreen() {
               return (
                 <View key={i} style={styles.statCard}>
                   <View style={[styles.statIconBox, { backgroundColor: c.bg, borderColor: c.border }]}>
-                    <IconComp size={20} color={c.color} />
+                    <IconComp size={26} color={c.color} />
                   </View>
                   <View style={styles.statTextCol}>
                     <Text style={styles.statValue}>{c.value}</Text>
@@ -176,8 +176,8 @@ export default function SuperAdminDashboardScreen() {
           {/* Panel 1: Storage & System Telemetry */}
           <View style={styles.telemetryCard}>
             <View style={styles.telemetryCardHeader}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <HardDrive size={16} color="#4F46E5" />
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <HardDrive size={22} color="#4F46E5" />
                 <Text style={styles.telemetryCardTitle}>Storage & System Telemetry</Text>
               </View>
               <View style={styles.healthyBadge}>
@@ -203,8 +203,8 @@ export default function SuperAdminDashboardScreen() {
               <View style={styles.rowDivider} />
               <View style={styles.telemetryDataRow}>
                 <Text style={styles.telemetryRowLabel}>Auth & Database</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <CheckCircle2 size={14} color="#059669" />
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <CheckCircle2 size={18} color="#059669" />
                   <Text style={styles.operationalText}>Fully Operational</Text>
                 </View>
               </View>
@@ -214,8 +214,8 @@ export default function SuperAdminDashboardScreen() {
           {/* Panel 2: Login Analytics & Active Users */}
           <View style={styles.telemetryCard}>
             <View style={styles.telemetryCardHeader}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Users size={16} color="#7C3AED" />
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <Users size={22} color="#7C3AED" />
                 <Text style={styles.telemetryCardTitle}>Login Analytics & Active Users</Text>
               </View>
             </View>
@@ -241,8 +241,8 @@ export default function SuperAdminDashboardScreen() {
           {/* Panel 3: Platform Academic Performance */}
           <View style={styles.telemetryCard}>
             <View style={styles.telemetryCardHeader}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <TrendingUp size={16} color="#059669" />
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <TrendingUp size={22} color="#059669" />
                 <Text style={styles.telemetryCardTitle}>Platform Academic Performance</Text>
               </View>
             </View>
@@ -391,81 +391,78 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   desktopContentContainer: {
-    maxWidth: 1280,
-    alignSelf: "center",
     width: "100%",
-    paddingHorizontal: 28,
-    paddingTop: 24,
-    paddingBottom: 40,
-    gap: 20,
+    paddingBottom: 48,
+    gap: 24,
   },
 
   // DESKTOP HERO BANNER
   heroBanner: {
     backgroundColor: "#1D63FF",
-    borderRadius: 24,
-    paddingHorizontal: 28,
-    paddingVertical: 24,
+    borderRadius: 28,
+    paddingHorizontal: 36,
+    paddingVertical: 32,
     shadowColor: "#1D63FF",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
   },
   heroBannerBadgeText: {
-    fontSize: 10,
-    fontWeight: "800",
+    fontSize: 12,
+    fontWeight: "900",
     color: "#DBEAFE",
-    letterSpacing: 0.8,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
     marginBottom: 8,
   },
   heroTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 6,
+    gap: 14,
+    marginBottom: 8,
   },
   heroBannerTitle: {
-    fontSize: 24,
+    fontSize: 30,
     fontWeight: "900",
     color: "#FFFFFF",
     letterSpacing: -0.5,
   },
   heroBannerSub: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: "500",
     color: "#EFF6FF",
-    lineHeight: 18,
+    lineHeight: 22,
+    marginTop: 4,
   },
 
   // DESKTOP 8 STAT CARDS
   statsGrid: {
-    gap: 14,
+    gap: 18,
   },
   statsRow: {
     flexDirection: "row",
-    gap: 14,
+    gap: 18,
   },
   statCard: {
     flex: 1,
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 22,
+    paddingVertical: 20,
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 18,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "rgba(226, 232, 240, 0.9)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
   },
   statIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 54,
+    height: 54,
+    borderRadius: 16,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -474,68 +471,68 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: "900",
     color: "#0F172A",
     letterSpacing: -0.5,
   },
   statLabel: {
-    fontSize: 9.5,
+    fontSize: 11.5,
     fontWeight: "800",
     color: "#64748B",
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
     textTransform: "uppercase",
-    marginTop: 2,
+    marginTop: 4,
   },
 
   // DESKTOP 3-COL TELEMETRY GRID
   telemetryGrid3Col: {
     flexDirection: "row",
-    gap: 16,
+    gap: 20,
   },
   telemetryCard: {
     flex: 1,
     backgroundColor: "#FFFFFF",
     borderRadius: 22,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingHorizontal: 26,
+    paddingVertical: 24,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "rgba(226, 232, 240, 0.9)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
   },
   telemetryCardHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingBottom: 14,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
-    marginBottom: 12,
+    marginBottom: 16,
   },
   telemetryCardTitle: {
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 16.5,
+    fontWeight: "900",
     color: "#0F172A",
   },
   healthyBadge: {
     backgroundColor: "#ECFDF5",
     borderWidth: 1,
     borderColor: "#A7F3D0",
-    paddingHorizontal: 8,
-    paddingVertical: 2.5,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   healthyBadgeText: {
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: "900",
     color: "#065F46",
     letterSpacing: 0.5,
   },
   telemetryRowsList: {
-    gap: 10,
+    gap: 14,
   },
   telemetryDataRow: {
     flexDirection: "row",
@@ -548,12 +545,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
   },
   telemetryRowLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "600",
     color: "#64748B",
   },
   telemetryRowVal: {
-    fontSize: 12.5,
+    fontSize: 14.5,
     fontWeight: "800",
     color: "#0F172A",
   },
@@ -562,22 +559,22 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   operationalText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "800",
     color: "#059669",
   },
   dailyLoginsVal: {
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "900",
     color: "#7C3AED",
   },
   scoreValGreen: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: "900",
     color: "#059669",
   },
   passRatioValIndigo: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: "900",
     color: "#4F46E5",
   },

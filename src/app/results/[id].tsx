@@ -54,7 +54,10 @@ import {
   type StruggledConceptInsight,
 } from "../../services/ai";
 import { resolveOptionText } from "../../utils/answer-evaluator";
-import { deriveMathProblemDiagnosis } from "../../utils/math-diagnostics";
+import {
+  deriveAcademicProblemDiagnosis,
+  deriveMathProblemDiagnosis,
+} from "../../utils/math-diagnostics";
 import { AnimatedPressable } from "../../components/AnimatedPressable";
 import {
   deriveFactualTopicBreakdown,
@@ -67,6 +70,11 @@ import {
   type ResourceItem,
 } from "../../components/ResourceViewerModal";
 import BoardForecastCard from "../../components/BoardForecastCard";
+import AiReviewPointers from "../../components/AiReviewPointers";
+import {
+  generateReportPointers,
+  type ReportPointers,
+} from "../../services/report-pointers-engine";
 import type {
   SubjectAssessmentProfile,
   BoardForecastSnapshot,
@@ -151,17 +159,20 @@ export default function ResultsScreen() {
     }
   };
 
-  // ── Board Preparation Forecast (additive; report stays usable if this fails) ──
+  // ── Board Preparation Forecast & AI Review Pointers (additive; report stays usable if this fails) ──
   const [forecastSnap, setForecastSnap] = useState<BoardForecastSnapshot | null>(null);
   const [forecastProfile, setForecastProfile] = useState<SubjectAssessmentProfile | null>(null);
   const [forecastRecord, setForecastRecord] = useState<SubjectForecastRecord | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
+  const [reportPointers, setReportPointers] = useState<ReportPointers | null>(null);
+  const [pointersLoading, setPointersLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    async function loadForecast() {
+    async function loadForecastAndPointers() {
       if (!report || !report.studentId || !report.subject) return;
       setForecastLoading(true);
+      setPointersLoading(true);
       try {
         const allReports = await getStudentReportsList(report.studentId);
         const res = await getBoardForecastForSubject(
@@ -174,13 +185,26 @@ export default function ResultsScreen() {
           setForecastProfile(res.profile);
           setForecastRecord(res.record);
         }
+
+        // Generate evidence-grounded AI review pointers
+        try {
+          const ptrs = await generateReportPointers(report, allReports);
+          if (!cancelled) {
+            setReportPointers(ptrs);
+          }
+        } catch (pErr) {
+          console.warn("[ZeePrep] AI Review pointers notice:", pErr);
+        }
       } catch (e) {
         console.warn("[ZeePrep] Forecast load notice (report still usable):", e);
       } finally {
-        if (!cancelled) setForecastLoading(false);
+        if (!cancelled) {
+          setForecastLoading(false);
+          setPointersLoading(false);
+        }
       }
     }
-    loadForecast();
+    loadForecastAndPointers();
     return () => {
       cancelled = true;
     };
@@ -735,43 +759,44 @@ export default function ResultsScreen() {
                       </View>
                     ) : null}
 
-                    {/* Specific Math Diagnostic Breakdown for Struggled Question */}
+                    {/* Specific Academic / Math Diagnostic Breakdown for Struggled Question */}
                     {!isCorrect && (() => {
-                      const mathDiag = deriveMathProblemDiagnosis(
+                      const academicDiag = deriveAcademicProblemDiagnosis(
                         qItem,
                         qItem.studentAnswer,
                         isCorrect,
-                        isAnsEmpty
+                        isAnsEmpty,
+                        report?.subject || (report as any)?.examSubject || report?.examTitle
                       );
                       return (
                         <View style={styles.mathDiagCard}>
                           <View style={styles.mathDiagHeader}>
                             <BrainCircuit size={15} color="#4F46E5" />
-                            <Text style={styles.mathDiagTitle}>DIAGNOSTIC MATH BREAKDOWN</Text>
+                            <Text style={styles.mathDiagTitle}>DIAGNOSTIC ACADEMIC BREAKDOWN</Text>
                           </View>
                           
                           <View style={styles.mathProblemTypeBadge}>
                             <Text style={styles.mathProblemTypeBadgeText}>
-                              📐 {mathDiag.problemType}
+                              📐 {academicDiag.problemType}
                             </Text>
                           </View>
 
                           <View style={styles.mathDiagMetaRow}>
                             <Text style={styles.mathDiagMetaText}>
-                              <Text style={{ fontWeight: "700", color: "#1E293B" }}>Chapter:</Text> {mathDiag.chapter}  •  <Text style={{ fontWeight: "700", color: "#1E293B" }}>Topic:</Text> {mathDiag.topic}
+                              <Text style={{ fontWeight: "700", color: "#1E293B" }}>Chapter:</Text> {academicDiag.chapter}  •  <Text style={{ fontWeight: "700", color: "#1E293B" }}>Topic:</Text> {academicDiag.topic}
                             </Text>
                           </View>
 
-                          {mathDiag.formulaStruggledWith ? (
+                          {academicDiag.formulaStruggledWith ? (
                             <View style={styles.mathFormulaBox}>
-                              <Text style={styles.mathFormulaLabel}>GOVERNING FORMULA STRUGGLED WITH:</Text>
-                              <Text style={styles.mathFormulaText}>{mathDiag.formulaStruggledWith}</Text>
+                              <Text style={styles.mathFormulaLabel}>GOVERNING FORMULA / CONCEPT STRUGGLED WITH:</Text>
+                              <Text style={styles.mathFormulaText}>{academicDiag.formulaStruggledWith}</Text>
                             </View>
                           ) : null}
 
                           <View style={styles.mathRemedyBox}>
                             <Text style={styles.mathRemedyLabel}>TARGETED REMEDIAL STEP:</Text>
-                            <Text style={styles.mathRemedyText}>{mathDiag.exactRemedy}</Text>
+                            <Text style={styles.mathRemedyText}>{academicDiag.exactRemedy}</Text>
                           </View>
                         </View>
                       );
@@ -956,6 +981,13 @@ export default function ResultsScreen() {
               width={forecastWidth}
             />
 
+            {/* Evidence-Based Actionable AI Feedback */}
+            <AiReviewPointers
+              pointers={reportPointers}
+              loading={pointersLoading}
+              isDesktopWeb={isDesktopWeb}
+            />
+
             {/* 2. Question Summary Table */}
             <View style={styles.cardSection}>
               <Text style={styles.cardSectionTitle}>QUESTION SUMMARY</Text>
@@ -1067,7 +1099,13 @@ export default function ResultsScreen() {
                     return missed.slice(0, 6).map((q, idx) => {
                       const origIdx = allQs.findIndex((item) => item === q);
                       const isUnans = !q.studentAnswer || String(q.studentAnswer).trim() === "";
-                      const diag = deriveMathProblemDiagnosis(q, q.studentAnswer, false, isUnans);
+                      const diag = deriveAcademicProblemDiagnosis(
+                        q,
+                        q.studentAnswer,
+                        false,
+                        isUnans,
+                        report?.subject || (report as any)?.examSubject || report?.examTitle
+                      );
                       return (
                         <View key={idx} style={styles.struggledCardItem}>
                           <View style={styles.struggledItemHeader}>
@@ -1287,6 +1325,13 @@ export default function ResultsScreen() {
               loading={forecastLoading}
               isDesktopWeb={isDesktopWeb}
               width={forecastWidth}
+            />
+
+            {/* Evidence-Based Actionable AI Feedback */}
+            <AiReviewPointers
+              pointers={reportPointers}
+              loading={pointersLoading}
+              isDesktopWeb={isDesktopWeb}
             />
 
             {/* 1. Overall Teacher Remarks & Observations */}

@@ -17,7 +17,7 @@ const db = getFirestore(app);
 
 const DEMO_STUDENTS = [
   {
-    name: "Rohan Sharma",
+    name: "CCWS 1",
     email: "student11a@zeeprep.com",
     loginId: "ZP-STU-1101",
     password: "Password@123",
@@ -27,7 +27,7 @@ const DEMO_STUDENTS = [
     stream: "Science",
   },
   {
-    name: "Ananya Verma",
+    name: "CCWS 2",
     email: "student11b@zeeprep.com",
     loginId: "ZP-STU-1102",
     password: "Password@123",
@@ -37,7 +37,7 @@ const DEMO_STUDENTS = [
     stream: "Science",
   },
   {
-    name: "Aarav Patel",
+    name: "CCWS 3",
     email: "student11c@zeeprep.com",
     loginId: "ZP-STU-1103",
     password: "Password@123",
@@ -47,7 +47,7 @@ const DEMO_STUDENTS = [
     stream: "Science",
   },
   {
-    name: "Diya Sen",
+    name: "CCWS 4",
     email: "student11d@zeeprep.com",
     loginId: "ZP-STU-1104",
     password: "Password@123",
