@@ -63,18 +63,32 @@ jobs:
           EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
           EXPO_PUBLIC_FIREBASE_APP_ID: ${{ secrets.EXPO_PUBLIC_FIREBASE_APP_ID }}
           EXPO_PUBLIC_GEMINI_API_KEY: ${{ secrets.EXPO_PUBLIC_GEMINI_API_KEY }}
-        run: npm run build:web
+        run: |
+          npm run build:web
+          node scripts/generate_static_legal_pages.mjs
 
-      - name: 📄 Inject SPA .htaccess Routing & Cache Headers
+      - name: 📄 Inject Clean-URL SPA .htaccess Routing & Cache Headers
         run: |
           cat << 'EOF' > dist/.htaccess
           <IfModule mod_rewrite.c>
             RewriteEngine On
             RewriteBase /
+
+            # 1. Directory index
+            RewriteCond %{REQUEST_FILENAME} -d
+            RewriteRule ^ - [L]
+
+            # 2. Direct HTML file rewrite
+            RewriteCond %{DOCUMENT_ROOT}/$1.html -f [OR]
+            RewriteCond %{REQUEST_FILENAME}.html -f
+            RewriteRule ^(.*)$ $1.html [L]
+
+            # 3. Existing static files
+            RewriteCond %{REQUEST_FILENAME} -f
+            RewriteRule ^ - [L]
+
+            # 4. Dynamic SPA fallback
             RewriteRule ^index\.html$ - [L]
-            RewriteCond %{REQUEST_FILENAME} !-f
-            RewriteCond %{REQUEST_FILENAME} !-d
-            RewriteCond %{REQUEST_FILENAME} !-l
             RewriteRule . /index.html [L]
           </IfModule>
 
