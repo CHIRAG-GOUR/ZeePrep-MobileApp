@@ -480,6 +480,30 @@ export default function LoginScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* 8. Legal Footer (Privacy Policy, Terms, Data Safety) */}
+      <View style={styles.legalLinksRow}>
+        <TouchableOpacity
+          onPress={() => router.push("/privacy-policy" as any)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.legalLinkText}>Privacy Policy</Text>
+        </TouchableOpacity>
+        <Text style={styles.legalDotText}>•</Text>
+        <TouchableOpacity
+          onPress={() => router.push("/terms" as any)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.legalLinkText}>Terms & Conditions</Text>
+        </TouchableOpacity>
+        <Text style={styles.legalDotText}>•</Text>
+        <TouchableOpacity
+          onPress={() => router.push("/delete-account" as any)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.legalLinkText}>Data Safety</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -1128,5 +1152,25 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "800",
+  },
+
+  // Legal Links Footer
+  legalLinksRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 18,
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  legalLinkText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+    textDecorationLine: "underline",
+  },
+  legalDotText: {
+    fontSize: 12,
+    color: "#94A3B8",
   },
 });

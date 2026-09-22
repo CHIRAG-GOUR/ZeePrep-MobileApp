@@ -417,6 +417,21 @@ export default function RegisterScreen() {
                   </View>
                 )}
               </TouchableOpacity>
+
+              {/* Legal Footer Links */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 18, gap: 8, flexWrap: "wrap" }}>
+                <TouchableOpacity onPress={() => router.push("/privacy-policy" as any)} activeOpacity={0.7}>
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: "#64748B", textDecorationLine: "underline" }}>Privacy Policy</Text>
+                </TouchableOpacity>
+                <Text style={{ fontSize: 12, color: "#94A3B8" }}>•</Text>
+                <TouchableOpacity onPress={() => router.push("/terms" as any)} activeOpacity={0.7}>
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: "#64748B", textDecorationLine: "underline" }}>Terms & Conditions</Text>
+                </TouchableOpacity>
+                <Text style={{ fontSize: 12, color: "#94A3B8" }}>•</Text>
+                <TouchableOpacity onPress={() => router.push("/delete-account" as any)} activeOpacity={0.7}>
+                  <Text style={{ fontSize: 12, fontWeight: "600", color: "#64748B", textDecorationLine: "underline" }}>Data Safety</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </View>

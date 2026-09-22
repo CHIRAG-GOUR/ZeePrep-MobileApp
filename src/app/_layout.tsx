@@ -26,7 +26,7 @@ export default function RootLayout() {
   const { user, isAuthenticated, isLoading } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
-  const [showLaunchAnim, setShowLaunchAnim] = useState(true);
+  const [showLaunchAnim, setShowLaunchAnim] = useState(Platform.OS !== "web");
 
   // Dynamically configure Screen Security based on User Role (SuperAdmin vs Others)
   useEffect(() => {
@@ -66,11 +66,18 @@ export default function RootLayout() {
     if (isLoading || showLaunchAnim) return;
     if (!segments || !segments[0]) return;
 
-    const currentSegment = segments[0];
+    const currentSegment = segments[0] as string;
     const inAuthGroup = currentSegment === "(auth)";
+    const isPublicLegalRoute =
+      currentSegment === "privacy-policy" ||
+      currentSegment === "privacy" ||
+      currentSegment === "terms" ||
+      currentSegment === "terms-conditions" ||
+      currentSegment === "delete-account" ||
+      currentSegment === "delete-data";
 
     if (!isAuthenticated) {
-      if (!inAuthGroup) {
+      if (!inAuthGroup && !isPublicLegalRoute) {
         router.replace("/(auth)/login" as any);
       }
       return;
@@ -112,6 +119,11 @@ export default function RootLayout() {
             <Stack.Screen name="(teacher)" />
             <Stack.Screen name="(admin)" />
             <Stack.Screen name="(superadmin)" />
+            <Stack.Screen name="privacy-policy" />
+            <Stack.Screen name="privacy" />
+            <Stack.Screen name="terms" />
+            <Stack.Screen name="terms-conditions" />
+            <Stack.Screen name="delete-account" />
             <Stack.Screen name="exam/[id]" options={{ presentation: "fullScreenModal" }} />
             <Stack.Screen name="results/[id]" />
           </Stack>

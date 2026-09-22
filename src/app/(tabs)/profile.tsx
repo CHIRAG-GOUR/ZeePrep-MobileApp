@@ -31,6 +31,9 @@ import {
   CheckCircle2,
   X,
   Upload,
+  FileText,
+  UserX,
+  Lock,
 } from "lucide-react-native";
 import { useResponsive } from "../../hooks/useResponsive";
 
@@ -282,6 +285,61 @@ export default function StudentProfileScreen() {
               </Text>
             </View>
           </View>
+        </View>
+      </View>
+
+      {/* Legal & Privacy Center */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Privacy & Legal Information</Text>
+        <View style={styles.securityCard}>
+          <TouchableOpacity
+            style={styles.legalItemRow}
+            onPress={() => router.push("/privacy-policy" as any)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.securityIconBox, { backgroundColor: "rgba(79, 70, 229, 0.1)" }]}>
+              <ShieldCheck size={18} color="#4F46E5" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.legalItemTitle}>Privacy Policy</Text>
+              <Text style={styles.legalItemSub}>Google Play Data Safety & COPPA Compliance</Text>
+            </View>
+            <ChevronRight size={18} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <View style={styles.legalDivider} />
+
+          <TouchableOpacity
+            style={styles.legalItemRow}
+            onPress={() => router.push("/terms" as any)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.securityIconBox, { backgroundColor: "rgba(79, 70, 229, 0.1)" }]}>
+              <FileText size={18} color="#4F46E5" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.legalItemTitle}>Terms & Conditions</Text>
+              <Text style={styles.legalItemSub}>Platform Rules & Examination Integrity</Text>
+            </View>
+            <ChevronRight size={18} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <View style={styles.legalDivider} />
+
+          <TouchableOpacity
+            style={styles.legalItemRow}
+            onPress={() => router.push("/delete-account" as any)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.securityIconBox, { backgroundColor: "rgba(239, 68, 68, 0.1)" }]}>
+              <UserX size={18} color="#EF4444" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.legalItemTitle, { color: "#EF4444" }]}>Request Account & Data Deletion</Text>
+              <Text style={styles.legalItemSub}>Permanently purge personal profile & scores</Text>
+            </View>
+            <ChevronRight size={18} color="#EF4444" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -668,5 +726,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#DC2626",
+  },
+
+  // Legal & Privacy styles
+  legalItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  legalItemTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 2,
+  },
+  legalItemSub: {
+    fontSize: 11.5,
+    color: "#64748B",
+  },
+  legalDivider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+    marginLeft: 56,
   },
 });
